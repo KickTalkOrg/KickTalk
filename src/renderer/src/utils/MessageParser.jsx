@@ -1,5 +1,6 @@
 import { kickEmoteRegex, urlRegex } from "../../../../utils/constants";
 
+
 const rules = [
   {
     // Kick Emote Rule
@@ -15,10 +16,6 @@ const rules = [
       />
     ),
   },
-  // {
-  //   // 7TV Emote Rule
-  //   component: ({}) => <img className="sevenTVEmote emote" src={`https://cdn.7tv.app/emote/${emoteData.id}/4x.webp`} />,
-  // },
   {
     // URL rule
     regexPattern: urlRegex,
@@ -30,7 +27,7 @@ const rules = [
   },
 ];
 
-export const MessageParser = ({ message }) => {
+export const MessageParser = ({ message, sevenTVEmotes }) => {
   const parts = [];
   let lastIndex = 0;
   let currentText = message.content;
@@ -48,19 +45,52 @@ export const MessageParser = ({ message }) => {
 
   allMatches.sort((a, b) => a.match.index - b.match.index);
 
+
+  console.log(allMatches);
   // handle matches in order
   allMatches.forEach(({ match, rule }) => {
     if (match.index > lastIndex) {
       parts.push(currentText.slice(lastIndex, match.index));
     }
 
-    parts.push(rule.component(match));
+    parts.push(rule.component(match, sevenTVEmotes));
     lastIndex = match.index + match[0].length;
   });
 
   // add remaining text
   if (lastIndex < currentText.length) {
-    parts.push(<span key={`text-${message.id}`}>{currentText.slice(lastIndex)}</span>);
+    // Handle 7TV emotes
+    const emotes = sevenTVEmotes.emote_set.emotes;
+    const possibleEmotes = currentText.split(" ");
+    let emoteFound = false;
+    console.log(possibleEmotes); 
+    possibleEmotes.forEach((possibleEmote) => {
+      emotes.forEach((emoteData) => {
+        if (possibleEmote === emoteData.name) {
+          emoteFound = true;
+          console.log("Found emote match", emoteData.name);
+          const emoteName = emoteData.name;
+          parts.push(
+            <img
+              key={`7tv-emote-${emoteData.id}`}
+              className="emote"
+              title={emoteName}
+              src={`https://cdn.7tv.app/emote/${emoteData.id}/1x.webp`}
+              alt={emoteName}
+              loading="lazy"
+            />
+          );
+          return;
+        }
+      });
+    });
+    if (!emoteFound) {
+      parts.push(
+        <span key={`text-${message.id}`}>
+          {currentText.slice(lastIndex)}
+        </span>
+      );
+    }
   }
 
   return parts;

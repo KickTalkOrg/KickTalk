@@ -75,14 +75,11 @@ const createWindow = () => {
   // Create the browser window.
   const displays = screen.getAllDisplays();
 
-  //TODO: Remove
-  const secondaryMonitor = displays[1];
-
   mainWindow = new BrowserWindow({
     width: 600,
     height: 900,
-    x: Math.floor(secondaryMonitor.workArea.x / 2),
-    y: Math.floor(secondaryMonitor.workArea.y / 2),
+    x: displays[0].workArea.x / 2,
+    y: displays[0].workArea.y / 2,
     minWidth: 350,
     show: false,
     backgroundColor: "#06190e",

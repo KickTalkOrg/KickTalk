@@ -1,6 +1,6 @@
 export const urlRegex = /(https:\/\/[www.]?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b[-a-zA-Z0-9()@:%_+.~#?&/=]*)/gi;
 export const kickEmoteRegex = /\[emote:(?<id>\d+)[:]?(?<name>[a-zA-Z0-9-_!]*)[:]?\]/g;
-// export const sevenTVEmoteRegex;
+export const seventvEmoteRegex = /\b(?<name>[a-zA-Z0-9-_!]+)\b(?![^<]*>)/gi;
 
 export const kickBadgeMap = {
   subscriber: (badge, subscriberBadges) => {

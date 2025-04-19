@@ -146,6 +146,7 @@ export const ChatProvider = ({ children }) => {
         streamerData: response,
         channel7TVEmotes,
       };
+      console.log(channel7TVEmotes);
 
       dispatch({ type: "ADD_CHATROOM", payload: newChatroom });
       connectToChatroom(newChatroom);
