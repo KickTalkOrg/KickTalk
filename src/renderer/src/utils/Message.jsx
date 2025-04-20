@@ -11,7 +11,7 @@ const Message = memo(
         e.preventDefault();
 
         const cords = [e.clientX, e.clientY];
-        window.app.dialog.open({
+        window.app.userDialog.open({
           sender: message.sender,
           chatroomId,
           cords,

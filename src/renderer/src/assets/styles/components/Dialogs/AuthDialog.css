@@ -1,0 +1,12 @@
+.dialogWrapper {
+  height: 100vh;
+}
+
+.dialogHeader {
+  border-bottom: 1px solid #182f21;
+  min-height: 140px;
+  align-items: center;
+  display: flex;
+  app-region: drag;
+  padding: 0 16px;
+}

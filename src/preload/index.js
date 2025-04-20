@@ -99,15 +99,20 @@ if (process.contextIsolated) {
       bringToFront: () => ipcRenderer.invoke("bring-to-front"),
       getPosition: () => ipcRenderer.invoke("get-window-position"),
 
-      dialog: {
-        open: (data) => ipcRenderer.invoke("dialog:open", { data }),
-        close: () => ipcRenderer.send("dialog:close"),
-        move: (x, y) => ipcRenderer.send("dialog:move", { x, y }),
+      authDialog: {
+        open: (data) => ipcRenderer.invoke("authDialog:open", { data }),
+        close: () => ipcRenderer.send("authDialog:close"),
+      },
+
+      userDialog: {
+        open: (data) => ipcRenderer.invoke("userDialog:open", { data }),
+        close: () => ipcRenderer.send("userDialog:close"),
+        move: (x, y) => ipcRenderer.send("userDialog:move", { x, y }),
         onData: (callback) => {
           const handler = (_, data) => callback(data);
 
-          ipcRenderer.on("dialog:data", handler);
-          return () => ipcRenderer.removeListener("dialog:data", handler);
+          ipcRenderer.on("userDialog:data", handler);
+          return () => ipcRenderer.removeListener("userDialog:data", handler);
         },
       },
 

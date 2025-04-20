@@ -63,7 +63,7 @@
   app-region: drag;
 }
 
-.titleBarSettings > button {
+.titleBarSettingsBtn {
   app-region: no-drag;
   display: flex;
   align-items: center;
@@ -74,6 +74,21 @@
   opacity: 0.5;
   cursor: pointer;
   outline: none;
+  transition: 0.2s ease-in-out opacity;
+}
+
+.titleBarLoginBtn {
+  app-region: no-drag;
+  flex: 1 1 40%;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 14px;
+  font-weight: 600;
+  background-color: #182f21;
+  cursor: pointer;
+  border: none;
+  min-width: 40px;
+  padding: 4px 16px;
+  border-radius: 2px;
   transition: 0.2s ease-in-out opacity;
 }
 

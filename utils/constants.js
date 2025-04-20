@@ -36,4 +36,5 @@ export const kickBadgeMap = {
 // TODO: Finalize all possible errors returned
 export const CHAT_ERROR_CODES = {
   ["FOLLOWERS_ONLY_ERROR"]: "You must be following this channel to send messages.",
+  ["Unauthorized"]: "You must login to chat.",
 };

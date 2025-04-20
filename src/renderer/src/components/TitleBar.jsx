@@ -21,8 +21,10 @@ const TitleBar = () => {
     fetchUserData();
   }, []);
 
-  const handleSettingsModal = () => {
-    setSettingsModalOpen(!settingsModalOpen);
+  const handleAuthBtn = (e) => {
+    const cords = [e.clientX, e.clientY];
+
+    window.app.authDialog.open({ cords });
   };
 
   return (
@@ -32,10 +34,16 @@ const TitleBar = () => {
       </div>
 
       <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
-        <button onClick={() => setSettingsModalOpen(!settingsModalOpen)}>
-          <span className="titleBarUsername">{userData?.username || "Loading..."}</span>
-          <CaretDown weight={"bold"} size={14} />
-        </button>
+        {userData?.id ? (
+          <button className="titleBarSettingsBtn" onClick={() => setSettingsModalOpen(!settingsModalOpen)}>
+            <span className="titleBarUsername">{userData?.username || "Loading..."}</span>
+            <CaretDown weight={"bold"} size={14} />
+          </button>
+        ) : (
+          <button className="titleBarLoginBtn" onClick={handleAuthBtn}>
+            Sign In
+          </button>
+        )}
 
         <Settings settingsModalOpen={settingsModalOpen} />
       </div>

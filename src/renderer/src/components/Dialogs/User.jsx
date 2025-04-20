@@ -3,7 +3,6 @@ import "../../assets/styles/components/Dialogs/UserDialog.css";
 import KickBadges from "../Cosmetics/Badges";
 import { MessageParser } from "../../utils/MessageParser";
 
-// TODO: Get Position of username clicked for dialog positioning
 const User = () => {
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -35,7 +34,7 @@ const User = () => {
       });
     };
 
-    const dataCleanup = window.app.dialog.onData(loadData);
+    const dataCleanup = window.app.userDialog.onData(loadData);
     const updateCleanup = window.app.logs.onUpdate(updateData);
 
     return () => {

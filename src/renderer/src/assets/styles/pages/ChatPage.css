@@ -3,9 +3,12 @@
 }
 
 .chatContainer {
-  height: 100vh;
+  height: calc(100vh - 48px);
   width: 100%;
+  display: flex;
+  flex-direction: column;
   scrollbar-width: none;
+  position: relative;
 }
 
 .chatroomsEmptyState {
@@ -22,6 +25,7 @@
 }
 
 .chatBody {
+  flex: 1;
   height: calc(100vh - 200px);
   overflow-y: auto;
   padding-left: 8px;
@@ -119,33 +123,34 @@
   position: relative;
   overflow-wrap: anywhere;
   width: calc(100% - 32px);
-  bottom: 0;
-  left: 0;
   z-index: 1;
-  right: 0;
   margin: 0 auto;
 }
 
 .chatInput {
   padding: 16px;
-  padding-top: 20px;
-  font-size: 18px;
   background: #182f21;
   border: 1px solid rgba(80, 123, 97, 0.5);
   box-shadow: 0px 2px 2px #07150a;
   border-bottom: 0;
   border-radius: 6px 6px 0 0;
-  position: relative;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
   max-height: 148px;
-  min-height: 72px;
-  height: 100%;
-  width: 100%;
+  min-height: 40px;
   overflow-y: auto;
   overflow-x: hidden;
+  width: 100%;
   color: #fff;
   caret-color: rgba(80, 123, 97, 0.8);
   outline: 0px solid transparent;
   outline-offset: 0px;
+}
+
+.editor-paragraph {
+  padding: 0px 0;
+  width: 100%;
 }
 
 .editor-paragraph > span::selection {
@@ -172,7 +177,6 @@
 }
 
 .chatInputPlaceholder {
-  font-size: 18px;
   color: #daffe88a;
   left: 16px;
   z-index: 99;
@@ -181,6 +185,8 @@
   transform: translate(0, -50%);
   pointer-events: none;
   user-select: none;
+  padding: 0;
+  margin: 0;
 }
 
 .chatInputContainer input:focus-visible {

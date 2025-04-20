@@ -14,7 +14,8 @@ export default defineConfig({
       rollupOptions: {
         input: {
           index: resolve("src/renderer/index.html"),
-          dialog: resolve("src/renderer/dialog.html"),
+          userDialog: resolve("src/renderer/user.html"),
+          authDialog: resolve("src/renderer/auth.html"),
         },
       },
     },
