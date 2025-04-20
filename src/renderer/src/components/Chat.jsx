@@ -57,6 +57,7 @@ const Chat = memo(({ chatroomId }) => {
               chatroomId={chatroomId}
               chatroomName={currentChatroom.slug}
               subscriberBadges={subscriberBadges}
+              sevenTVEmotes={currentChatroom?.channel7TVEmotes}
               message={message}
             />
           );

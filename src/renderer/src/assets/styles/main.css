@@ -216,10 +216,13 @@ body {
 }
 
 .emote {
-  width: 38px;
   vertical-align: middle;
   margin-left: 1px;
   margin-right: 1px;
+}
+
+.kick-emote{
+  width: 38px;
 }
 
 .badges {

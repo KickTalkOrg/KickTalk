@@ -1,5 +1,4 @@
 import { kickEmoteRegex, urlRegex } from "../../../../utils/constants";
-import { emotes } from "./test_emotes";
 const rules = [
   {
     // Kick Emote Rule
@@ -7,14 +6,15 @@ const rules = [
     component: ({ match, index }) => {
       const { id, name } = match.groups;
       return (
+        <div key={`kick-emote-${id}-${index}`} onClick={() => showEmoteDialog(id)}>
         <img
-          key={`kick-emote-${id}-${index}`}
-          className="kickEmote emote"
+          className="kick-emote emote"
           title={name}
           src={`https://files.kick.com/emotes/${id}/fullsize`}
           alt={name}
           loading="lazy"
         />
+        </div>
       );
     },
   },
@@ -29,12 +29,20 @@ const rules = [
   },
 ];
 
-export const MessageParser = ({ message }) => {
+export const MessageParser = ({ message, sevenTVEmotes }) => {
   const stvEmotes = new Map();
+  let finalParts = [];
 
-  for (const emote of emotes.emote_set.emotes) {
+  for (const emote of sevenTVEmotes.emote_set.emotes) {
     const alias = emote.alias ?? emote.name;
-    stvEmotes.set(alias, emote.id);
+    const emoteWidth = emote.data.host.files[0].width; 
+    const emoteHeight = emote.data.host.files[0].height;
+    const emoteData ={
+      emoteId : emote.id, 
+      emoteWidth: emoteWidth, 
+      emoteHeight: emoteHeight
+    }
+    stvEmotes.set(alias, emoteData);
   }
 
   // const message = {
@@ -82,17 +90,16 @@ export const MessageParser = ({ message }) => {
     parts.push(message.content.slice(lastIndex));
   }
 
-  let finalParts = [];
-
   parts.forEach((part, i) => {
     if (typeof part === "string") {
       const possibleEmotes = part.split(/(\s+)/);
 
       possibleEmotes.forEach((possibleEmote, j) => {
         if (stvEmotes.has(possibleEmote)) {
-          const emoteId = stvEmotes.get(possibleEmote);
-          const emoteUrl = `https://cdn.7tv.app/emote/${emoteId}/4x.webp`;
-
+          const emoteId = stvEmotes.get(possibleEmote).emoteId;
+          const emoteUrl = `https://cdn.7tv.app/emote/${emoteId}/1x.webp`;
+          const emoteWidth = stvEmotes.get(possibleEmote).emoteWidth;
+          const emoteHeight = stvEmotes.get(possibleEmote).emoteHeight;
           finalParts.push(
             <img
               key={`stv-emote-${emoteId}-${i}-${j}`}
@@ -101,8 +108,8 @@ export const MessageParser = ({ message }) => {
               src={emoteUrl}
               alt={possibleEmote}
               loading="lazy"
-              width="28"
-              height="28"
+              width={emoteWidth}
+              height={emoteHeight}
             />,
           );
 
