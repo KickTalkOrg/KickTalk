@@ -8,7 +8,8 @@ const User = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
   const [subscriberBadges, setSubscriberBadges] = useState([]);
-  const dialogLogsRef = useRef(null);
+  const dialogLogsRef = useRef(null); 
+  const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
 
   useEffect(() => {
     const loadData = async (data) => {
@@ -16,6 +17,9 @@ const User = () => {
 
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       const currentChatroom = chatrooms.find((chatroom) => chatroom.id === data.chatroomId);
+      console.log(currentChatroom);
+      setSevenTVEmotes(currentChatroom?.channel7TVEmotes || []);
+      console.log(sevenTVEmotes);
       setSubscriberBadges(currentChatroom?.streamerData?.subscriber_badges || []);
 
       const { messages } = await window.app.logs.get({ chatroomId: data.chatroomId, userId: data.sender.id });
@@ -105,7 +109,7 @@ const User = () => {
                   </p>
                 </div>
                 <div className="dialogLogMessage">
-                  <MessageParser message={log} />
+                  <MessageParser message={log} sevenTVEmotes={sevenTVEmotes} />
                 </div>
               </div>
             );

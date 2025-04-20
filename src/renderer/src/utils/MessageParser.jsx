@@ -31,8 +31,8 @@ const rules = [
 
 export const MessageParser = ({ message, sevenTVEmotes }) => {
   const stvEmotes = new Map();
+  console.log(sevenTVEmotes)
   let finalParts = [];
-
   for (const emote of sevenTVEmotes.emote_set.emotes) {
     const alias = emote.alias ?? emote.name;
     const emoteWidth = emote.data.host.files[0].width; 
