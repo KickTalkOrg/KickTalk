@@ -1,9 +1,10 @@
-import { app, shell, BrowserWindow, webFrame, ipcMain, screen, local, globalShortcut } from "electron";
+import { app, shell, BrowserWindow, webFrame, ipcMain, screen, local, globalShortcut, session } from "electron";
 import { join } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { closeBrowser } from "../../utils/kickAPI";
 import store from "../../utils/config";
 import dotenv from "dotenv";
+import fs from "fs";
 dotenv.config();
 
 ipcMain.setMaxListeners(100);
@@ -140,6 +141,71 @@ const createWindow = () => {
   }
 };
 
+
+async function loginToKick(type) {
+  if (authSession.token || authSession.session) return true;
+
+  return new Promise((resolve) => {
+    const loginDialog = new BrowserWindow({
+      width: 1280,
+      height: 720,
+      webPreferences: {
+        autoplayPolicy: "user-gesture-required",
+        nodeIntegration: false,
+      },
+    });
+    
+    switch (type) {
+      case "kick":
+      loginDialog.loadURL("https://kick.com/login");
+      break;
+      case "google":
+      loginDialog.loadURL("https://accounts.google.com/o/oauth2/auth?client_id=582091208538-64t6f8i044gppt1etba67qu07t4fimuf.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fkick.com%2Fsocial%2Fgoogle%2Fcallback&scope=openid+profile+email&response_type=code");
+      break;
+      case "apple":
+      loginDialog.loadURL("https://appleid.apple.com/auth/authorize?client_id=com.kick&redirect_uri=https%3A%2F%2Fkick.com%2Fredirect%2Fapple&scope=name%20email&response_type=code&response_mode=form_post");
+      break;
+      default:
+      console.error("Unknown login type:", type);
+    }
+
+    const checkForSessionToken = async () => {
+      const cookies = await session.defaultSession.cookies.get({ domain: "kick.com" });
+      const sessionCookie = cookies.find((cookie) => cookie.name === "session_token");
+      const kickSession = cookies.find((cookie) => cookie.name === "kick_session");
+
+      if (sessionCookie && kickSession) {
+        const envPath = join(__dirname, "../../.env");
+
+        // Load existing .env file if it exists
+        dotenv.config({ path: envPath });
+
+        // Save the session token and kick session to the .env file
+        const sessionToken = decodeURIComponent(sessionCookie.value);
+        const kickSessionValue = decodeURIComponent(kickSession.value);
+
+        fs.writeFileSync(envPath, `SESSION_TOKEN=${sessionToken}\nKICK_SESSION=${kickSessionValue}`, { flag: "w" });
+
+        loginDialog.close();
+        resolve(true);
+        return true;
+      }
+
+      return false;
+    };
+
+    const interval = setInterval(async () => {
+      if (await checkForSessionToken()) {
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    loginDialog.on("closed", () => {
+      clearInterval(interval);
+      resolve(false);
+    });
+  });
+}
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
@@ -163,52 +229,7 @@ app.whenReady().then(() => {
   ipcMain.on("ping", () => console.log("pong"));
 
   createWindow();
-
-  // if (!authSession.token && !authSession.session) {
-  //   loginDialog = new BrowserWindow({
-  //     width: 1280,
-  //     height: 720,
-  //     webPreferences: {
-  //       autoplayPolicy: "user-gesture-required",
-  //       nodeIntegration: false,
-  //     },
-  //   });
-
-  //   loginDialog.loadURL("https://kick.com/login");
-
-  //   const checkForSessionToken = async () => {
-  //     const cookies = await session.defaultSession.cookies.get({ domain: "kick.com" });
-  //     const sessionCookie = cookies.find((cookie) => cookie.name === "session_token");
-  //     if (sessionCookie) {
-  //       const envPath = join(__dirname, "../../.env");
-  //       console.log(envPath);
-  //       const kickSession = cookies.find((cookie) => cookie.name === "kick_session");
-  //       if (kickSession) {
-  //         // Load existing .env file if it exists
-  //         dotenv.config({ path: envPath });
-
-  //         // Save the session token&kick session to the .env file
-  //         const urlEncodedSessionCookie = decodeURIComponent(sessionCookie.value);
-  //         const urlEncodedkickSession = decodeURIComponent(kickSession.value);
-
-  //         fs.writeFileSync(envPath, `SESSION_TOKEN=${urlEncodedSessionCookie}\nKICK_SESSION=${urlEncodedkickSession}`, {
-  //           flag: "w",
-  //         });
-
-  //         loginDialog.close();
-  //         return true;
-  //       }
-  //     }
-  //     return false;
-  //   };
-
-  //   const interval = setInterval(async () => {
-  //     const found = await checkForSessionToken();
-  //     if (found) {
-  //       clearInterval(interval);
-  //     }
-  //   }, 1000);
-  // }
+  
 
   // Cleanup puppeteer on app quit
 
@@ -308,8 +329,9 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
 // Auth Dialog Handler
 ipcMain.handle("authDialog:open", (e, { data }) => {
   const mainWindowPos = mainWindow.getPosition();
-  const newX = mainWindowPos[0] + data.cords[0] - 150;
-  const newY = mainWindowPos[1] + data.cords[1] - 100;
+  const mainWindowBounds = mainWindow.getBounds();
+  const newX = mainWindowBounds.x + (mainWindowBounds.width - 500) / 2;
+  const newY = mainWindowBounds.y + (mainWindowBounds.height - 500) / 2;
 
   if (authDialog) {
     authDialog.setPosition(newX, newY);
@@ -355,9 +377,27 @@ ipcMain.handle("authDialog:open", (e, { data }) => {
   //   }
   // });
 
+
   authDialog.on("closed", () => {
     authDialog = null;
   });
+});
+
+ipcMain.handle("authDialog:auth", async (e, { data }) => {
+  if (data.type) {
+    const result = await loginToKick(data.type);
+    if(result) {
+      authDialog.close();
+      authDialog = null;
+    }
+  }
+});
+
+ipcMain.handle("authDialog:close", () => {
+  if (authDialog) {
+    authDialog.close();
+    authDialog = null;
+  }
 });
 
 // Function to move the user dialog window

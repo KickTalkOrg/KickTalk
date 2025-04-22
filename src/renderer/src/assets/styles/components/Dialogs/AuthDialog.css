@@ -1,12 +1,50 @@
-.dialogWrapper {
-  height: 100vh;
-}
-
-.dialogHeader {
-  border-bottom: 1px solid #182f21;
-  min-height: 140px;
-  align-items: center;
+body {
+  background: linear-gradient(180deg, #020A05 0%, #06190E 100%), linear-gradient(180deg, #031209 0%, #06190E 100%);
+  color: white;
+  font-family: Arial, sans-serif;
   display: flex;
-  app-region: drag;
-  padding: 0 16px;
+  justify-content: center;
+  align-items: center;
+  height: 100vh;
+  margin: 0;
+  padding: 1rem;
+}
+h1 {
+  font-style: normal;
+  font-weight: 500;
+  font-size: 56px;
+  line-height: 72px;
+  display: flex;
+  align-items: center;
+}
+p {
+  color: #ccc;
+  font-size: 0.9em;
+}
+.btn {
+  width: 100%;
+  padding: 15px;
+  margin-top: 10px;
+  font-size: 1em;
+  border: none;
+  border-radius: 5px;
+  cursor: pointer;
+  background-color: white;
+  color: black;
+  font-weight: bold;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn:hover {
+  opacity: 0.8;
+}
+.btn.green {
+  background: rgb(42 117 16);
+  color: black;
+}
+.icon{
+  margin-left: 8px;
+  margin-bottom: 0.1rem;
+  height: 20px;
 }

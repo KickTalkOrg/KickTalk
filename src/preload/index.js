@@ -51,7 +51,8 @@ if (process.contextIsolated) {
 
       authDialog: {
         open: (data) => ipcRenderer.invoke("authDialog:open", { data }),
-        close: () => ipcRenderer.send("authDialog:close"),
+        auth: (data) => ipcRenderer.invoke("authDialog:auth", { data }),
+        close: () => ipcRenderer.invoke("authDialog:close"),
       },
 
       userDialog: {
