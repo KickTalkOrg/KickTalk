@@ -4,8 +4,6 @@ import { MessageParser } from "./MessageParser";
 
 const Message = memo(
   ({ message, chatroomId, subscriberBadges, sevenTVEmotes }) => {
-    // const settings = window.app.loadSettings();
-
     const handleOpenDialog = useCallback(
       (e) => {
         e.preventDefault();
@@ -47,8 +45,7 @@ const Message = memo(
                   onClick={handleOpenDialog}
                   className="chatMessageUsername"
                   style={{ color: message.sender.identity?.color }}>
-                  <span>{message.sender.username}</span>
-                  <span>:&nbsp;</span>
+                  <span>{message.sender.username}:&nbsp;</span>
                 </button>
               </div>
               <span className="chatMessageContent">

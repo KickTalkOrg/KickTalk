@@ -31,7 +31,7 @@ const chatReducer = (state, action) => {
         return state;
       }
 
-      const newMessages = [...chatroomMessages, action.payload.message].slice(-300);
+      const newMessages = [...chatroomMessages, action.payload.message].slice(-250);
 
       return {
         ...state,

@@ -1,20 +1,27 @@
 import { kickEmoteRegex, urlRegex } from "../../../../utils/constants";
+
+const stvEmotes = new Map();
+const WHITESPACE_REGEX = /\s+/;
+
 const rules = [
   {
     // Kick Emote Rule
     regexPattern: kickEmoteRegex,
     component: ({ match, index }) => {
       const { id, name } = match.groups;
+      const emoteUrl = `https://files.kick.com/emotes/${id}/fullsize`;
+
       return (
-        <div key={`kick-emote-${id}-${index}`} onClick={() => showEmoteDialog(id)}>
         <img
-          className="kick-emote emote"
+          key={`kickEmote-${id}-${index}`}
+          className="kickEmote emote"
           title={name}
-          src={`https://files.kick.com/emotes/${id}/fullsize`}
+          src={emoteUrl}
           alt={name}
           loading="lazy"
+          fetchpriority="low"
+          decoding="async"
         />
-        </div>
       );
     },
   },
@@ -29,101 +36,95 @@ const rules = [
   },
 ];
 
-export const MessageParser = ({ message, sevenTVEmotes }) => {
-  const stvEmotes = new Map();
-  let finalParts = [];
-
-  for (const emote of sevenTVEmotes.emote_set.emotes) {
-    const alias = emote.alias ?? emote.name;
-    const emoteWidth = emote.data.host.files[0].width; 
-    const emoteHeight = emote.data.host.files[0].height;
-    const emoteData ={
-      emoteId : emote.id, 
-      emoteWidth: emoteWidth, 
-      emoteHeight: emoteHeight
-    }
-    stvEmotes.set(alias, emoteData);
+const getEmoteData = (emoteName, sevenTVEmotes) => {
+  if (stvEmotes.has(emoteName)) {
+    return stvEmotes.get(emoteName);
   }
 
-  // const message = {
-  //   content: "test _+[emote:39251:beeBobble]99 SoyShaker sdsd SoyShaker https://google.com d",
-  // };
+  const emote = sevenTVEmotes?.emote_set?.emotes.find((e) => (e.alias ?? e.name) === emoteName);
+
+  if (emote) {
+    const emoteData = {
+      id: emote.id,
+      width: emote?.data?.host?.files[0].width || emote.width,
+      height: emote?.data?.host?.files[0].height || emote.height,
+    };
+
+    // Cache the emote data
+    stvEmotes.set(emoteName, emoteData);
+
+    return emoteData;
+  }
+
+  return null;
+};
+
+export const MessageParser = ({ message, sevenTVEmotes }) => {
+  if (!message?.content) return [];
 
   const parts = [];
-  const content = message.content;
+  const finalParts = [];
   let lastIndex = 0;
 
   const allMatches = [];
 
-  // Find all matches for each rule
-  rules.forEach((rule) => {
-    // Find all matches for this rule
-    for (const match of content.matchAll(rule.regexPattern)) {
-      // Add the match to the list of all matches
-      allMatches.push({
-        match,
-        rule,
-      });
+  for (const rule of rules) {
+    for (const match of message.content.matchAll(rule.regexPattern)) {
+      allMatches.push({ match, rule });
     }
-  });
+  }
 
   // Sort matches by their order of appearance
   allMatches.sort((a, b) => a.index - b.index);
 
-  allMatches.forEach(({ match, rule }, i) => {
-    const startOfMatch = match.index;
-    const endOfMatch = startOfMatch + match[0].length;
-
-    // Push plain text before this match in the message
-    if (startOfMatch > lastIndex) {
-      parts.push(content.slice(lastIndex, startOfMatch));
+  for (const { match, rule } of allMatches) {
+    if (match.index > lastIndex) {
+      parts.push(message.content.slice(lastIndex, match.index));
     }
 
-    // Push the matched component
-    parts.push(rule.component({ match, index: i }));
+    parts.push(rule.component({ match, index: match.index }));
+    lastIndex = match.index + match[0].length;
+  }
 
-    lastIndex = endOfMatch;
-  });
-
-  // Push any text that comes after the last matched item
+  // Add remaining text
   if (lastIndex < message.content.length) {
     parts.push(message.content.slice(lastIndex));
   }
 
+  // 7TV emotes
+
   parts.forEach((part, i) => {
-    if (typeof part === "string") {
-      const possibleEmotes = part.split(/(\s+)/);
-
-      possibleEmotes.forEach((possibleEmote, j) => {
-        if (stvEmotes.has(possibleEmote)) {
-          const emoteId = stvEmotes.get(possibleEmote).emoteId;
-          const emoteUrl = `https://cdn.7tv.app/emote/${emoteId}/1x.webp`;
-          const emoteWidth = stvEmotes.get(possibleEmote).emoteWidth;
-          const emoteHeight = stvEmotes.get(possibleEmote).emoteHeight;
-          finalParts.push(
-            <img
-              key={`stv-emote-${emoteId}-${i}-${j}`}
-              className="stvEmote emote"
-              title={possibleEmote}
-              src={emoteUrl}
-              alt={possibleEmote}
-              loading="lazy"
-              width={emoteWidth}
-              height={emoteHeight}
-            />,
-          );
-
-          console.log("Found emote", possibleEmote);
-        } else {
-          finalParts.push(possibleEmote);
-        }
-      });
-    } else {
+    if (typeof part !== "string") {
       finalParts.push(part);
-      console.log("Not Emote", part);
+      return;
     }
+
+    // Split where there is one or more whitespace
+    const textParts = part.split(WHITESPACE_REGEX);
+    const lastIndex = textParts.length - 1;
+
+    textParts.forEach((textPart) => {
+      const emoteData = getEmoteData(textPart, sevenTVEmotes);
+      if (emoteData) {
+        finalParts.push(
+          <img
+            key={`stvEmote-${emoteData.id}-${message.timestamp}-${i}`}
+            srcSet={`https://cdn.7tv.app/emote/${emoteData.id}/1x.webp 1x, https://cdn.7tv.app/emote/${emoteData.id}/2x.webp 2x`}
+            alt={textPart}
+            title={textPart}
+            loading="lazy"
+            width={emoteData.width}
+            height={emoteData.height}
+          />,
+        );
+      } else {
+        finalParts.push(textPart);
+      }
+
+      // Add space between parts, but not after the last one
+      if (i < lastIndex) finalParts.push(" ");
+    });
   });
 
-  console.log(finalParts);
   return finalParts;
 };

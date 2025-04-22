@@ -111,9 +111,8 @@
   display: flex;
   padding: 0 16px;
   padding-left: 24px;
-  backdrop-filter: blur(5px);
   align-items: center;
-  height: 71px;
+  height: 72px;
   background: linear-gradient(90deg, #03120900 0%, #143220 100%);
 }
 
@@ -125,7 +124,8 @@
   display: flex;
   gap: 8px;
   border-radius: 4px;
-  background: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.2);
+  backdrop-filter: blur(5px);
   color: rgba(255, 255, 255, 0.5);
   border: none;
   cursor: pointer;

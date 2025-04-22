@@ -3,9 +3,10 @@
 }
 
 .chatContainer {
-  height: calc(100vh - 48px);
+  height: calc(100vh - 128px);
   width: 100%;
   display: flex;
+  justify-content: space-between;
   flex-direction: column;
   scrollbar-width: none;
   position: relative;
@@ -25,9 +26,9 @@
 }
 
 .chatBody {
-  flex: 1;
-  height: calc(100vh - 200px);
+  flex: 1 1 auto;
   overflow-y: auto;
+  height: 100vh;
   padding-left: 8px;
   margin-right: 0;
   display: flex;
@@ -100,7 +101,21 @@
   vertical-align: middle;
   white-space: collapse;
 }
+
+.emote {
+  vertical-align: middle;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+
 .kickEmote {
+  font-weight: 900;
+  margin-right: 4px;
+  white-space: normal;
+  width: 38px;
+}
+
+.stvEmote {
   font-weight: 900;
   margin-right: 4px;
   white-space: normal;
@@ -138,7 +153,7 @@
   justify-content: center;
   align-items: flex-start;
   max-height: 148px;
-  min-height: 40px;
+  min-height: 56px;
   overflow-y: auto;
   overflow-x: hidden;
   width: 100%;

@@ -7,7 +7,7 @@ const User = () => {
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
-  const [subscriberBadges, setSubscriberBadges] = useState([]);
+  const [chatroomData, setChatroomData] = useState([]);
   const dialogLogsRef = useRef(null);
 
   useEffect(() => {
@@ -16,7 +16,7 @@ const User = () => {
 
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       const currentChatroom = chatrooms.find((chatroom) => chatroom.id === data.chatroomId);
-      setSubscriberBadges(currentChatroom?.streamerData?.subscriber_badges || []);
+      setChatroomData(currentChatroom);
 
       const { messages } = await window.app.logs.get({ chatroomId: data.chatroomId, userId: data.sender.id });
 
@@ -28,10 +28,7 @@ const User = () => {
     };
 
     const updateData = (data) => {
-      setUserLogs((prevLogs) => {
-        const newMessages = data.logs?.messages || [];
-        return [...prevLogs, ...newMessages.filter((msg) => !prevLogs.some((existing) => existing.id === msg.id))];
-      });
+      setUserLogs(data.logs?.messages || []);
     };
 
     const dataCleanup = window.app.userDialog.onData(loadData);
@@ -97,7 +94,11 @@ const User = () => {
               <div className="dialogLogItem" key={log.id}>
                 <div className="chatroomUser">
                   <div className="chatroomBadges">
-                    <KickBadges type={"dialog"} badges={log.sender.identity.badges} subscriberBadges={subscriberBadges} />
+                    <KickBadges
+                      type={"dialog"}
+                      badges={log.sender.identity.badges}
+                      subscriberBadges={chatroomData?.streamerData?.subscriber_badges || []}
+                    />
                   </div>
                   <p style={{ color: `${log.sender.identity.color}` }}>
                     {log.sender.username}
@@ -105,7 +106,7 @@ const User = () => {
                   </p>
                 </div>
                 <div className="dialogLogMessage">
-                  <MessageParser message={log} />
+                  <MessageParser message={log} sevenTVEmotes={chatroomData?.channel7TVEmotes} />
                 </div>
               </div>
             );

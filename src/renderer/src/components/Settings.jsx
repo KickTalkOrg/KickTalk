@@ -1,42 +1,41 @@
 import { useState, useEffect } from "react";
 import "../styles/Settings.css";
 import clsx from "clsx";
-import { Check, CheckFat } from "@phosphor-icons/react";
+import { Check } from "@phosphor-icons/react";
 
+// TODO: Click away to close settings dropdown
 const Settings = ({ settingsModalOpen }) => {
   const [settings, setSettings] = useState(null);
 
   useEffect(() => {
-    (async function loadSettings() {
-      try {
-        const userSettings = await window.app.loadSettings();
-        setSettings(userSettings);
-      } catch (error) {
-        console.error("Failed to load settings:", error);
-      }
-    })();
+    const loadSettings = async () => {
+      const settingsStore = await window.app.store.get();
+      console.log(settingsStore);
+      setSettings(settingsStore);
+    };
+
+    loadSettings();
   }, []);
 
   const changeSetting = async (key, value) => {
     try {
-      const newSettings = { ...settings, [key]: value };
-      await window.app.editSettings({ [key]: value });
-      setSettings(newSettings);
+      await window.app.store.set(key, value);
+      setSettings(await window.app.store.get());
     } catch (error) {
       console.error("Failed to save setting:", error);
     }
   };
 
   const handlePhraseAdd = (phrase) => {
-    if (phrase && !settings.notificationPhrases.includes(phrase)) {
-      changeSetting("notificationPhrases", [...settings.notificationPhrases, phrase]);
+    if (phrase && !settings?.notifications?.phrases.includes(phrase)) {
+      changeSetting("notifications.phrases", [...settings?.notifications?.phrases, phrase]);
     }
   };
 
   const handlePhraseRemove = (phrase) => {
     changeSetting(
-      "notificationPhrases",
-      settings.notificationPhrases.filter((p) => p !== phrase),
+      "notifications.phrases",
+      settings?.notifications?.phrases.filter((p) => p !== phrase),
     );
   };
 
@@ -53,25 +52,25 @@ const Settings = ({ settingsModalOpen }) => {
 
         <div className="settingsSwitch">
           <button
-            className={clsx("settingSwitchItem", settings?.load7TVEmotes ? "checked" : "")}
-            onClick={() => changeSetting("load7TVEmotes", !settings?.load7TVEmotes)}>
-            <div className="checkBox">{settings?.load7TVEmotes && <Check weight={"bold"} size={14} />}</div>
+            className={clsx("settingSwitchItem", settings?.sevenTV?.emotes ? "checked" : "")}
+            onClick={() => changeSetting("sevenTV.emotes", !settings?.sevenTV?.emotes)}>
+            <div className="checkBox">{settings?.sevenTV?.emotes && <Check weight={"bold"} size={14} />}</div>
             <span>7TV Emotes</span>
           </button>
         </div>
         <div className="settingsSwitch">
           <button
-            className={clsx("settingSwitchItem", settings?.load7TVBadges ? "checked" : "")}
-            onClick={() => changeSetting("load7TVBadges", !settings?.load7TVBadges)}>
-            <div className="checkBox">{settings?.load7TVBadges && <Check weight={"bold"} size={14} />}</div>
+            className={clsx("settingSwitchItem", settings?.sevenTV?.badges ? "checked" : "")}
+            onClick={() => changeSetting("sevenTV.badges", !settings?.sevenTV?.badges)}>
+            <div className="checkBox">{settings?.sevenTV?.badges && <Check weight={"bold"} size={14} />}</div>
             <span>7TV Badges</span>
           </button>
         </div>
         <div className="settingsSwitch">
           <button
-            className={clsx("settingSwitchItem", settings?.load7TVPaints ? "checked" : "")}
-            onClick={() => changeSetting("load7TVPaints", !settings?.load7TVPaints)}>
-            <div className="checkBox">{settings?.load7TVPaints && <Check weight={"bold"} size={14} />}</div>
+            className={clsx("settingSwitchItem", settings?.sevenTV?.paints ? "checked" : "")}
+            onClick={() => changeSetting("sevenTV.paints", !settings?.sevenTV?.paints)}>
+            <div className="checkBox">{settings?.sevenTV?.paints && <Check weight={"bold"} size={14} />}</div>
             <span>7TV Paints</span>
           </button>
         </div>
@@ -91,7 +90,7 @@ const Settings = ({ settingsModalOpen }) => {
         <h5>Highlight Phrases</h5>
 
         <div className="highlightPhrases">
-          {settings?.notificationPhrases.map((phrase) => (
+          {settings?.notifications?.phrases.map((phrase) => (
             <div key={phrase} className="highlightPhrase">
               <span>{phrase}</span>
               <button onClick={() => handlePhraseRemove(phrase)}>&times;</button>

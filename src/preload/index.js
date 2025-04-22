@@ -11,8 +11,6 @@ import handleEmotes from "../../utils/emotes";
 import processBadges from "../../utils/badges";
 import fetch7TVData from "../../utils/7tvData";
 
-import path from "node:path";
-import fs from "fs";
 import dotenv from "dotenv";
 
 dotenv.config();
@@ -27,12 +25,7 @@ const validateSessionToken = async () => {
   if (!session.token) return false;
 
   try {
-    const userData = await getSelfInfo(session.token, session.session);
-    const newSettings = {
-      notificationPhrases: [userData.data.username, `@${userData.data.username}`],
-    };
-
-    editSettings(newSettings);
+    await getSelfInfo(session.token, session.session);
     return true;
   } catch (error) {
     console.error("Error validating session token:", error);
@@ -45,49 +38,6 @@ validateSessionToken();
 // Utility Functions
 const openURLExternally = (url) => {
   shell.openExternal(url);
-};
-
-// Load or create settings file
-const loadSettings = () => {
-  try {
-    const settingsPath = path.resolve("settings.json");
-    if (fs.existsSync(settingsPath)) {
-      const data = fs.readFileSync(settingsPath, "utf-8");
-      return JSON.parse(data);
-    } else {
-      const defaultSettings = {
-        load7TVPaints: true,
-        load7TVEmotes: true,
-        load7TVBadges: true,
-        notifications: true,
-        notificationsSound: true,
-        notificationSoundFile: "default",
-        notificationBackground: true,
-        notificationBackgroundColour: "#800000",
-        notificationPhrases: [],
-      };
-      fs.writeFileSync(settingsPath, JSON.stringify(defaultSettings, null, 2), "utf-8");
-      return defaultSettings;
-    }
-  } catch (error) {
-    console.error("Error loading settings:", error);
-    return null;
-  }
-};
-
-// Edit settings file
-// TODO: Replace with electron-store
-const editSettings = (newSettings) => {
-  try {
-    const settingsPath = path.resolve("settings.json");
-    const currentSettings = loadSettings();
-    const updatedSettings = { ...currentSettings, ...newSettings };
-    fs.writeFileSync(settingsPath, JSON.stringify(updatedSettings, null, 2), "utf-8");
-    return;
-  } catch (error) {
-    console.error("Error editing settings:", error);
-    return null;
-  }
 };
 
 if (process.contextIsolated) {
@@ -152,8 +102,11 @@ if (process.contextIsolated) {
         fetch7TVData,
       },
 
-      loadSettings,
-      editSettings,
+      store: {
+        get: async (key) => await ipcRenderer.invoke("store:get", { key }),
+        set: async (key, value) => await ipcRenderer.invoke("store:set", { key, value }),
+        delete: async (key) => await ipcRenderer.invoke("store:delete", { key }),
+      },
     });
   } catch (error) {
     console.error("Failed to expose APIs:", error);

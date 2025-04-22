@@ -1,17 +1,18 @@
-import { app, shell, BrowserWindow, ipcMain, screen, session } from "electron";
+import { app, shell, BrowserWindow, webFrame, ipcMain, screen, local, globalShortcut } from "electron";
 import { join } from "path";
-import fs from "fs";
-import { electronApp, optimizer, is } from "@electron-toolkit/utils";
+import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { closeBrowser } from "../../utils/kickAPI";
-import Store from "electron-store";
+import store from "../../utils/config";
 import dotenv from "dotenv";
-
 dotenv.config();
+
+ipcMain.setMaxListeners(100);
+
+const isDev = process.env.NODE_ENV === "development";
 
 const chatLogsStore = new Map();
 
 let dialogInfo = null;
-
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
@@ -20,6 +21,19 @@ const authSession = {
   token: process.env.SESSION_TOKEN,
   session: process.env.KICK_SESSION,
 };
+
+ipcMain.handle("store:get", async (e, { key }) => {
+  if (!key) return store.store;
+  return store.get(key);
+});
+
+ipcMain.handle("store:set", async (e, { key, value }) => {
+  return store.set(key, value);
+});
+
+ipcMain.handle("store:delete", async (e, { key }) => {
+  return store.delete(key);
+});
 
 ipcMain.handle("chatLogs:get", async (e, { data }) => {
   const { chatroomId, userId } = data;
@@ -76,23 +90,21 @@ const createWindow = () => {
   // Create the browser window.
   const displays = screen.getAllDisplays();
 
-  //TODO: Remove
-  const secondaryMonitor = displays[1];
-
   mainWindow = new BrowserWindow({
-    width: 600,
-    height: 900,
-    x: Math.floor(displays[0].workArea.x / 2),
-    y: Math.floor(displays[0].workArea.y / 2),
+    width: store.get("lastMainWindowState.width"),
+    height: store.get("lastMainWindowState.height"),
+    x: store.get("lastMainWindowState.x"),
+    y: store.get("lastMainWindowState.y"),
     minWidth: 350,
+    minHeight: 250,
     show: false,
     backgroundColor: "#06190e",
     autoHideMenuBar: true,
+    // alwaysOnTop: store.get("alwaysOnTop"),
     titleBarStyle: "hidden",
     icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
     webPreferences: {
-      devTools: true,
-      nodeIntegration: false,
+      nodeIntegration: true,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -104,14 +116,24 @@ const createWindow = () => {
     mainWindow.webContents.openDevTools();
   });
 
+  mainWindow.on("resize", () => {
+    store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
+  });
+
+  mainWindow.on("close", () => {
+    store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
+  });
+
   mainWindow.webContents.setWindowOpenHandler((details) => {
     shell.openExternal(details.url);
     return { action: "deny" };
   });
 
+  mainWindow.webContents.setZoomFactor(store.get("zoomFactor"));
+
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     mainWindow.loadURL(process.env["ELECTRON_RENDERER_URL"]);
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
@@ -128,7 +150,7 @@ app.whenReady().then(() => {
   }
 
   // Set app user model id for windows
-  electronApp.setAppUserModelId("com.electron");
+  electronApp.setAppUserModelId("com.kicktalk.app");
 
   // Default open or close DevTools by F12 in development
   // and ignore CommandOrControl + R in production.
@@ -201,6 +223,23 @@ app.whenReady().then(() => {
     // dock icon is clicked and there are no other windows open.
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
+
+  // Set Zoom Levels
+  globalShortcut.register("Ctrl+Plus", () => {
+    if (mainWindow.webContents.getZoomFactor() < 1.5) {
+      const newZoomFactor = mainWindow.webContents.getZoomFactor() + 0.1;
+      mainWindow.webContents.setZoomFactor(newZoomFactor);
+      store.set("zoomFactor", newZoomFactor);
+    }
+  });
+
+  globalShortcut.register("Ctrl+-", () => {
+    if (mainWindow.webContents.getZoomFactor() > 0.8) {
+      const newZoomFactor = mainWindow.webContents.getZoomFactor() - 0.1;
+      mainWindow.webContents.setZoomFactor(newZoomFactor);
+      store.set("zoomFactor", newZoomFactor);
+    }
+  });
 });
 
 // User Dialog Handler
@@ -241,7 +280,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   });
 
   // Load the same URL as main window but with dialog hash
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     userDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/user.html`);
   } else {
     userDialog.loadFile(join(__dirname, "../renderer/user.html"));
@@ -298,7 +337,7 @@ ipcMain.handle("authDialog:open", (e, { data }) => {
   });
 
   // Load the same URL as main window but with dialog hash
-  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     authDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/auth.html`);
   } else {
     authDialog.loadFile(join(__dirname, "../renderer/auth.html"));

@@ -179,3 +179,22 @@
 .showTooltip > img {
   width: 40px;
 }
+
+.emote {
+  vertical-align: middle;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+
+.kickEmote {
+  font-weight: 900;
+  margin-right: 4px;
+  white-space: normal;
+  width: 38px;
+}
+
+.stvEmote {
+  font-weight: 900;
+  margin-right: 4px;
+  white-space: normal;
+}

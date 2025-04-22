@@ -1,5 +1,5 @@
 import clsx from "clsx";
-import { memo, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 import { useChat } from "../providers/ChatProvider";
 import { scrollToBottom } from "../utils/ChatUtils";
 import { MouseScroll } from "@phosphor-icons/react";
@@ -20,23 +20,20 @@ const Chat = memo(({ chatroomId }) => {
   const chatroomMessages = messages[chatroomId] || [];
   const subscriberBadges = currentChatroom?.streamerData?.subscriber_badges || [];
 
-  const isNearBottom = () => {
-    if (!chatBodyRef.current) return true;
+  const handleScroll = useCallback(() => {
+    if (!chatBodyRef.current) return;
     const { scrollHeight, clientHeight, scrollTop } = chatBodyRef.current;
-    return scrollHeight - clientHeight - scrollTop < 100;
-  };
+    const nearBottom = scrollHeight - clientHeight - scrollTop < 100;
 
-  const handleScroll = () => {
-    const nearBottom = isNearBottom();
     setShouldAutoScroll(nearBottom);
     setShowScrollToBottom(!nearBottom);
-  };
+  }, [chatBodyRef]);
 
   useEffect(() => {
     if (!chatBodyRef.current || !shouldAutoScroll) return;
 
     chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight - chatBodyRef.current.clientHeight;
-  }, [messages]);
+  }, [messages, chatBodyRef, shouldAutoScroll]);
 
   useEffect(() => {
     setShouldAutoScroll(true);

@@ -7,6 +7,8 @@ import {
   CLEAR_EDITOR_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ARROW_DOWN_COMMAND,
+  $createTextNode,
+  $createParagraphNode,
 } from "lexical";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 
@@ -30,6 +32,8 @@ const theme = {
   placeholder: "editor-placeholder",
 };
 
+const messageHistory = new Map();
+
 // TODO: Handle enter for different OS's
 
 const KeyHandler = ({ chatroomId, onSendMessage }) => {
@@ -38,7 +42,7 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
   useEffect(() => {
     if (!editor) return;
 
-    const removeCommand = editor.registerCommand(
+    const registerEnterCommand = editor.registerCommand(
       KEY_ENTER_COMMAND,
       (e) => {
         if (e.shiftKey) return false;
@@ -57,7 +61,71 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
       COMMAND_PRIORITY_HIGH,
     );
 
-    return () => removeCommand();
+    const registerArrowUpCommand = editor.registerCommand(
+      KEY_ARROW_UP_COMMAND,
+      () => {
+        const history = messageHistory.get(chatroomId);
+        if (!history?.sentMessages?.length) return false;
+
+        const currentIndex = history.selectedIndex !== undefined ? history.selectedIndex - 1 : history.sentMessages.length - 1;
+        if (currentIndex < 0) return false;
+
+        messageHistory.set(chatroomId, {
+          ...history,
+          selectedIndex: currentIndex,
+        });
+
+        editor.update(() => {
+          const root = $getRoot();
+          root.clear();
+
+          const paragraph = $createParagraphNode();
+          const text = $createTextNode(history.sentMessages[currentIndex]);
+
+          paragraph.append(text);
+          root.append(paragraph);
+        });
+
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
+
+    const registerArrowDownCommand = editor.registerCommand(
+      KEY_ARROW_DOWN_COMMAND,
+      () => {
+        const history = messageHistory.get(chatroomId);
+        if (!history?.sentMessages?.length) return false;
+
+        const currentIndex = history.selectedIndex >= 0 ? history.selectedIndex + 1 : 0;
+        if (currentIndex > history.sentMessages.length) return false;
+
+        messageHistory.set(chatroomId, {
+          ...history,
+          selectedIndex: currentIndex,
+        });
+
+        editor.update(() => {
+          const root = $getRoot();
+          root.clear();
+
+          const paragraph = $createParagraphNode();
+          const text = $createTextNode(history.sentMessages[currentIndex]);
+
+          paragraph.append(text);
+          root.append(paragraph);
+        });
+
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
+
+    return () => {
+      registerEnterCommand();
+      registerArrowUpCommand();
+      registerArrowDownCommand();
+    };
   }, [editor, chatroomId]);
 
   return null;
@@ -72,13 +140,28 @@ const initialConfig = {
 const ChatInput = memo(
   ({ chatroomId, setShouldAutoScroll }) => {
     const { sendMessage } = useChat();
-    const [messageHistory, setMessageHistory] = useState([]);
+
+    // Reset selected index when changing chatrooms
+    useEffect(() => {
+      const history = messageHistory.get(chatroomId);
+      if (history) {
+        messageHistory.set(chatroomId, {
+          ...history,
+          selectedIndex: undefined,
+        });
+      }
+    }, [chatroomId]);
 
     const handleSendMessage = async (content) => {
       const res = await sendMessage(chatroomId, content);
 
       if (res) {
-        setMessageHistory((prev) => [...prev, content]);
+        const history = messageHistory.get(chatroomId);
+        messageHistory.set(chatroomId, {
+          sentMessages: [...(history?.sentMessages || []), content],
+          selectedIndex: undefined,
+        });
+
         setShouldAutoScroll(true);
       }
     };

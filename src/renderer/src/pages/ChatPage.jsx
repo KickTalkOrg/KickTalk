@@ -11,7 +11,7 @@ function ChatPage() {
     <div>
       <TitleBar />
 
-      <div className="chatContainer">
+      <div className="chatWrapper">
         <div className="chatNavigation">
           <Navbar currentChatroomId={activeChatroomId} onSelectChatroom={setActiveChatroomId} />
         </div>
