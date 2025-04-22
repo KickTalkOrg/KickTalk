@@ -229,6 +229,15 @@ body {
   display: none;
 }
 
+.emote {
+  vertical-align: middle;
+  margin-left: 1px;
+  margin-right: 1px;
+}
+
+.kick-emote{
+  width: 38px;
+}
 .badges {
   display: contents;
   vertical-align: middle;
