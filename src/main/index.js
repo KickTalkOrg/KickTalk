@@ -35,6 +35,7 @@ async function retrieveToken(token_name) {
 }
 
 let dialogInfo = null;
+
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
@@ -124,7 +125,8 @@ const createWindow = () => {
     titleBarStyle: "hidden",
     icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
     webPreferences: {
-      nodeIntegration: true,
+      devTools: true,
+      nodeIntegration: false,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
@@ -327,7 +329,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   });
 
   // Load the same URL as main window but with dialog hash
-  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+  if (is.dev && process.env["ELECTRON_RENDERER_URL"]) {
     userDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/user.html`);
   } else {
     userDialog.loadFile(join(__dirname, "../renderer/user.html"));
