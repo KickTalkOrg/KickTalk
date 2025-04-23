@@ -10,7 +10,6 @@ const Settings = ({ settingsModalOpen }) => {
   useEffect(() => {
     const loadSettings = async () => {
       const settingsStore = await window.app.store.get();
-      console.log(settingsStore);
       setSettings(settingsStore);
     };
 
@@ -60,7 +59,7 @@ const Settings = ({ settingsModalOpen }) => {
         </div>
         <div className="settingsSwitch">
           <button
-          disabled
+            disabled
             className={clsx("settingSwitchItem", settings?.sevenTV?.badges ? "checked" : "")}
             onClick={() => changeSetting("sevenTV.badges", !settings?.sevenTV?.badges)}>
             <div className="checkBox">{settings?.sevenTV?.badges && <Check weight={"bold"} size={14} />}</div>
@@ -69,7 +68,7 @@ const Settings = ({ settingsModalOpen }) => {
         </div>
         <div className="settingsSwitch">
           <button
-          disabled
+            disabled
             className={clsx("settingSwitchItem", settings?.sevenTV?.paints ? "checked" : "")}
             onClick={() => changeSetting("sevenTV.paints", !settings?.sevenTV?.paints)}>
             <div className="checkBox">{settings?.sevenTV?.paints && <Check weight={"bold"} size={14} />}</div>

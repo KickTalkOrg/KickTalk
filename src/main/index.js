@@ -7,7 +7,7 @@ import store from "../../utils/config";
 import dotenv from "dotenv";
 dotenv.config();
 
-const authStore =  new ElectronStore({
+const authStore = new ElectronStore({
   fileExtension: "env",
   schema: {
     SESSION_TOKEN: {
@@ -40,9 +40,6 @@ let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
 
-retrieveToken("buh").then((token) => {
-  console.log("Token:", token);
-});
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
   return store.get(key);
@@ -162,40 +159,46 @@ const createWindow = () => {
   }
 };
 
-
 async function loginToKick(type) {
-
   const authSession = {
     token: await retrieveToken("SESSION_TOKEN"),
     session: await retrieveToken("KICK_SESSION"),
   };
-  
-  console.log(authSession.token, authSession.session);
-  console.log(typeof authSession.token, typeof authSession.session);
-  if (authSession.token != 'null' || authSession.session != 'null') return true;
+
+  if (authSession.token != "null" || authSession.session != "null") return true;
 
   return new Promise((resolve) => {
     const loginDialog = new BrowserWindow({
       width: 1280,
       height: 720,
+      x: mainWindow.getPosition()[0] + (mainWindow.getSize()[0] - 1280) / 2,
+      y: mainWindow.getPosition()[1] + (mainWindow.getSize()[1] - 720) / 2,
+      show: true,
+      resizable: false,
+      transparent: true,
+      roundedCorners: true,
       webPreferences: {
         autoplayPolicy: "user-gesture-required",
         nodeIntegration: false,
       },
     });
-    
+
     switch (type) {
       case "kick":
-      loginDialog.loadURL("https://kick.com/login");
-      break;
+        loginDialog.loadURL("https://kick.com/login");
+        break;
       case "google":
-      loginDialog.loadURL("https://accounts.google.com/o/oauth2/auth?client_id=582091208538-64t6f8i044gppt1etba67qu07t4fimuf.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fkick.com%2Fsocial%2Fgoogle%2Fcallback&scope=openid+profile+email&response_type=code");
-      break;
+        loginDialog.loadURL(
+          "https://accounts.google.com/o/oauth2/auth?client_id=582091208538-64t6f8i044gppt1etba67qu07t4fimuf.apps.googleusercontent.com&redirect_uri=https%3A%2F%2Fkick.com%2Fsocial%2Fgoogle%2Fcallback&scope=openid+profile+email&response_type=code",
+        );
+        break;
       case "apple":
-      loginDialog.loadURL("https://appleid.apple.com/auth/authorize?client_id=com.kick&redirect_uri=https%3A%2F%2Fkick.com%2Fredirect%2Fapple&scope=name%20email&response_type=code&response_mode=form_post");
-      break;
+        loginDialog.loadURL(
+          "https://appleid.apple.com/auth/authorize?client_id=com.kick&redirect_uri=https%3A%2F%2Fkick.com%2Fredirect%2Fapple&scope=name%20email&response_type=code&response_mode=form_post",
+        );
+        break;
       default:
-      console.error("Unknown login type:", type);
+        console.error("[Auth Login]:Unknown login type:", type);
     }
 
     const checkForSessionToken = async () => {
@@ -204,7 +207,6 @@ async function loginToKick(type) {
       const kickSession = cookies.find((cookie) => cookie.name === "kick_session");
 
       if (sessionCookie && kickSession) {
-
         // Save the session token and kick session to the .env file
         const sessionToken = decodeURIComponent(sessionCookie.value);
         const kickSessionValue = decodeURIComponent(kickSession.value);
@@ -257,7 +259,6 @@ app.whenReady().then(() => {
   ipcMain.on("ping", () => console.log("pong"));
 
   createWindow();
-  
 
   // Cleanup puppeteer on app quit
 
@@ -369,7 +370,7 @@ ipcMain.handle("authDialog:open", (e, { data }) => {
 
   authDialog = new BrowserWindow({
     width: 500,
-    height: 500,
+    height: 600,
     x: newX,
     y: newY,
     show: true,
@@ -405,7 +406,6 @@ ipcMain.handle("authDialog:open", (e, { data }) => {
   //   }
   // });
 
-
   authDialog.on("closed", () => {
     authDialog = null;
   });
@@ -414,7 +414,7 @@ ipcMain.handle("authDialog:open", (e, { data }) => {
 ipcMain.handle("authDialog:auth", async (e, { data }) => {
   if (data.type) {
     const result = await loginToKick(data.type);
-    if(result) {
+    if (result) {
       authDialog.close();
       authDialog = null;
     }

@@ -3,8 +3,8 @@
 }
 
 .chatContainer {
+  height: calc(100vh - 128px);
   justify-content: space-between;
-  height: calc(100vh - 48px);
   width: 100%;
   display: flex;
   flex-direction: column;
@@ -27,7 +27,6 @@
 
 .chatBody {
   flex: 1;
-  height: calc(100vh - 200px);
   overflow-y: auto;
   height: 100vh;
   padding-left: 8px;
@@ -117,9 +116,9 @@
 }
 
 .stvEmote {
-  font-weight: 900;
-  margin-right: 4px;
+  margin-right: 0px;
   white-space: normal;
+  vertical-align: bottom;
 }
 
 .chatMessageContent {
