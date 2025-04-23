@@ -7,7 +7,7 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin({ exclude: ["electron-store", "electron-util"] })],
   },
   preload: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin({ exclude: ["electron-store", "electron-util"] })],
   },
   renderer: {
     build: {

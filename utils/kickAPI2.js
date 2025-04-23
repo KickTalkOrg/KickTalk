@@ -40,4 +40,13 @@ const getUserChatroomInfo = (chatroomName, username) => {
   return axios.get(`${APIUrl}/api/v2/channels/${transformedChannelName}/users/${username}`);
 };
 
-export { getChannelInfo, getChannelChatroomInfo, sendMessageToChannel, getSelfInfo, getUserChatroomInfo };
+const getSilencedUsers = (sessionCookie, kickSession) => {
+  return axios.get(`${APIUrl}/api/v2/silenced-users`, {
+    headsers: {
+      Authorization: `Bearer ${sessionCookie}`,
+    },
+    Cookie: `kick_session=${kickSession}, session_token=${sessionCookie}, x-xsrf-token=${sessionCookie}, XSRF-TOKEN=${kickSession}`,
+  });
+}
+
+export { getChannelInfo, getChannelChatroomInfo, sendMessageToChannel, getSelfInfo, getUserChatroomInfo, getSilencedUsers };

@@ -6,18 +6,25 @@ import {
   getChannelChatroomInfo,
   getSelfInfo,
   getUserChatroomInfo,
+  getSilencedUsers,
 } from "../../utils/kickAPI2";
 import handleEmotes from "../../utils/emotes";
 import processBadges from "../../utils/badges";
 import fetch7TVData from "../../utils/7tvData";
 
-import dotenv from "dotenv";
+import ElectronStore from "electron-store";
 
-dotenv.config();
+const authStore = new ElectronStore({
+  fileExtension: "env",
+});
+
+function retrieveToken(token_name) {
+  return authStore.get(token_name);
+}
 
 const session = {
-  token: process.env.SESSION_TOKEN,
-  session: process.env.KICK_SESSION,
+  token: retrieveToken("SESSION_TOKEN"),
+  session: retrieveToken("KICK_SESSION"),
 };
 
 // Validate Session Token by Fetching User Data
@@ -83,6 +90,7 @@ if (process.contextIsolated) {
         getChannelInfo,
         getChannelChatroomInfo,
         sendMessage: (channelId, message) => sendMessageToChannel(channelId, message, session.token, session.session),
+        getSilencedUsers,
         getSelfInfo: async () => {
           try {
             const response = await getSelfInfo(session.token, session.session);

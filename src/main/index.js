@@ -1,28 +1,47 @@
-import { app, shell, BrowserWindow, webFrame, ipcMain, screen, local, globalShortcut, session } from "electron";
+import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, safeStorage } from "electron";
 import { join } from "path";
+import ElectronStore from "electron-store";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { closeBrowser } from "../../utils/kickAPI";
 import store from "../../utils/config";
 import dotenv from "dotenv";
-import fs from "fs";
 dotenv.config();
 
+const authStore =  new ElectronStore({
+  fileExtension: "env",
+  schema: {
+    SESSION_TOKEN: {
+      type: "string",
+      default: "null",
+    },
+    KICK_SESSION: {
+      type: "string",
+      default: "null",
+    },
+  },
+});
 ipcMain.setMaxListeners(100);
 
 const isDev = process.env.NODE_ENV === "development";
 
 const chatLogsStore = new Map();
 
+async function storeToken(token_name, token) {
+  await authStore.set(token_name, token);
+}
+
+async function retrieveToken(token_name) {
+  return await authStore.get(token_name);
+}
+
 let dialogInfo = null;
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
 
-const authSession = {
-  token: process.env.SESSION_TOKEN,
-  session: process.env.KICK_SESSION,
-};
-
+retrieveToken("buh").then((token) => {
+  console.log("Token:", token);
+});
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
   return store.get(key);
@@ -143,7 +162,15 @@ const createWindow = () => {
 
 
 async function loginToKick(type) {
-  if (authSession.token || authSession.session) return true;
+
+  const authSession = {
+    token: await retrieveToken("SESSION_TOKEN"),
+    session: await retrieveToken("KICK_SESSION"),
+  };
+  
+  console.log(authSession.token, authSession.session);
+  console.log(typeof authSession.token, typeof authSession.session);
+  if (authSession.token != 'null' || authSession.session != 'null') return true;
 
   return new Promise((resolve) => {
     const loginDialog = new BrowserWindow({
@@ -175,18 +202,17 @@ async function loginToKick(type) {
       const kickSession = cookies.find((cookie) => cookie.name === "kick_session");
 
       if (sessionCookie && kickSession) {
-        const envPath = join(__dirname, "../../.env");
-
-        // Load existing .env file if it exists
-        dotenv.config({ path: envPath });
 
         // Save the session token and kick session to the .env file
         const sessionToken = decodeURIComponent(sessionCookie.value);
         const kickSessionValue = decodeURIComponent(kickSession.value);
 
-        fs.writeFileSync(envPath, `SESSION_TOKEN=${sessionToken}\nKICK_SESSION=${kickSessionValue}`, { flag: "w" });
+        await storeToken("SESSION_TOKEN", sessionToken);
+        await storeToken("KICK_SESSION", kickSessionValue);
 
         loginDialog.close();
+        app.relaunch();
+        app.exit(0);
         resolve(true);
         return true;
       }

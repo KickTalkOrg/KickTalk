@@ -21,7 +21,7 @@ const chatReducer = (state, action) => {
       return {
         ...state,
         chatrooms: state.chatrooms.filter((room) => room.id !== action.payload),
-        messages,
+        messages: messages, 
         connections: remainingConnections,
       };
     case "ADD_MESSAGE":
@@ -168,7 +168,7 @@ export const ChatProvider = ({ children }) => {
 
     connection.close();
     dispatch({ type: "REMOVE_CHATROOM", payload: chatroomId });
-
+    
     // Remove chatroom from local storage
     const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
     localStorage.setItem("chatrooms", JSON.stringify(savedChatrooms.filter((room) => room.id !== chatroomId)));
