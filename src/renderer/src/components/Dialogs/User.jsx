@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from "react";
 import "../../assets/styles/components/Dialogs/UserDialog.css";
 import { KickBadges } from "../Cosmetics/Badges";
 import { MessageParser } from "../../utils/MessageParser";
+const kickTalkBetaTesters = await window.app.utils.getKickTalkBadges();
+
 
 const User = () => {
   const [dialogData, setDialogData] = useState(null);
@@ -96,6 +98,7 @@ const User = () => {
                 <div className="chatroomUser">
                   <div className="chatroomBadges">
                     <KickBadges badges={log.sender.identity.badges} subscriberBadges={subscriberBadges} />
+
                   </div>
                   <p style={{ color: `${log.sender.identity.color}` }}>
                     {log.sender.username}

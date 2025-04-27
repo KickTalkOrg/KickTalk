@@ -78,6 +78,5 @@ const KickTalkBadges = memo(({ badges }) => {
   });
 });
 
-const SevenTVBadges = ({}) => {};
 
 export { KickBadges, KickTalkBadges };

@@ -28,7 +28,7 @@ const sendMessageToChannel = (channelID, message, sessionCookie, kickSession) =>
 };
 
 const getSelfInfo = (sessionCookie, kickSession) => {
-  return axios.get(`${APIUrl}/api/v1/user`, {
+  return axios.get(`${APIUrl}/api/v2/channels/${username}`, {
     headers: {
       Authorization: `Bearer ${sessionCookie}`,
     },
@@ -52,6 +52,7 @@ const getKickEmotes = (chatroomName) => {
 
 const getKickTalkBadges = () => {
   return axios.get(`${KickTalkAPIUrl}/badges`);
+
 };
 
 const getSilencedUsers = (sessionCookie, kickSession) => {

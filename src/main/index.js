@@ -190,12 +190,15 @@ const loginToKick = async (method) => {
   const newX = currentDisplay.bounds.x + Math.round((currentDisplay.bounds.width - 500) / 2);
   const newY = currentDisplay.bounds.y + Math.round((currentDisplay.bounds.height - 600) / 2);
 
+
   return new Promise((resolve) => {
+    const mainWindowBounds = mainWindow.getBounds();
     const loginDialog = new BrowserWindow({
       width: 1280,
       height: 720,
       x: newX,
       y: newY,
+
       show: true,
       resizable: false,
       transparent: true,
@@ -209,6 +212,7 @@ const loginToKick = async (method) => {
     });
 
     switch (method) {
+
       case "kick":
         loginDialog.loadURL("https://kick.com/login");
         break;
@@ -224,6 +228,7 @@ const loginToKick = async (method) => {
         break;
       default:
         console.error("[Auth Login]:Unknown login method:", method);
+
     }
 
     const checkForSessionToken = async () => {
