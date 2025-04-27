@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import "../styles/Settings.css";
 import clsx from "clsx";
-import { Check } from "@phosphor-icons/react";
+import { Check, SignOut } from "@phosphor-icons/react";
 
 // TODO: Click away to close settings dropdown
 const Settings = ({ settingsModalOpen }) => {
@@ -38,10 +38,17 @@ const Settings = ({ settingsModalOpen }) => {
     );
   };
 
+  const handleLogout = () => {
+    window.app.logout();
+  };
+
   return (
     <div className={clsx("settingsWrapper", settingsModalOpen && "show")}>
       <div className="settingsHead">
         <h4>Settings</h4>
+        <button onClick={handleLogout}>
+          <SignOut size={20} weight="bold" />
+        </button>
       </div>
 
       <span className="settingsDivider" />
@@ -55,24 +62,6 @@ const Settings = ({ settingsModalOpen }) => {
             onClick={() => changeSetting("sevenTV.emotes", !settings?.sevenTV?.emotes)}>
             <div className="checkBox">{settings?.sevenTV?.emotes && <Check weight={"bold"} size={14} />}</div>
             <span>7TV Emotes</span>
-          </button>
-        </div>
-        <div className="settingsSwitch">
-          <button
-            disabled
-            className={clsx("settingSwitchItem", settings?.sevenTV?.badges ? "checked" : "")}
-            onClick={() => changeSetting("sevenTV.badges", !settings?.sevenTV?.badges)}>
-            <div className="checkBox">{settings?.sevenTV?.badges && <Check weight={"bold"} size={14} />}</div>
-            <span>7TV Badges</span>
-          </button>
-        </div>
-        <div className="settingsSwitch">
-          <button
-            disabled
-            className={clsx("settingSwitchItem", settings?.sevenTV?.paints ? "checked" : "")}
-            onClick={() => changeSetting("sevenTV.paints", !settings?.sevenTV?.paints)}>
-            <div className="checkBox">{settings?.sevenTV?.paints && <Check weight={"bold"} size={14} />}</div>
-            <span>7TV Paints</span>
           </button>
         </div>
       </div>

@@ -1,132 +1,124 @@
-import { createContext, useContext, useReducer, useEffect } from "react";
+import { create } from "zustand";
 import KickPusher from "../../../../utils/kickPusher";
-import queueChannelFetch from "../../../../utils/fetchQueue";
 import { chatroomErrorHandler } from "../utils/chatErrors";
+import queueChannelFetch from "../../../../utils/fetchQueue";
 
-const ChatContext = createContext(null);
-
-const chatReducer = (state, action) => {
-  switch (action.type) {
-    case "ADD_CHATROOM":
-      return {
-        ...state,
-        chatrooms: state.chatrooms.some((room) => room.id === action.payload.id)
-          ? state.chatrooms
-          : [...state.chatrooms, action.payload],
-      };
-    case "REMOVE_CHATROOM":
-      const { [action.payload]: _, ...messages } = state.messages;
-      const { [action.payload]: __, ...remainingConnections } = state.connections;
-
-      return {
-        ...state,
-        chatrooms: state.chatrooms.filter((room) => room.id !== action.payload),
-        messages: messages, 
-        connections: remainingConnections,
-      };
-    case "ADD_MESSAGE":
-      const chatroomMessages = state.messages[action.payload.chatroomId] || [];
-
-      if (action.payload.message.id && chatroomMessages.some((msg) => msg.id === action.payload.message.id)) {
-        return state;
-      }
-
-      const newMessages = [...chatroomMessages, action.payload.message].slice(-250);
-
-      return {
-        ...state,
-        messages: {
-          ...state.messages,
-          [action.payload.chatroomId]: newMessages,
-        },
-      };
-    case "ADD_CONNECTION":
-      console.log("Adding connection for:", action.payload.chatroomId);
-      return {
-        ...state,
-        connections: {
-          ...state.connections,
-          [action.payload.chatroomId]: action.payload.connection,
-        },
-      };
-    default:
-      return state;
-  }
-};
-
-export const ChatProvider = ({ children }) => {
-  const [state, dispatch] = useReducer(chatReducer, {
-    chatrooms: [],
+// Load initial state from local storage
+const getInitialState = () => {
+  const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+  return {
+    chatrooms: savedChatrooms,
     messages: {},
     connections: {},
-  });
+  };
+};
 
-  // Load saved chatrooms on app initial load
-  useEffect(() => {
-    const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+const useChatStore = create((set, get) => ({
+  ...getInitialState(),
 
-    savedChatrooms.forEach((chatroom) => {
-      if (!state.chatrooms.some((currentChatroom) => currentChatroom.id === chatroom.id)) {
-        dispatch({ type: "ADD_CHATROOM", payload: chatroom });
-        connectToChatroom(chatroom);
-      }
-    });
-  }, []);
+  sendMessage: async (chatroomId, content) => {
+    try {
+      const message = content.trim();
+      console.info("Sending message to chatroom:", chatroomId);
 
-  const connectToChatroom = (chatroom) => {
+      await window.app.kick.sendMessage(chatroomId, message);
+      return true;
+    } catch (error) {
+      const errMsg = chatroomErrorHandler(error);
+
+      set((state) => ({
+        messages: {
+          ...state.messages,
+          [chatroomId]: [
+            ...(state.messages[chatroomId] || []),
+            {
+              id: crypto.randomUUID(),
+              type: "system",
+              content: errMsg,
+              timestamp: new Date().toISOString(),
+            },
+          ],
+        },
+      }));
+
+      return false;
+    }
+  },
+
+  addMessage: (chatroomId, message) => {
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [chatroomId]: [...(state.messages[chatroomId] || []), { ...message, deleted: false }].slice(-300), // Keep last 300 messages
+      },
+    }));
+  },
+
+  connectToChatroom: (chatroom) => {
     const pusher = new KickPusher(chatroom.id);
 
     pusher.addEventListener("connection", (event) => {
-      dispatch({
-        type: "ADD_MESSAGE",
-        payload: {
-          chatroomId: chatroom.id,
-          message: {
-            id: crypto.randomUUID(),
-            ...event?.detail,
-            timestamp: new Date().toISOString(),
-          },
-        },
-      });
+      console.info("Connected to chatroom:", chatroom.id);
 
-      if (event.detail.content === "connection-success") {
-        console.log(`Connected to chatroom: ${chatroom.id}`);
-        dispatch({
-          type: "ADD_CONNECTION",
-          payload: {
-            chatroomId: chatroom.id,
-            connection: pusher,
-          },
-        });
-      }
+      get().addMessage(chatroom.id, {
+        id: crypto.randomUUID(),
+        type: "system",
+        ...event?.detail,
+        timestamp: new Date().toISOString(),
+      });
     });
 
     pusher.addEventListener("message", (event) => {
       const parsedEvent = JSON.parse(event.detail.data);
 
-      // TODO: Handle Channel Doesnt Allow Links
-      if (parsedEvent.type === "message") {
-        dispatch({
-          type: "ADD_MESSAGE",
-          payload: {
-            chatroomId: chatroom.id,
-            message: {
-              ...parsedEvent,
-              timestamp: new Date().toISOString(),
-            },
-          },
-        });
+      switch (event.detail.event) {
+        case "App\\Events\\MessageDeletedEvent":
+          get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
+          break;
+        case "App\\Events\\UserBannedEvent":
+          get().handleUserBanned(chatroom.id, parsedEvent);
+          break;
+        default:
+          get().addMessage(chatroom.id, {
+            ...parsedEvent,
+            timestamp: new Date().toISOString(),
+          });
 
-        window.app.logs.add({ chatroomId: chatroom.id, userId: parsedEvent.sender.id, message: parsedEvent });
+          // TODO: cleanup to remove non actual messages
+          window.app.logs.add({
+            chatroomId: chatroom.id,
+            userId: parsedEvent.sender.id,
+            message: parsedEvent,
+          });
+          break;
       }
     });
 
     pusher.connect();
 
-    return pusher;
-  };
+    const fetchEmotes = async () => {
+      const { data } = await window.app.kick.getEmotes(chatroom.slug);
+      set((state) => ({
+        chatrooms: state.chatrooms.map((room) => {
+          if (room.id === chatroom.id) {
+            return { ...room, emotes: data };
+          }
+          return room;
+        }),
+      }));
+    };
 
-  const addChatroom = async (username) => {
+    fetchEmotes();
+
+    set((state) => ({
+      connections: {
+        ...state.connections,
+        [chatroom.id]: pusher,
+      },
+    }));
+  },
+
+  addChatroom: async (username) => {
     try {
       const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       if (savedChatrooms.some((chatroom) => chatroom.username.toLowerCase() === username.toLowerCase())) {
@@ -136,7 +128,6 @@ export const ChatProvider = ({ children }) => {
       const response = await queueChannelFetch(username);
       if (!response?.user) return;
 
-      // Fetch 7TV Emotes
       const channel7TVEmotes = await window.app.utils.fetch7TVData(response.user.id);
 
       const newChatroom = {
@@ -147,79 +138,97 @@ export const ChatProvider = ({ children }) => {
         channel7TVEmotes,
       };
 
-      dispatch({ type: "ADD_CHATROOM", payload: newChatroom });
-      connectToChatroom(newChatroom);
+      set((state) => ({
+        chatrooms: [...state.chatrooms, newChatroom],
+      }));
 
-      // Save channel to local storage
+      // Connect to chatroom
+      get().connectToChatroom(newChatroom);
+
+      // Save to local storage
       localStorage.setItem("chatrooms", JSON.stringify([...savedChatrooms, newChatroom]));
 
       return newChatroom;
     } catch (error) {
-      console.error("Error adding chatroom:", error);
+      console.error("[Chatroom Store]: Error adding chatroom:", error);
     }
-  };
+  },
 
-  const removeChatroom = (chatroomId) => {
-    const connection = state.connections[chatroomId];
+  removeChatroom: (chatroomId) => {
+    const { connections } = get();
+    const connection = connections[chatroomId];
+    if (connection) connection.close();
 
-    if (!connection) return console.log("No connection found for chatroom:", chatroomId);
+    set((state) => {
+      const { [chatroomId]: _, ...messages } = state.messages;
+      const { [chatroomId]: __, ...connections } = state.connections;
 
-    console.log("Closing chatroom connection:", connection);
+      return {
+        chatrooms: state.chatrooms.filter((room) => room.id !== chatroomId),
+        messages,
+        connections,
+      };
+    });
 
-    connection.close();
-    dispatch({ type: "REMOVE_CHATROOM", payload: chatroomId });
-    
     // Remove chatroom from local storage
     const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
     localStorage.setItem("chatrooms", JSON.stringify(savedChatrooms.filter((room) => room.id !== chatroomId)));
-  };
+  },
 
-  const sendMessage = async (chatroomId, content) => {
-    try {
-      const message = content.trim();
-      console.info("Sending message to chatroom:", chatroomId);
+  initializeConnections: () => {
+    get().chatrooms.forEach((chatroom) => {
+      if (!get().connections[chatroom.id]) {
+        get().connectToChatroom(chatroom);
+      }
+    });
+  },
 
-      await window.app.kick.sendMessage(chatroomId, message);
-      return true;
-    } catch (error) {
-      const errMsg = chatroomErrorHandler(error);
+  handleUserBanned: (chatroomId, event) => {
+    set((state) => {
+      const messages = state.messages[chatroomId];
+      if (!messages) return state;
 
-      dispatch({
-        type: "ADD_MESSAGE",
-        payload: {
-          chatroomId,
-          message: {
-            id: crypto.randomUUID(),
-            type: "system",
-            content: errMsg,
-            timestamp: new Date().toISOString(),
-          },
-        },
+      const updatedMessages = messages.map((message) => {
+        if (message?.sender?.id === event?.user?.id) {
+          return { ...message, deleted: true, ban_details: event };
+        }
+        return message;
       });
 
-      return;
-    }
-  };
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages,
+        },
+      };
+    });
+  },
 
-  return (
-    <ChatContext.Provider
-      value={{
-        state,
-        sendMessage,
-        addChatroom,
-        removeChatroom,
-      }}>
-      {children}
-    </ChatContext.Provider>
-  );
-};
+  handleMessageDelete: (chatroomId, messageId) => {
+    set((state) => {
+      const messages = state.messages[chatroomId];
+      if (!messages) return state;
 
-export const useChat = () => {
-  const context = useContext(ChatContext);
+      const updatedMessages = messages.map((message) => {
+        if (message.id === messageId) {
+          return { ...message, deleted: true };
+        }
+        return message;
+      });
 
-  if (!context) {
-    throw new Error("useChat must be used within a ChatProvider");
-  }
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages,
+        },
+      };
+    });
+  },
+}));
 
-  return context;
-};
+// Initialize connections when the store is created
+useChatStore.getState().initializeConnections();
+
+export default useChatStore;

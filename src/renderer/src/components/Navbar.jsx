@@ -1,10 +1,15 @@
 import "../assets/styles/components/Navbar.css";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
-import { useChat } from "../providers/ChatProvider";
+import useChatStore from "../providers/ChatProvider";
+import { Plus, X } from "@phosphor-icons/react";
 
 const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
-  const { state, addChatroom, removeChatroom } = useChat();
+  const addChatroom = useChatStore((state) => state.addChatroom);
+  const removeChatroom = useChatStore((state) => state.removeChatroom);
+  const chatrooms = useChatStore((state) => state.chatrooms);
+  const connections = useChatStore((state) => state.connections);
+
   const [showAddChatroomDialog, setAddChatroomDialog] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const inputRef = useRef(null);
@@ -31,8 +36,6 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
   };
 
   const handleRemoveChatroom = async (chatroomId) => {
-    const { chatrooms, connections } = state;
-
     if (!connections[chatroomId]) return;
 
     const currentIndex = chatrooms.findIndex((chatroom) => chatroom.id === chatroomId);
@@ -61,10 +64,15 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
   return (
     <div className="navbarContainer" ref={chatroomListRef}>
       <div className="chatroomsList">
-        {state.chatrooms.map((chatroom) => (
+        {chatrooms.map((chatroom) => (
           <div
             key={chatroom.id}
             onClick={() => onSelectChatroom(chatroom.id)}
+            onMouseDown={async (e) => {
+              if (e.button === 1) {
+                await handleRemoveChatroom(chatroom.id);
+              }
+            }}
             className={clsx("chatroomStreamer", chatroom.id === currentChatroomId && "chatroomStreamerActive")}>
             <div className="streamerInfo">
               {chatroom.streamerData?.user?.profile_pic && (
@@ -77,7 +85,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
               <span>{chatroom.username}</span>
             </div>
             <button className="closeChatroom" onClick={() => handleRemoveChatroom(chatroom.id)} aria-label="Remove chatroom">
-              <span>&times;</span>
+              <X size={16} weight="bold" />
             </button>
           </div>
         ))}
@@ -91,7 +99,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
               className="navbarAddChatroomDialogClose"
               onClick={() => setAddChatroomDialog(false)}
               aria-label="Close Add Chatroom">
-              <span>&times;</span>
+              <X size={16} weight="bold" />
             </button>
           </div>
           <form onSubmit={handleSubmit} className="navbarAddForm">
@@ -110,7 +118,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
           className="navbarAddChatroomButton"
           onClick={() => setAddChatroomDialog(!showAddChatroomDialog)}
           disabled={isConnecting}>
-          Add <span>&#43;</span>
+          Add <Plus size={16} weight="bold" />
         </button>
       </div>
     </div>

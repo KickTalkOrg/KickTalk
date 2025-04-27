@@ -43,6 +43,12 @@
   background: linear-gradient(180deg, #040f08f0 0%, #0d2316 60%);
 }
 
+#authDialog {
+  background: linear-gradient(180deg, #142b1c 0%, #0e321d 10%);
+  border: 1px solid #174329;
+  height: 100vh;
+}
+
 html,
 body,
 div,
@@ -234,7 +240,7 @@ body {
   margin-right: 1px;
 }
 
-.kick-emote{
+.kick-emote {
   width: 38px;
 }
 .badges {

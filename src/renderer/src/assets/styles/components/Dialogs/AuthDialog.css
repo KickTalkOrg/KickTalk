@@ -1,9 +1,10 @@
 .authLoginContainer {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 24px;
   padding: 24px;
   app-region: drag;
+  height: 100vh;
 }
 
 .authLoginHeader {
@@ -35,7 +36,7 @@
   gap: 16px;
   padding: 16px;
   border-radius: 4px;
-  background-color: #153715;
+  background-color: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.2);
   color: rgba(255, 255, 255, 0.6);
   cursor: pointer;
@@ -47,7 +48,7 @@
 }
 
 .authLoginButton:hover {
-  background-color: #446944;
+  background-color: rgba(255, 255, 255, 0.2);
   color: #fff;
   border-color: rgba(255, 255, 255, 0.4);
 }

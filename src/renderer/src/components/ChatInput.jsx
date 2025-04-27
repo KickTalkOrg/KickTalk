@@ -1,17 +1,17 @@
 import {
   $getRoot,
-  $getSelection,
-  $setSelection,
   KEY_ENTER_COMMAND,
   COMMAND_PRIORITY_HIGH,
-  CLEAR_EDITOR_COMMAND,
   KEY_ARROW_UP_COMMAND,
   KEY_ARROW_DOWN_COMMAND,
   $createTextNode,
   $createParagraphNode,
+  $getSelection,
+  $isRangeSelection,
+  PASTE_COMMAND,
+  TextNode,
 } from "lexical";
-import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
-
+import { memo, useEffect, useState } from "react";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
@@ -20,7 +20,12 @@ import { HistoryPlugin } from "@lexical/react/LexicalHistoryPlugin";
 import { LexicalErrorBoundary } from "@lexical/react/LexicalErrorBoundary";
 import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext";
 import { $rootTextContent } from "@lexical/text";
-import { useChat } from "../providers/ChatProvider";
+import useChatStore from "../providers/ChatProvider";
+
+import EmoteDialogs from "./EmoteDialogs";
+import { useShallow } from "zustand/react/shallow";
+import { $isEmoteNode, EmoteNode } from "./EmoteNode";
+import { kickEmoteInputRegex, kickEmoteRegex } from "../../../../utils/constants";
 
 const onError = (error) => {
   console.error(error);
@@ -36,11 +41,108 @@ const messageHistory = new Map();
 
 // TODO: Handle enter for different OS's
 
+const processEmoteInput = ({ node, kickEmotes }) => {
+  const matches = [];
+  let lastIndex = 0;
+  const text = node.getTextContent();
+
+  for (const match of text.matchAll(kickEmoteInputRegex)) {
+    const emoteName = match.groups?.emoteCase1 || match.groups?.emoteCase2;
+    if (!emoteName) continue;
+
+    const emote = kickEmotes
+      ?.find((set) => set?.emotes?.find((e) => e.name === emoteName))
+      ?.emotes?.find((e) => e.name === emoteName);
+
+    if (emote) {
+      matches.push({
+        match,
+        emoteId: emote.id,
+        emoteName,
+      });
+    }
+  }
+
+  // Sort matches by their position in text
+  matches.sort((a, b) => a.match.index - b.match.index);
+
+  for (const { match, emoteId, emoteName } of matches) {
+    const matchText = match[0].trim();
+    const startIndex = match.index + match[0].indexOf(matchText);
+    const endIndex = startIndex + matchText.length;
+
+    console.log(startIndex, endIndex, match[0].indexOf(matchText));
+    if (startIndex < lastIndex) continue;
+
+    node.splitText(startIndex, endIndex).forEach((part) => {
+      if (part.getTextContent() === matchText && part.getParent()) {
+        const emoteNode = new EmoteNode(emoteId, emoteName);
+        part.replace(emoteNode);
+        lastIndex = endIndex;
+      }
+    });
+  }
+};
+
+const EmoteTransformer = ({ chatroomId }) => {
+  const [editor] = useLexicalComposerContext();
+  const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
+
+  useEffect(() => {
+    if (!editor) return;
+
+    editor.registerNodeTransform(TextNode, (node) => {
+      processEmoteInput({ node, kickEmotes });
+    });
+  }, [editor, kickEmotes]);
+};
+
 const KeyHandler = ({ chatroomId, onSendMessage }) => {
   const [editor] = useLexicalComposerContext();
 
   useEffect(() => {
     if (!editor) return;
+
+    editor.registerCommand(
+      PASTE_COMMAND,
+      (event) => {
+        const clipboardData = event.clipboardData;
+        if (!clipboardData) return false;
+
+        const pastedText = clipboardData.getData("text");
+        if (!pastedText) return false;
+
+        editor.update(() => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return;
+
+          let lastIndex = 0;
+          const matches = [...pastedText.matchAll(kickEmoteRegex)];
+
+          matches.forEach((match) => {
+            // Insert text node before emote node
+            if (match.index > lastIndex) {
+              const textNode = $createTextNode(pastedText.slice(lastIndex, match.index));
+              selection.insertNodes([textNode]);
+            }
+
+            // Insert emote node
+            const emoteNode = new EmoteNode(match.groups.id, match.groups.name);
+            selection.insertNodes([emoteNode]);
+
+            lastIndex = match.index + match[0].length;
+          });
+
+          if (lastIndex < pastedText.length) {
+            const textNode = $createTextNode(pastedText.slice(lastIndex));
+            selection.insertNodes([textNode]);
+          }
+        });
+
+        return true;
+      },
+      COMMAND_PRIORITY_HIGH,
+    );
 
     const registerEnterCommand = editor.registerCommand(
       KEY_ENTER_COMMAND,
@@ -131,15 +233,33 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
   return null;
 };
 
+const EmoteHandler = ({ chatroomId }) => {
+  const [editor] = useLexicalComposerContext();
+
+  const handleEmoteClick = (emote) => {
+    editor.focus();
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+
+      const emoteNode = new EmoteNode(emote.id, emote.name);
+      selection.insertNodes([emoteNode]);
+    });
+  };
+
+  return <EmoteDialogs chatroomId={chatroomId} handleEmoteClick={handleEmoteClick} />;
+};
+
 const initialConfig = {
   namespace: "chat",
   theme,
   onError,
+  nodes: [EmoteNode],
 };
 
 const ChatInput = memo(
-  ({ chatroomId, setShouldAutoScroll }) => {
-    const { sendMessage } = useChat();
+  ({ chatroomId }) => {
+    const sendMessage = useChatStore((state) => state.sendMessage);
 
     // Reset selected index when changing chatrooms
     useEffect(() => {
@@ -161,28 +281,36 @@ const ChatInput = memo(
           sentMessages: [...(history?.sentMessages || []), content],
           selectedIndex: undefined,
         });
-
-        setShouldAutoScroll(true);
       }
     };
 
     return (
-      <LexicalComposer key={`composer-${chatroomId}`} initialConfig={initialConfig}>
-        <PlainTextPlugin
-          contentEditable={
-            <ContentEditable
-              className="chatInput"
-              enterKeyHint="send"
-              aria-placeholder={"Enter message..."}
-              placeholder={<div className="chatInputPlaceholder">Enter message...</div>}
+      <div className="chatInputWrapper">
+        <LexicalComposer key={`composer-${chatroomId}`} initialConfig={initialConfig}>
+          <div className="chatInputBox">
+            <PlainTextPlugin
+              contentEditable={
+                <div className="chatInputBoxContainer">
+                  <ContentEditable
+                    className="chatInput"
+                    enterKeyHint="send"
+                    aria-placeholder={"Enter message..."}
+                    placeholder={<div className="chatInputPlaceholder">Send a message...</div>}
+                  />
+                </div>
+              }
+              ErrorBoundary={LexicalErrorBoundary}
             />
-          }
-          ErrorBoundary={LexicalErrorBoundary}
-        />
-        <KeyHandler chatroomId={chatroomId} onSendMessage={handleSendMessage} />
-        <HistoryPlugin />
-        <AutoFocusPlugin />
-      </LexicalComposer>
+          </div>
+          <div className="chatInputActions">
+            <EmoteHandler chatroomId={chatroomId} />
+          </div>
+          <KeyHandler chatroomId={chatroomId} onSendMessage={handleSendMessage} />
+          <EmoteTransformer chatroomId={chatroomId} />
+          <HistoryPlugin />
+          <AutoFocusPlugin />
+        </LexicalComposer>
+      </div>
     );
   },
   (prev, next) => prev.chatroomId === next.chatroomId,

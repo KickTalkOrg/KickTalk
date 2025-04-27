@@ -81,7 +81,25 @@ class KickPusher extends EventTarget {
           console.log(`Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
           this.reconnectDelay = 5000;
         }
-        this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));
+
+        if (
+          jsonData.event === `App\\Events\\ChatMessageEvent` ||
+          jsonData.event === `App\\Events\\MessageDeletedEvent` ||
+          jsonData.event === `App\\Events\\UserBannedEvent` ||
+          jsonData.event === `App\\Events\\UserUnbannedEvent`
+        ) {
+          this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));
+        }
+
+        if (
+          jsonData.event === `App\\Events\\UserBannedEvent` ||
+          jsonData.event === `App\\Events\\UserUnbannedEvent` ||
+          jsonData.event === `App\\Events\\PinnedMessageCreatedEvent` ||
+          jsonData.event === `App\\Events\\PinnedMessageDeletedEvent` ||
+          jsonData.event === `App\\Events\\ChatroomUpdatedEvent`
+        ) {
+          this.dispatchEvent(new CustomEvent("channel", { detail: jsonData }));
+        }
       } catch (error) {
         console.log(`Error in message processing: ${error.message}`);
         this.dispatchEvent(new CustomEvent("error", { detail: error }));

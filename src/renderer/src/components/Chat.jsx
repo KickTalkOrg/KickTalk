@@ -1,24 +1,24 @@
 import clsx from "clsx";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
-import { useChat } from "../providers/ChatProvider";
 import { scrollToBottom } from "../utils/ChatUtils";
 import { MouseScroll } from "@phosphor-icons/react";
 import Message from "../utils/Message";
 import ChatInput from "./ChatInput";
+import useChatStore from "../providers/ChatProvider";
+
+const kickTalkBadges = await window.app.utils.getKickTalkBadges();
 
 // TODO: Separate chatroom inputs / history, each chatroom has its own input
 const Chat = memo(({ chatroomId }) => {
   const chatBodyRef = useRef();
-  const {
-    state: { chatrooms, messages },
-  } = useChat();
+
+  const chatrooms = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
+  const messages = useChatStore((state) => state.messages[chatroomId]);
 
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
 
-  const currentChatroom = chatrooms.find((chatroom) => chatroom.id === chatroomId);
-  const chatroomMessages = messages[chatroomId] || [];
-  const subscriberBadges = currentChatroom?.streamerData?.subscriber_badges || [];
+  const subscriberBadges = chatrooms?.streamerData?.subscriber_badges || [];
 
   const handleScroll = useCallback(() => {
     if (!chatBodyRef.current) return;
@@ -47,14 +47,15 @@ const Chat = memo(({ chatroomId }) => {
   return (
     <div className="chatContainer">
       <div className="chatBody" ref={chatBodyRef} onScroll={handleScroll}>
-        {chatroomMessages.map((message) => {
+        {messages?.map((message) => {
           return (
             <Message
               key={message.id}
               chatroomId={chatroomId}
-              chatroomName={currentChatroom.slug}
+              chatroomName={chatrooms?.slug}
               subscriberBadges={subscriberBadges}
-              sevenTVEmotes={currentChatroom?.channel7TVEmotes}
+              sevenTVEmotes={chatrooms?.channel7TVEmotes}
+              kickTalkBadges={kickTalkBadges}
               message={message}
             />
           );
