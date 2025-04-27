@@ -8,8 +8,6 @@ import useChatStore from "../providers/ChatProvider";
 
 const kickTalkBadges = await window.app.utils.getKickTalkBadges();
 
-const kickTalkBetaTesters = await window.app.utils.getKickTalkBadges();
-
 // TODO: Separate chatroom inputs / history, each chatroom has its own input
 const Chat = memo(({ chatroomId }) => {
   const chatBodyRef = useRef();
@@ -59,7 +57,6 @@ const Chat = memo(({ chatroomId }) => {
               sevenTVEmotes={chatrooms?.channel7TVEmotes}
               kickTalkBadges={kickTalkBadges}
               message={message}
-              kickTalkBetaTesters={kickTalkBetaTesters}
             />
           );
         })}

@@ -81,6 +81,7 @@ class KickPusher extends EventTarget {
           console.log(`Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
           this.reconnectDelay = 5000;
         }
+
         if (
           jsonData.event === `App\\Events\\ChatMessageEvent` ||
           jsonData.event === `App\\Events\\MessageDeletedEvent` ||

@@ -93,7 +93,7 @@ if (process.contextIsolated) {
         getChannelChatroomInfo,
         sendMessage: (channelId, message) => sendMessageToChannel(channelId, message, authSession.token, authSession.session),
         getSilencedUsers,
-        getSelfInfo: async (username) => {
+        getSelfInfo: async () => {
           try {
             const response = await getSelfInfo(authSession.token, authSession.session);
             return response.data;

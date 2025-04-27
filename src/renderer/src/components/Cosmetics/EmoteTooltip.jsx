@@ -32,7 +32,7 @@ const EmoteTooltip = ({ showBadgeInfo, mousePos, badgeInfo }) => {
       }}
       className={clsx("emoteTooltip", showBadgeInfo ? "showTooltip" : "")}>
       <img src={badgeInfo.type === "subscriber" ? "https://www.kickdatabase.com/kickBadges/subscriber.svg" : badgeInfo.src} />
-      <span style={{ textAlign: "center" }}>{badgeInfo.title}</span>
+      <span>{badgeInfo.title}</span>
     </div>
   );
 };
