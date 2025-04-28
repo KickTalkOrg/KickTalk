@@ -25,6 +25,7 @@
   min-width: 32px;
   min-height: 32px;
 }
+
 .navbarContainer::-webkit-scrollbar-track {
   background-color: #ffffff26;
 }
@@ -75,10 +76,6 @@
   align-items: center;
 }
 
-.streamerInfo > span {
-  padding-top: 2px;
-}
-
 .closeChatroom {
   display: flex;
   flex-wrap: nowrap;
@@ -90,12 +87,8 @@
   background: #ffffff29;
   border-radius: 2px;
   width: 18px;
-  height: 17px;
+  height: 18px;
   border: none;
-}
-
-.closeChatroom span {
-  font-size: 18px;
 }
 
 .chatroomStreamerActive {
@@ -103,6 +96,7 @@
   border-color: rgba(255, 255, 255, 0.1);
   opacity: 1;
   border-color: rgba(255, 255, 255, 0.1);
+  transition: all 0.2s ease-in-out;
 }
 
 .navbarAddChatroomContainer {
@@ -138,10 +132,6 @@
   background: rgba(255, 255, 255, 0.2);
 }
 
-.navbarAddChatroomButton span {
-  font-size: 20px;
-}
-
 .navbarAddChatroomDialog {
   display: none;
 }
@@ -150,7 +140,7 @@
   max-width: 80%;
   width: 432px;
   position: fixed;
-  z-index: 10;
+  z-index: 9999;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
@@ -216,7 +206,6 @@
 }
 
 .navbarAddChatroomDialogClose {
-  padding: 8px;
   height: 24px;
   width: 24px;
   align-items: center;
@@ -231,8 +220,8 @@
 }
 
 .dialogBackgroundOverlay {
-  background-color: rgba(8, 16, 9, 0.8);
-  z-index: 9;
+  background-color: rgba(5, 16, 6, 0.8);
+  z-index: 999;
   height: 100%;
   width: 100%;
   top: 0;

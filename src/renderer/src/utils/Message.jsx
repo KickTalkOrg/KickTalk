@@ -1,58 +1,59 @@
-import { memo, useCallback, useEffect } from "react";
-import KickBadges from "../components/Cosmetics/Badges";
-import { MessageParser } from "./MessageParser";
+import { memo, useCallback } from "react";
+import ModActionMessage from "../components/Messages/ModActionMessage";
+import RegularMessage from "../components/Messages/RegularMessage";
+import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg";
 
 const Message = memo(
-  ({ message, chatroomId, subscriberBadges, sevenTVEmotes }) => {
-    const handleOpenDialog = useCallback(
+  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges }) => {
+    const handleOpenUserDialog = useCallback(
       (e) => {
         e.preventDefault();
-
-        const cords = [e.clientX, e.clientY];
         window.app.userDialog.open({
           sender: message.sender,
           chatroomId,
-          cords,
+          cords: [e.clientX, e.clientY],
         });
       },
-      [message?.sender?.id, chatroomId],
+      [message?.sender, chatroomId],
     );
 
-    // useEffect(() => {
-    //   if (message.type === "message" && settings?.notifications.length) {
-    //     const msg = message.content.toLowerCase();
-    //     const hasNotificationPhrase = settings.notificationPhrases.some((phrase) => msg.includes(phrase.toLowerCase()));
+    // TODO: Future Reply Dialog
 
-    //     if (hasNotificationPhrase && settings.notificationsSound) {
-    //       if (settings.notificationSoundFile === "default") {
-    //         new Audio(`sounds/default.wav`).play();
-    //       }
-    //       new Audio(`sounds/${settings.notificationSoundFile}.wav`).play();
-    //     }
-    //   }
-    // }, [message]);
+    const userKickTalkBadges = kickTalkBadges?.find(
+      (badge) => badge.username.toLowerCase() === message?.sender?.username?.toLowerCase(),
+    )?.badges;
 
     return (
       <div className="chatMessageItem">
         {message.type === "message" && (
-          <>
-            <span className="chatMessageContainer">
-              <div className="chatMessageUser">
-                <div className="chatMessageBadges">
-                  <KickBadges badges={message.sender.identity?.badges} subscriberBadges={subscriberBadges} />
-                </div>
-                <button
-                  onClick={handleOpenDialog}
-                  className="chatMessageUsername"
-                  style={{ color: message.sender.identity?.color }}>
-                  <span>{message.sender.username}:&nbsp;</span>
-                </button>
-              </div>
-              <span className="chatMessageContent">
-                <MessageParser message={message} sevenTVEmotes={sevenTVEmotes} />
+          <RegularMessage
+            message={message}
+            userKickTalkBadges={userKickTalkBadges}
+            subscriberBadges={subscriberBadges}
+            kickTalkBadges={kickTalkBadges}
+            sevenTVEmotes={sevenTVEmotes}
+            handleOpenUserDialog={handleOpenUserDialog}
+          />
+        )}
+        {message.type === "reply" && (
+          <div className="chatMessageReply">
+            <span className="chatMessageReplyText">
+              <img className="chatMessageReplySymbol" src={ArrowReplyLineIcon} />
+              <span className="chatMessageReplyTextSender">{message?.metadata?.original_sender?.username}:</span>
+              <span className="chatMessageReplyTextContent" title={message?.metadata?.original_message?.content}>
+                {message?.metadata?.original_message?.content}
               </span>
             </span>
-          </>
+
+            <RegularMessage
+              message={message}
+              userKickTalkBadges={userKickTalkBadges}
+              subscriberBadges={subscriberBadges}
+              kickTalkBadges={kickTalkBadges}
+              sevenTVEmotes={sevenTVEmotes}
+              handleOpenUserDialog={handleOpenUserDialog}
+            />
+          </div>
         )}
         {message.type === "system" && (
           <span className="systemMessage">
@@ -63,10 +64,12 @@ const Message = memo(
                 : message.content}
           </span>
         )}
+        {message.type === "mod_action" && <ModActionMessage message={message} />}
       </div>
     );
   },
-  (prevProps, nextProps) => prevProps.message.id === nextProps.message.id,
+  (prevProps, nextProps) =>
+    prevProps.message.id === nextProps.message.id && prevProps.message.deleted === nextProps.message.deleted,
 );
 
 export default Message;

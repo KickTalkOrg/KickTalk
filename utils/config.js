@@ -5,6 +5,17 @@ const schema = {
     type: "boolean",
     default: true,
   },
+  chatrooms: {
+    type: "object",
+    properties: {
+      showModActions: {
+        type: "boolean",
+      },
+    },
+    default: {
+      showModActions: true,
+    },
+  },
   notifications: {
     type: "object",
     properties: {

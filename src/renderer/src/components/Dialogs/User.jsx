@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "../../assets/styles/components/Dialogs/UserDialog.css";
-import KickBadges from "../Cosmetics/Badges";
+import { KickBadges, KickTalkBadges } from "../Cosmetics/Badges";
 import { MessageParser } from "../../utils/MessageParser";
 
 const User = () => {
@@ -8,24 +8,28 @@ const User = () => {
   const [userProfile, setUserProfile] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
   const [subscriberBadges, setSubscriberBadges] = useState([]);
-  const dialogLogsRef = useRef(null); 
   const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
+  const [kickTalkBadges, setKickTalkBadges] = useState(null);
+  const dialogLogsRef = useRef(null);
+
   useEffect(() => {
     const loadData = async (data) => {
       setDialogData(data);
 
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       const currentChatroom = chatrooms.find((chatroom) => chatroom.id === data.chatroomId);
-      console.log(currentChatroom);
+
       setSevenTVEmotes(currentChatroom?.channel7TVEmotes || []);
-      console.log(sevenTVEmotes);
       setSubscriberBadges(currentChatroom?.streamerData?.subscriber_badges || []);
+
       const { messages } = await window.app.logs.get({ chatroomId: data.chatroomId, userId: data.sender.id });
+      const badges = await window.app.utils.getBadges();
+      setKickTalkBadges(badges || []);
 
       setUserLogs(messages || []);
 
       // Fetch User Profile in Channel
-      const { data: user } = await window.app.kick.getUserInfo(currentChatroom?.slug, data?.sender?.username);
+      const { data: user } = await window.app.kick.getUserChatroomInfo(currentChatroom?.slug, data?.sender?.username);
       setUserProfile(user);
     };
 
@@ -45,6 +49,10 @@ const User = () => {
   useEffect(() => {
     dialogLogsRef.current.scrollTop = dialogLogsRef.current.scrollHeight;
   }, [userLogs]);
+
+  const userKickTalkBadges = kickTalkBadges?.find(
+    (badge) => badge.username.toLowerCase() === dialogData?.sender?.username?.toLowerCase(),
+  )?.badges;
 
   return (
     <div className="dialogWrapper">
@@ -96,11 +104,9 @@ const User = () => {
               <div className="dialogLogItem" key={log.id}>
                 <div className="chatroomUser">
                   <div className="chatroomBadges">
-                    <KickBadges
-                      type={"dialog"}
-                      badges={log.sender.identity.badges}
-                      subscriberBadges={chatroomData?.streamerData?.subscriber_badges || []}
-                    />
+                    {userKickTalkBadges && <KickTalkBadges badges={userKickTalkBadges} />}
+
+                    <KickBadges badges={log.sender.identity.badges} subscriberBadges={subscriberBadges} />
                   </div>
                   <p style={{ color: `${log.sender.identity.color}` }}>
                     {log.sender.username}
