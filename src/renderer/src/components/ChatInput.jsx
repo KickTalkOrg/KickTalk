@@ -286,6 +286,9 @@ const ChatInput = memo(
 
     return (
       <div className="chatInputWrapper">
+        <div className="chatInfoBar">
+          <p>Chat in slowmode</p>
+        </div>
         <LexicalComposer key={`composer-${chatroomId}`} initialConfig={initialConfig}>
           <div className="chatInputBox">
             <PlainTextPlugin

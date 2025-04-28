@@ -28,11 +28,19 @@ const sendMessageToChannel = (channelID, message, sessionCookie, kickSession) =>
 };
 
 const getSelfInfo = (sessionCookie, kickSession) => {
+  console.log(sessionCookie, kickSession);
   return axios.get(`${APIUrl}/api/v1/user`, {
     headers: {
-      Authorization: `Bearer ${sessionCookie}`,
+      accept: "*/*",
+      authorization: `Bearer ${sessionCookie}`,
+      priority: "u=1, i",
+      "x-xsrf-token": kickSession,
     },
-    Cookie: `kick_session=${kickSession}, session_token=${sessionCookie}, x-xsrf-token=${sessionCookie}, XSRF-TOKEN=${kickSession}`,
+    referrer: "https://kick.com/",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "GET",
+    mode: "cors",
+    credentials: "include",
   });
 };
 

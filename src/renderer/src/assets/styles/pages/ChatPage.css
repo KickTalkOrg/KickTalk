@@ -67,6 +67,45 @@
   border-radius: 4px;
 }
 
+/** [Reply Message] **/
+
+.chatMessageReplyText {
+  display: inline-flex;
+  gap: 4px;
+  opacity: 0.3;
+}
+
+.chatMessageReply {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+}
+
+.chatMessageReplyTextSender {
+  flex: 1 0 auto;
+  display: block;
+  max-width: fit-content;
+  font-weight: 700;
+}
+
+.chatMessageReplyTextContent {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chatMessageReplySymbol {
+  width: 28px;
+  height: 24px;
+  vertical-align: top;
+}
+
+/** [End of Reply Message] **/
+
+.chatMessageContainer.deleted {
+  opacity: 0.3;
+}
+
 .chatMessageUser {
   display: inline-flex;
   align-items: baseline;
@@ -150,6 +189,18 @@
   transition: opacity 0.2s ease;
 }
 
+.modActionMessage {
+  background: -webkit-linear-gradient(45deg, #779c85 80%, #030f08 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+  letter-spacing: -0.05px;
+}
+
+.modActionMessage > span {
+  font-weight: 800;
+}
+
 .deletedMessageText {
   padding-left: 4px;
   font-size: 14px;
@@ -188,6 +239,23 @@
   border-radius: 6px 6px 0 0;
   border-bottom: none;
   align-items: center;
+}
+
+.chatInfoBar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 8px;
+  width: calc(100% - 16px);
+  background-color: rgb(20 41 28);
+  top: -32px;
+  z-index: 1;
+  margin: 0 8px;
+  height: 32px;
+  border-radius: 4px 4px 0 0;
+  font-size: 13px;
+  color: #658470;
+  position: absolute;
 }
 
 .chatInputBox {
@@ -261,9 +329,34 @@
 }
 
 .chatEmoteBtns button img {
-  width: 24px;
-  height: 24px;
   vertical-align: middle;
+}
+
+.kickEmoteButton {
+  height: 32px;
+  border-radius: 100px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: row;
+  border: 10px solid #aacfb9;
+}
+
+.kickEmoteCarousel {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  background-color: rgba(255, 255, 255, 0.058);
+  justify-content: center;
+  border-radius: 100px;
+  overflow: hidden;
+  height: 32px;
+}
+
+.kickEmoteCarousel img {
+  transform: translateX(65%);
+  width: 32px;
+  height: 32px;
 }
 
 .chatInput::-webkit-scrollbar {

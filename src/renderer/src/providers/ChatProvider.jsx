@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import KickPusher from "../../../../utils/kickPusher";
+import KickPusher from "../../../../utils/services/kick/kickPusher";
 import { chatroomErrorHandler } from "../utils/chatErrors";
 import queueChannelFetch from "../../../../utils/fetchQueue";
 
@@ -57,6 +57,7 @@ const useChatStore = create((set, get) => ({
   connectToChatroom: (chatroom) => {
     const pusher = new KickPusher(chatroom.id);
 
+    // Connection Events
     pusher.addEventListener("connection", (event) => {
       console.info("Connected to chatroom:", chatroom.id);
 
@@ -68,27 +69,64 @@ const useChatStore = create((set, get) => ({
       });
     });
 
+    // Channel Events
+    // pusher.addEventListener("channel", (event) => {
+    //   const parsedEvent = JSON.parse(event.detail.data);
+    //   console.log(event);
+    //   switch (event.detail.event) {
+    //     case "App\\Events\\ChatroomUpdatedEvent":
+    //       get().handleChatroomUpdated(chatroom.id, parsedEvent);
+    //       break;
+    //     case "App\\Events\\PinnedMessageCreatedEvent":
+    //       get().handlePinnedMessageCreated(chatroom.id, parsedEvent);
+    //       break;
+    //     case "App\\Events\\PinnedMessageDeletedEvent":
+    //       get().handlePinnedMessageDeleted(chatroom.id, parsedEvent);
+    //       break;
+    //   }
+    // });
+
+    // Message Events
     pusher.addEventListener("message", (event) => {
       const parsedEvent = JSON.parse(event.detail.data);
 
       switch (event.detail.event) {
-        case "App\\Events\\MessageDeletedEvent":
-          get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
-          break;
-        case "App\\Events\\UserBannedEvent":
-          get().handleUserBanned(chatroom.id, parsedEvent);
-          break;
-        default:
+        case "App\\Events\\ChatMessageEvent":
           get().addMessage(chatroom.id, {
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
 
-          // TODO: cleanup to remove non actual messages
           window.app.logs.add({
             chatroomId: chatroom.id,
             userId: parsedEvent.sender.id,
             message: parsedEvent,
+          });
+          break;
+        case "App\\Events\\MessageDeletedEvent":
+          get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
+          break;
+        case "App\\Events\\UserBannedEvent":
+          get().handleUserBanned(chatroom.id, parsedEvent);
+          get().addMessage(chatroom.id, {
+            id: crypto.randomUUID(),
+            type: "mod_action",
+            modAction: parsedEvent?.permanent ? "banned" : "ban_temporary",
+            modActionDetails: parsedEvent,
+            ...parsedEvent,
+            timestamp: new Date().toISOString(),
+          });
+
+          break;
+        case "App\\Events\\UserUnbannedEvent":
+          get().handleUserUnbanned(chatroom.id, parsedEvent);
+          get().addMessage(chatroom.id, {
+            id: crypto.randomUUID(),
+            type: "mod_action",
+            modAction: parsedEvent?.permanent ? "unbanned" : "removed_timeout",
+            modActionDetails: parsedEvent,
+            ...parsedEvent,
+            timestamp: new Date().toISOString(),
           });
           break;
       }
@@ -190,7 +228,34 @@ const useChatStore = create((set, get) => ({
 
       const updatedMessages = messages.map((message) => {
         if (message?.sender?.id === event?.user?.id) {
-          return { ...message, deleted: true, ban_details: event };
+          return {
+            ...message,
+            deleted: true,
+            modAction: event?.permanent ? "banned" : "ban_temporary",
+            modActionDetails: event,
+          };
+        }
+        return message;
+      });
+
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages,
+        },
+      };
+    });
+  },
+
+  handleUserUnbanned: (chatroomId, event) => {
+    set((state) => {
+      const messages = state.messages[chatroomId];
+      if (!messages) return state;
+
+      const updatedMessages = messages.map((message) => {
+        if (message?.sender?.id === event?.user?.id) {
+          return { ...message, deleted: false, modAction: "unbanned", modActionDetails: event };
         }
         return message;
       });

@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import "../../assets/styles/components/Dialogs/UserDialog.css";
-import { KickBadges } from "../Cosmetics/Badges";
+import { KickBadges, KickTalkBadges } from "../Cosmetics/Badges";
 import { MessageParser } from "../../utils/MessageParser";
 
 const User = () => {
@@ -9,6 +9,7 @@ const User = () => {
   const [userLogs, setUserLogs] = useState([]);
   const [subscriberBadges, setSubscriberBadges] = useState([]);
   const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
+  const [kickTalkBadges, setKickTalkBadges] = useState(null);
   const dialogLogsRef = useRef(null);
 
   useEffect(() => {
@@ -17,9 +18,13 @@ const User = () => {
 
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       const currentChatroom = chatrooms.find((chatroom) => chatroom.id === data.chatroomId);
+
       setSevenTVEmotes(currentChatroom?.channel7TVEmotes || []);
       setSubscriberBadges(currentChatroom?.streamerData?.subscriber_badges || []);
+
       const { messages } = await window.app.logs.get({ chatroomId: data.chatroomId, userId: data.sender.id });
+      const badges = await window.app.utils.getBadges();
+      setKickTalkBadges(badges || []);
 
       setUserLogs(messages || []);
 
@@ -44,6 +49,10 @@ const User = () => {
   useEffect(() => {
     dialogLogsRef.current.scrollTop = dialogLogsRef.current.scrollHeight;
   }, [userLogs]);
+
+  const userKickTalkBadges = kickTalkBadges?.find(
+    (badge) => badge.username.toLowerCase() === dialogData?.sender?.username?.toLowerCase(),
+  )?.badges;
 
   return (
     <div className="dialogWrapper">
@@ -95,6 +104,8 @@ const User = () => {
               <div className="dialogLogItem" key={log.id}>
                 <div className="chatroomUser">
                   <div className="chatroomBadges">
+                    {userKickTalkBadges && <KickTalkBadges badges={userKickTalkBadges} />}
+
                     <KickBadges badges={log.sender.identity.badges} subscriberBadges={subscriberBadges} />
                   </div>
                   <p style={{ color: `${log.sender.identity.color}` }}>

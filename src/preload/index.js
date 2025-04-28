@@ -9,14 +9,14 @@ import {
   getUserChatroomInfo,
   getSilencedUsers,
   getKickTalkBadges,
-} from "../../utils/kickAPI2";
+} from "../../utils/services/kick/kickAPI";
 import handleEmotes from "../../utils/emotes";
 import processBadges from "../../utils/badges";
 import fetch7TVData from "../../utils/7tvData";
 
-import ElectronStore from "electron-store";
+import Store from "electron-store";
 
-const authStore = new ElectronStore({
+const authStore = new Store({
   fileExtension: "env",
 });
 
@@ -115,12 +115,19 @@ if (process.contextIsolated) {
         processBadges,
         fetch7TVData,
         getKickTalkBadges,
+        getBadges: async () => await ipcRenderer.invoke("kicktalk:getBadges"),
       },
 
       store: {
         get: async (key) => await ipcRenderer.invoke("store:get", { key }),
         set: async (key, value) => await ipcRenderer.invoke("store:set", { key, value }),
         delete: async (key) => await ipcRenderer.invoke("store:delete", { key }),
+        onUpdate: async (callback) => {
+          const handler = (_, data) => callback(data);
+
+          ipcRenderer.on("store:updated", handler);
+          return () => ipcRenderer.removeListener("store:updated", handler);
+        },
       },
     });
   } catch (error) {

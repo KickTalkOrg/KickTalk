@@ -1,67 +1,59 @@
 import { memo, useCallback } from "react";
-import { KickTalkBadges, KickBadges } from "../components/Cosmetics/Badges";
-import { MessageParser } from "./MessageParser";
+import ModActionMessage from "../components/Messages/ModActionMessage";
+import RegularMessage from "../components/Messages/RegularMessage";
+import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg";
 
 const Message = memo(
   ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges }) => {
-    const handleOpenDialog = useCallback(
+    const handleOpenUserDialog = useCallback(
       (e) => {
         e.preventDefault();
-        const cords = [e.clientX, e.clientY];
         window.app.userDialog.open({
           sender: message.sender,
           chatroomId,
-          cords,
+          cords: [e.clientX, e.clientY],
         });
       },
-      [message?.sender?.id, chatroomId],
+      [message?.sender, chatroomId],
     );
 
-    const userKickTalkBadges = kickTalkBadges?.data?.find(
+    // TODO: Future Reply Dialog
+
+    const userKickTalkBadges = kickTalkBadges?.find(
       (badge) => badge.username.toLowerCase() === message?.sender?.username?.toLowerCase(),
     )?.badges;
-
-    // const convertBanTime = (banTime) => {
-    //   const minutesToMilliseconds = banTime * 60 * 1000;
-    // };
 
     return (
       <div className="chatMessageItem">
         {message.type === "message" && (
-          <span className="chatMessageContainer">
-            <div className="chatMessageUser">
-              <div className="chatMessageBadges">
-                {userKickTalkBadges && <KickTalkBadges badges={userKickTalkBadges} />}
-                <KickBadges
-                  badges={message.sender.identity?.badges}
-                  subscriberBadges={subscriberBadges}
-                  kickTalkBadges={kickTalkBadges}
-                />
-              </div>
-              <button
-                onClick={handleOpenDialog}
-                className="chatMessageUsername"
-                style={{ color: message.sender.identity?.color }}>
-                <span>{message.sender.username}:&nbsp;</span>
-              </button>
-            </div>
-            {message.deleted ? (
-              <span className="chatMessageContent chatMessageDeleted">
-                <MessageParser message={message} sevenTVEmotes={sevenTVEmotes} />
-                {message?.ban_details && (
-                  <span className="deletedMessageText">
-                    {`(Timed out by `}
-                    <span className="deletedMessageUsername">{message.ban_details?.banned_by?.username}</span>
-                    {` for ${message.ban_details?.duration})`}
-                  </span>
-                )}
+          <RegularMessage
+            message={message}
+            userKickTalkBadges={userKickTalkBadges}
+            subscriberBadges={subscriberBadges}
+            kickTalkBadges={kickTalkBadges}
+            sevenTVEmotes={sevenTVEmotes}
+            handleOpenUserDialog={handleOpenUserDialog}
+          />
+        )}
+        {message.type === "reply" && (
+          <div className="chatMessageReply">
+            <span className="chatMessageReplyText">
+              <img className="chatMessageReplySymbol" src={ArrowReplyLineIcon} />
+              <span className="chatMessageReplyTextSender">{message?.metadata?.original_sender?.username}:</span>
+              <span className="chatMessageReplyTextContent" title={message?.metadata?.original_message?.content}>
+                {message?.metadata?.original_message?.content}
               </span>
-            ) : (
-              <span className="chatMessageContent">
-                <MessageParser message={message} sevenTVEmotes={sevenTVEmotes} />
-              </span>
-            )}
-          </span>
+            </span>
+
+            <RegularMessage
+              message={message}
+              userKickTalkBadges={userKickTalkBadges}
+              subscriberBadges={subscriberBadges}
+              kickTalkBadges={kickTalkBadges}
+              sevenTVEmotes={sevenTVEmotes}
+              handleOpenUserDialog={handleOpenUserDialog}
+            />
+          </div>
         )}
         {message.type === "system" && (
           <span className="systemMessage">
@@ -72,6 +64,7 @@ const Message = memo(
                 : message.content}
           </span>
         )}
+        {message.type === "mod_action" && <ModActionMessage message={message} />}
       </div>
     );
   },

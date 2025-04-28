@@ -1,8 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, safeStorage } from "electron";
 import { join } from "path";
-import Store from "electron-store";
+import { getKickTalkBadges } from "../../utils/services/kick/kickAPI";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
-import { closeBrowser } from "../../utils/kickAPI";
+import Store from "electron-store";
 import store from "../../utils/config";
 
 import dotenv from "dotenv";
@@ -25,6 +25,7 @@ ipcMain.setMaxListeners(100);
 const isDev = process.env.NODE_ENV === "development";
 
 const chatLogsStore = new Map();
+let kickTalkBadges = null;
 
 const storeToken = async (token_name, token) => {
   if (!token || !token_name) return;
@@ -62,6 +63,26 @@ let dialogInfo = null;
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
+
+const initializeKickTalkBadges = async () => {
+  try {
+    const badges = await getKickTalkBadges();
+    kickTalkBadges = badges.data || [];
+  } catch (error) {
+    console.error("[KickTalk Badges]: Error getting KickTalk badges:", error);
+  }
+};
+
+ipcMain.handle("kicktalk:getBadges", async () => {
+  try {
+    const badges = await getKickTalkBadges();
+    kickTalkBadges = badges?.data || [];
+    return kickTalkBadges;
+  } catch (error) {
+    console.error("[KickTalk Badges]: Error fetching badges:", error);
+    return [];
+  }
+});
 
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
@@ -120,9 +141,6 @@ ipcMain.handle("bring-to-front", () => {
 });
 
 const createWindow = () => {
-  // Create the browser window.
-  const displays = screen.getAllDisplays();
-
   mainWindow = new BrowserWindow({
     width: store.get("lastMainWindowState.width"),
     height: store.get("lastMainWindowState.height"),
@@ -147,6 +165,7 @@ const createWindow = () => {
 
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
+    initializeKickTalkBadges();
     mainWindow.webContents.openDevTools();
   });
 
@@ -284,14 +303,6 @@ app.whenReady().then(() => {
   ipcMain.on("ping", () => console.log("pong"));
 
   createWindow();
-
-  // Cleanup puppeteer on app quit
-
-  app.on("before-quit", () => {
-    closeBrowser().catch((error) => {
-      console.error("Error closing browser:", error);
-    });
-  });
 
   app.on("activate", function () {
     // On macOS it's common to re-create a window in the app when the

@@ -72,16 +72,13 @@
 
 .settingsSection {
   padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
 }
 
 .settingsSection h5 {
   color: #6a8875;
-}
-
-.settingsCosmetics {
-  display: flex;
-  flex-direction: column;
-  gap: 16px;
 }
 
 .settingsSwitch {

@@ -1,11 +1,13 @@
 import "../assets/styles/pages/ChatPage.css";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Chat from "../components/Chat";
 import Navbar from "../components/Navbar";
 import TitleBar from "../components/TitleBar";
 
 function ChatPage() {
   const [activeChatroomId, setActiveChatroomId] = useState(null);
+
+  const [kickTalkBadges, setKickTalkBadges] = useState(null);
 
   return (
     <div>

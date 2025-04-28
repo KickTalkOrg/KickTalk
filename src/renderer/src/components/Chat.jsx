@@ -5,15 +5,14 @@ import { MouseScroll } from "@phosphor-icons/react";
 import Message from "../utils/Message";
 import ChatInput from "./ChatInput";
 import useChatStore from "../providers/ChatProvider";
-
-const kickTalkBadges = await window.app.utils.getKickTalkBadges();
-
 // TODO: Separate chatroom inputs / history, each chatroom has its own input
 const Chat = memo(({ chatroomId }) => {
   const chatBodyRef = useRef();
 
   const chatrooms = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
   const messages = useChatStore((state) => state.messages[chatroomId]);
+
+  const [kickTalkBadges, setKickTalkBadges] = useState([]);
 
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   const [showScrollToBottom, setShowScrollToBottom] = useState(false);
@@ -43,6 +42,16 @@ const Chat = memo(({ chatroomId }) => {
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight - chatBodyRef.current.clientHeight;
     }
   }, [chatroomId]);
+
+  // Fetch KickTalk badges
+  useEffect(() => {
+    const fetchBadges = async () => {
+      const badges = await window.app.utils.getBadges();
+      setKickTalkBadges(badges);
+    };
+
+    fetchBadges();
+  }, []);
 
   return (
     <div className="chatContainer">

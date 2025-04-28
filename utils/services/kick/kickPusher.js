@@ -92,8 +92,6 @@ class KickPusher extends EventTarget {
         }
 
         if (
-          jsonData.event === `App\\Events\\UserBannedEvent` ||
-          jsonData.event === `App\\Events\\UserUnbannedEvent` ||
           jsonData.event === `App\\Events\\PinnedMessageCreatedEvent` ||
           jsonData.event === `App\\Events\\PinnedMessageDeletedEvent` ||
           jsonData.event === `App\\Events\\ChatroomUpdatedEvent`

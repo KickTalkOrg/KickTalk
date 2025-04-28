@@ -58,16 +58,11 @@
   opacity: 1;
 }
 
-.authLoginButton img,
-.authLoginButton svg {
+.authLoginButton img {
   width: 24px;
   height: 24px;
   opacity: 0.6;
   transition: opacity 0.2s ease-in-out;
-}
-
-.authLoginButton img {
-  filter: invert(1);
 }
 
 .authAnonymousButton {
@@ -83,6 +78,14 @@
   font-weight: 600;
   color: #fff;
   cursor: pointer;
+  opacity: 0.6;
+  app-region: no-drag;
+}
+
+.authDisclaimer {
+  text-align: center;
+  font-size: 14px;
+  color: #fff;
   opacity: 0.6;
   app-region: no-drag;
 }

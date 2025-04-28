@@ -68,6 +68,23 @@ const Settings = ({ settingsModalOpen }) => {
 
       <span className="settingsDivider" />
 
+      <div className="settingsSection chatroomSettings">
+        <h5>Chatroom Settings</h5>
+
+        <div className="chatroomSettingsOptions">
+          <div className="chatroomSetting">
+            <button
+              className={clsx("settingSwitchItem", settings?.chatrooms?.showModActions ? "checked" : "")}
+              onClick={() => changeSetting("chatrooms.showModActions", !settings?.chatrooms?.showModActions)}>
+              <div className="checkBox">{settings?.chatrooms?.showModActions && <Check weight={"bold"} size={14} />}</div>
+              <span>Show Mod Actions</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <span className="settingsDivider" />
+
       <div className="settingsSection notifications">
         <h5>Notifications</h5>
 
