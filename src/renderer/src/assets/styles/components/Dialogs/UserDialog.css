@@ -1,34 +1,93 @@
 .dialogWrapper {
   height: 100vh;
+  border: 1px solid #192c1f;
 }
 
 .dialogHeader {
   border-bottom: 1px solid #182f21;
-  min-height: 140px;
   align-items: center;
   display: flex;
+  position: relative;
   app-region: drag;
-  padding: 0 16px;
+  flex-direction: column;
+  gap: 16px;
+  padding-top: 16px;
 }
 
 .dialogLogs {
-  height: calc(100vh - 140px);
+  height: calc(100vh - 174px);
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
   background-color: #0b160f;
 }
 
 .dialogLogsHead {
-  padding: 16px 0px 12px 16px;
+  padding: 16px 12px;
   font-weight: 600;
+  height: 48px;
   font-size: 12px;
+  display: flex;
+  align-items: center;
   text-transform: uppercase;
   border-bottom: 1px solid #182f21;
 }
 
+.dialogOptions {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+}
+
+.dialogOptionsPin {
+  background-color: transparent;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  border-radius: 4px;
+  border: 1px solid #192c1f;
+  height: 24px;
+  width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  app-region: no-drag;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.dialogOptionsPin.pinned {
+  background-color: #17a645;
+}
+
+.dialogOptionsPin.pinned:hover {
+  background-color: #17a645;
+}
+
+.dialogOptionsPin.pinned img {
+  opacity: 1;
+}
+
+.dialogOptionsPin:hover {
+  background-color: #192c1f;
+}
+
+.dialogOptionsPin img {
+  opacity: 0.5;
+  transition: opacity 0.2s ease-in-out;
+}
+
+.dialogOptionsPin:hover img {
+  opacity: 1;
+}
+
 .dialogHeaderUser {
+  flex: 1;
   display: flex;
   gap: 24px;
+  width: 100%;
   align-items: center;
+  padding: 0 16px;
 }
 
 .dialogHeaderUser img {
@@ -37,6 +96,26 @@
   object-fit: cover;
   border-radius: 4px;
   border: 1px solid #192c1f;
+}
+
+.dialogHeaderOptions {
+  width: 100%;
+  display: flex;
+}
+
+.dialogHeaderOptions button {
+  background-color: #192c1f;
+  border: none;
+  padding: 16px;
+  width: 100%;
+  font-size: 16px;
+  color: #8db89c;
+  app-region: no-drag;
+  cursor: pointer;
+}
+
+.dialogHeaderOptions button:hover {
+  background-color: #2d4b38;
 }
 
 .dialogHeaderUserInfo {
@@ -52,7 +131,7 @@
 }
 
 .dialogHeaderUserInfo > h1 {
-  font-size: 24px;
+  font-size: 22px;
   width: max-content;
   app-region: no-drag;
 }
@@ -81,21 +160,17 @@
 }
 
 .dialogLogsContent {
-  height: calc(100% - 48px);
   padding: 16px;
   overflow-y: auto;
   overflow-x: hidden;
   gap: 12px;
   display: flex;
   flex-direction: column;
+  margin-right: 8px;
 }
 
 .dialogLogsContent::-webkit-scrollbar {
-  width: 10px;
-}
-
-.dialogLogsContent::-webkit-scrollbar-corner {
-  background: rgba(255, 255, 255, 0.429);
+  width: 8px;
 }
 
 .dialogLogsContent::-webkit-scrollbar-thumb {
@@ -106,9 +181,6 @@
   min-height: 32px;
 }
 
-.dialogLogsContent::-webkit-scrollbar-track {
-  background-color: #ffffff26;
-}
 /* 
 .dialogLogMessage {
   overflow-wrap: anywhere;

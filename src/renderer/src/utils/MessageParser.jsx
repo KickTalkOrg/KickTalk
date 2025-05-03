@@ -17,6 +17,8 @@ const rules = [
           emote={{
             id,
             name,
+            width: 28,
+            height: 28,
           }}
           type={"kick"}
         />

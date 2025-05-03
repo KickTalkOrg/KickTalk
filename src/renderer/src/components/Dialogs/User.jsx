@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import "../../assets/styles/components/Dialogs/UserDialog.css";
 import Message from "../../utils/Message";
-
+import Pin from "../../assets/icons/push-pin-fill.svg?asset";
+import clsx from "clsx";
 const User = () => {
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -9,6 +10,7 @@ const User = () => {
   const [subscriberBadges, setSubscriberBadges] = useState([]);
   const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
   const [kickTalkBadges, setKickTalkBadges] = useState(null);
+  const [isDialogPinned, setIsDialogPinned] = useState(false);
   const dialogLogsRef = useRef(null);
 
   useEffect(() => {
@@ -30,6 +32,9 @@ const User = () => {
       // Fetch User Profile in Channel
       const { data: user } = await window.app.kick.getUserChatroomInfo(currentChatroom?.slug, data?.sender?.username);
       setUserProfile(user);
+
+      // Always make sure dialog starts unpinned
+      await window.app.userDialog.pin(false);
     };
 
     const updateData = (data) => {
@@ -49,9 +54,10 @@ const User = () => {
     dialogLogsRef.current.scrollTop = dialogLogsRef.current.scrollHeight;
   }, [userLogs]);
 
-  const userKickTalkBadges = kickTalkBadges?.find(
-    (badge) => badge.username.toLowerCase() === dialogData?.sender?.username?.toLowerCase(),
-  )?.badges;
+  const handlePinToggle = async () => {
+    await window.app.userDialog.pin(!isDialogPinned);
+    setIsDialogPinned(!isDialogPinned);
+  };
 
   return (
     <div className="dialogWrapper">
@@ -89,7 +95,16 @@ const User = () => {
             </div>
           </div>
         </div>
-        <div className="dialogHeaderOptions"></div>
+        <div className="dialogHeaderOptions">
+          <button>Mute User</button>
+          <button>User Card </button>
+        </div>
+
+        <div className="dialogOptions">
+          <button className={clsx("dialogOptionsPin", isDialogPinned ? "pinned" : "")} onClick={handlePinToggle}>
+            <img src={Pin} width={16} height={16} />
+          </button>
+        </div>
       </div>
 
       <div className="dialogLogs">

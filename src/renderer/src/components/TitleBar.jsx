@@ -17,6 +17,8 @@ const TitleBar = () => {
     const fetchUserData = async () => {
       try {
         const data = await window.app.kick.getSelfInfo();
+        // const sendUsernameToServer = await window.app.sendUsernameToServer(data.username);
+
         setUserData(data);
       } catch (error) {
         console.error("Failed to fetch user data:", error);

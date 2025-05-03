@@ -135,6 +135,13 @@ video {
   border: 0px;
 }
 
+button {
+  border: none;
+  background: none;
+  outline: none;
+  cursor: pointer;
+}
+
 * {
   font-family: "Inter";
   -webkit-font-smoothing: antialiased;
@@ -234,15 +241,6 @@ body {
   display: none;
 }
 
-.emote {
-  vertical-align: middle;
-  margin-left: 1px;
-  margin-right: 1px;
-}
-
-.kick-emote {
-  width: 38px;
-}
 .badges {
   display: contents;
   vertical-align: middle;

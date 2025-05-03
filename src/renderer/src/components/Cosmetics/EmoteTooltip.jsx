@@ -6,32 +6,40 @@ const EmoteTooltip = ({ showEmoteInfo, mousePos, emoteInfo, type }) => {
   const [position, setPosition] = useState({ top: 0, left: 0 });
 
   useEffect(() => {
-    if (!mousePos.x || !mousePos.y || !showEmoteInfo) {
+    if (!mousePos.x || !mousePos.y || !showEmoteInfo || !emoteTooltipRef.current) {
       return;
     }
 
     const calculatePosition = () => {
-      if (!emoteTooltipRef.current) return;
+      const windowWidth = window.innerWidth;
+      const windowHeight = window.innerHeight;
 
-      const tooltipHeight = 300;
-      const tooltipWidth = 400;
+      const tooltipRect = emoteTooltipRef.current.getBoundingClientRect();
 
       let top = mousePos.y + 15;
       let left = mousePos.x + 15;
 
-      if (left - tooltipWidth > 80) {
-        left = mousePos.x - 180;
+      if (left + tooltipRect.width > windowWidth - 20) {
+        left = mousePos.x - tooltipRect.width - 15;
       }
 
-      if (top - tooltipHeight > 70) {
-        top = mousePos.y - 140;
+      if (left < 20) {
+        left = windowWidth - tooltipRect.width - 20;
+      }
+
+      if (top + tooltipRect.height > windowHeight - 20) {
+        top = mousePos.y - tooltipRect.height - 15;
+      }
+
+      if (top < 20) {
+        top = windowHeight - tooltipRect.height - 20;
       }
 
       setPosition({ top, left });
     };
 
     calculatePosition();
-  }, [mousePos]);
+  }, [mousePos, showEmoteInfo]);
 
   if (!showEmoteInfo) return null;
 
@@ -39,11 +47,11 @@ const EmoteTooltip = ({ showEmoteInfo, mousePos, emoteInfo, type }) => {
     <div
       ref={emoteTooltipRef}
       style={{
-        top: showEmoteInfo && position.top,
-        left: showEmoteInfo && position.left,
+        top: position.top,
+        left: position.left,
         opacity: showEmoteInfo ? 1 : 0,
       }}
-      className={clsx("tooltipItem showTooltip", showEmoteInfo ? "showTooltip" : "")}>
+      className={clsx("tooltipItem", showEmoteInfo ? "showTooltip" : "")}>
       <img
         src={
           type === "stv"

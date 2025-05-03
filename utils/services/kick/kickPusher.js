@@ -1,9 +1,10 @@
 class KickPusher extends EventTarget {
-  constructor(chatroomNumber) {
+  constructor(chatroomNumber, streamerId) {
     super();
     this.reconnectDelay = 5000;
     this.chat = null;
     this.chatroomNumber = chatroomNumber;
+    this.streamerId = streamerId;
     this.shouldReconnect = true;
   }
 
@@ -12,8 +13,10 @@ class KickPusher extends EventTarget {
       console.log("Not connecting to chatroom. Disabled recconect.");
       return;
     }
-    console.log(`Connecting to chatroom: ${this.chatroomNumber}`);
-    this.chat = new WebSocket("wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=7.6.0&flash=false");
+    console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
+    this.chat = new WebSocket(
+      "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
+    );
 
     this.dispatchEvent(
       new CustomEvent("connection", {
@@ -29,14 +32,24 @@ class KickPusher extends EventTarget {
       console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
       setTimeout(() => {
         if (this.chat && this.chat.readyState === WebSocket.OPEN) {
-          this.chat.send(
-            JSON.stringify({
-              event: "pusher:subscribe",
-              data: { auth: "", channel: `chatrooms.${this.chatroomNumber}.v2` },
-            }),
-          );
+          const channelsToSubscribe = [
+            `channel_${this.streamerId}`,
+            `channel.${this.streamerId}`,
+            `chatrooms.${this.chatroomNumber}`,
+            `chatrooms.${this.chatroomNumber}.v2`,
+            `chatroom_${this.chatroomNumber}`,
+          ];
 
-          console.log(`Subscribed to Channel: chatrooms.${this.chatroomNumber}.v2`);
+          channelsToSubscribe.forEach((channel) => {
+            this.chat.send(
+              JSON.stringify({
+                event: "pusher:subscribe",
+                data: { auth: "", channel },
+              }),
+            );
+          });
+
+          console.log(`Subscribed to Channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
         }
       }, 1000);
     });
@@ -112,16 +125,24 @@ class KickPusher extends EventTarget {
 
     if (this.chat && this.chat.readyState === WebSocket.OPEN) {
       try {
-        this.chat.send(
-          JSON.stringify({
-            event: "pusher:unsubscribe",
-            data: {
-              channel: `chatrooms.${this.chatroomNumber}.v2`,
-            },
-          }),
-        );
+        const channelsToUnsubscribe = [
+          `channel_${this.streamerId}`,
+          `channel.${this.streamerId}`,
+          `chatrooms.${this.chatroomNumber}`,
+          `chatrooms.${this.chatroomNumber}.v2`,
+          `chatroom_${this.chatroomNumber}`,
+        ];
 
-        console.log(`Unsubscribed from channel: chatrooms.${this.chatroomNumber}.v2`);
+        channelsToUnsubscribe.forEach((channel) => {
+          this.chat.send(
+            JSON.stringify({
+              event: "pusher:unsubscribe",
+              data: { channel },
+            }),
+          );
+        });
+
+        console.log(`Unsubscribed from channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
 
         this.chat.close();
         this.chat = null;

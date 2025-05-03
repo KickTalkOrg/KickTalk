@@ -50,17 +50,20 @@
   align-items: center;
 }
 
-.settingsHead > button {
+.settingsLogoutButton {
   background: none;
   display: flex;
   border: none;
-  color: rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  transition: all 0.15s ease-in-out;
 }
 
-.settingsHead > button:hover {
-  color: rgba(255, 255, 255, 1);
+.settingsLogoutButton > img {
+  opacity: 0.5;
+  transition: opacity 0.15s ease-in-out;
+}
+
+.settingsLogoutButton:hover > img {
+  opacity: 1;
 }
 
 .settingsDivider {
@@ -82,7 +85,7 @@
   padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: 12px;
 }
 
 .settingsSection h5 {
@@ -145,6 +148,12 @@
 .settingSwitchItem.checked > .checkBox {
   border-color: #00c94a;
   background-color: #00c94aaf;
+}
+
+.notificationOptions {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
 }
 
 .notifications {

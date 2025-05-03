@@ -14,7 +14,7 @@ const RegularMessage = memo(
     type,
   }) => {
     return (
-      <span className={`chatMessageContainer ${message.deleted ? "deleted" : ""} ${message.is_old ? "old" : ""}`}>
+      <span className={`chatMessageContainer ${message.deleted ? "deleted" : ""}`}>
         <div className="chatMessageUser">
           <div className="chatMessageBadges">
             {userKickTalkBadges && <KickTalkBadges badges={userKickTalkBadges} />}

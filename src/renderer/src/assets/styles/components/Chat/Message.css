@@ -33,6 +33,7 @@
   display: inline-flex;
   flex-direction: column;
   max-width: 100%;
+  line-height: 24px;
 }
 
 .chatMessageReplyTextSender {
@@ -59,10 +60,12 @@
 /** [Message Item] **/
 
 .chatMessageContent {
-  color: rgba(255, 255, 255, 0.95);
+  display: inline;
+  color: rgba(255, 255, 255, 0.9);
   overflow-wrap: anywhere;
-  transition: opacity 0.2s ease;
   line-height: 24px;
+  vertical-align: middle;
+  transition: opacity 0.2s ease;
 }
 
 .chatMessageContent a {
@@ -71,8 +74,10 @@
 
 .chatMessageUser {
   display: inline-flex;
-  align-items: baseline;
   word-break: break-all;
+  flex-wrap: nowrap;
+  align-items: center;
+  vertical-align: middle;
 }
 
 .chatMessageUsername {
@@ -83,7 +88,7 @@
   border: none;
   font-size: var(--chat-message-font-size);
   cursor: pointer;
-  line-height: 24px;
+  vertical-align: middle;
 }
 
 .chatMessageContainer.deleted {
@@ -109,9 +114,9 @@
 
 /** [Badges] **/
 
-.chatroomBadges {
-  display: inline;
-  align-items: baseline;
+.chatMessageBadges {
+  display: inline-block;
+  vertical-align: middle;
 }
 
 .chatroomBadge {
@@ -176,20 +181,37 @@
 
 .kickEmote {
   font-weight: 900;
-  margin-right: 4px;
   white-space: normal;
-  width: 32px;
+  width: inherit;
+  height: inherit;
 }
 
 .stvEmote {
-  margin-right: 0px;
   white-space: normal;
-  vertical-align: bottom;
+  display: inline-block;
+}
+
+.chatroomEmoteWrapper {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  flex-direction: row;
 }
 
 .chatroomEmote {
-  position: relative;
-  display: inline-block;
+  top: 50%;
+  left: 0;
+  position: absolute;
+  width: inherit;
+  display: flex;
+  align-items: center;
+  gap: 44px;
+  justify-content: center;
+  height: inherit;
+  transform: translate(0, -50%) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);
 }
 
 /** [End of Emote] **/
@@ -216,7 +238,6 @@
   background-color: #0b160f;
   border: 1px solid #192c1f;
   border-bottom-width: 4px;
-  white-space: nowrap;
   margin-bottom: 0;
   text-align: center;
   pointer-events: none;
@@ -232,6 +253,7 @@
   padding: 0;
   min-width: 132px;
   z-index: 99;
+  max-width: 100%;
   font-size: 18px;
   align-items: center;
   justify-content: center;
@@ -285,5 +307,8 @@
 
 .emoteTooltipInfo p span {
   font-weight: 800;
+  overflow-wrap: break-word;
+  word-wrap: break-word;
+  word-break: break-word;
   color: rgba(255, 255, 255, 1);
 }

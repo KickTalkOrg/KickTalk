@@ -10,8 +10,16 @@ const getChannelInfo = async (channelID) => {
   return response.data;
 };
 
-const getChannelChatroomInfo = (channelID) => {
-  return axios.get(`${APIUrl}/api/v2/channels/${channelID}/chatroom`);
+const getChannelChatroomInfo = (channelName) => {
+  const transformedChannelName = channelName.replace("_", "-");
+
+  return axios.get(`${APIUrl}/api/v2/channels/${transformedChannelName}`, {
+    referrer: `https://kick.com/`,
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "GET",
+    mode: "cors",
+    credentials: "include",
+  });
 };
 
 const getUserChatroomStatus = (sessionCookie, kickSession, channelName) => {
@@ -72,7 +80,7 @@ const getUserChatroomInfo = (chatroomName, username, sessionCookie, kickSession)
       priority: "u=1, i",
       "x-xsrf-token": kickSession,
     },
-    referrer: "https://kick.com/",
+    referrer: `https://kick.com/${transformedChannelName}`,
     referrerPolicy: "strict-origin-when-cross-origin",
     method: "GET",
     mode: "cors",
@@ -80,13 +88,33 @@ const getUserChatroomInfo = (chatroomName, username, sessionCookie, kickSession)
   });
 };
 
-const getKickEmotes = (chatroomName) => {
+const getKickEmotes = async (chatroomName) => {
   const transformedChannelName = chatroomName.replace("_", "-");
-  return axios.get(`${APIUrl}/emotes/${transformedChannelName}`);
+  const response = await axios.get(`${APIUrl}/emotes/${transformedChannelName}`);
+
+  const processedEmotes =
+    response?.data?.map((set) => {
+      return {
+        ...set,
+        emotes:
+          set.emotes?.map((emote) => ({
+            ...emote,
+            platform: "kick",
+          })) || [],
+      };
+    }) || [];
+
+  return processedEmotes;
 };
 
-const getKickTalkBadges = () => {
-  return axios.get(`${KickTalkAPIUrl}/badges`);
+const getKickTalkBadges = async () => {
+  const response = await axios.get(`${KickTalkAPIUrl}/badges`);
+
+  if (response.status === 200) {
+    return response.data;
+  }
+
+  return [];
 };
 
 const getSilencedUsers = (sessionCookie, kickSession) => {
@@ -105,6 +133,10 @@ const getSilencedUsers = (sessionCookie, kickSession) => {
   });
 };
 
+const sendUsernameToServer = (username) => {
+  return axios.post(`${KickTalkAPIUrl}/t/internal/username`, { username });
+};
+
 export {
   getChannelInfo,
   getChannelChatroomInfo,
@@ -116,4 +148,5 @@ export {
   getSilencedUsers,
   getInitialChatroomMessages,
   getUserChatroomStatus,
+  sendUsernameToServer,
 };

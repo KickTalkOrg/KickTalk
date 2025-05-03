@@ -17,11 +17,16 @@ dayjs.extend(relativeTime);
 // TODO: Separate chatroom inputs / history, each chatroom has its own input
 const Chat = memo(({ chatroomId }) => {
   const chatBodyRef = useRef();
+  const { settings } = useSettings();
 
   const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
   const messages = useChatStore((state) => state.messages[chatroomId]);
-  const updatedPlayedSound = useChatStore((state) => state.updatedPlayedSound);
-  const { settings } = useSettings();
+  const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
+
+  const updateSoundPlayed = useCallback(
+    (messageId) => updateSoundPlayedStore(chatroomId, messageId),
+    [chatroomId, updateSoundPlayedStore],
+  );
 
   const [kickTalkBadges, setKickTalkBadges] = useState([]);
   const [pinnedMessageExpanded, setPinnedMessageExpanded] = useState(false);
@@ -35,7 +40,7 @@ const Chat = memo(({ chatroomId }) => {
   const handleScroll = useCallback(() => {
     if (!chatBodyRef.current) return;
     const { scrollHeight, clientHeight, scrollTop } = chatBodyRef.current;
-    const nearBottom = scrollHeight - clientHeight - scrollTop < 100;
+    const nearBottom = scrollHeight - clientHeight - scrollTop < 200;
 
     setShouldAutoScroll(nearBottom);
     setShowScrollToBottom(!nearBottom);
@@ -70,7 +75,14 @@ const Chat = memo(({ chatroomId }) => {
     <div className="chatContainer">
       <div className="chatStreamerInfo">
         <div className="chatStreamerInfoContent">
-          <span>{chatroom?.streamerData?.user?.username}</span>
+          <span>
+            {chatroom?.streamerData?.user?.username}
+            {chatroom?.isStreamerLive && (
+              <div className="liveBadge">
+                LIVE <span className="liveBadgeDot" />
+              </div>
+            )}
+          </span>
         </div>
         <div className="chatStreamerInfoActions">
           {chatroom?.pinnedMessage && !showPinnedMessage && (
@@ -105,7 +117,7 @@ const Chat = memo(({ chatroomId }) => {
               sevenTVEmotes={chatroom?.channel7TVEmotes}
               kickTalkBadges={kickTalkBadges}
               message={message}
-              updatedPlayedSound={updatedPlayedSound}
+              updateSoundPlayed={updateSoundPlayed}
               settings={settings}
             />
           );
@@ -114,7 +126,7 @@ const Chat = memo(({ chatroomId }) => {
 
       <div className="chatBoxContainer">
         <button
-          className={clsx("scrollToBottomBtn", showScrollToBottom && "show")}
+          className={clsx("scrollToBottomBtn", showScrollToBottom ? "show" : "hide")}
           disabled={!showScrollToBottom}
           onClick={() => {
             setShowScrollToBottom(false);

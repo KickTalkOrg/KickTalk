@@ -241,13 +241,14 @@ const EmoteHandler = ({ chatroomId }) => {
     editor.update(() => {
       const selection = $getSelection();
       if (!$isRangeSelection(selection)) return;
-
-      if (emote.owner) {
+      if (emote?.platform === "7tv") {
         const emoteNode = new EmoteNode(emote.id, emote.name, "7tv");
         selection.insertNodes([emoteNode]);
-      } else {
+      } else if (emote?.platform === "kick") {
         const emoteNode = new EmoteNode(emote.id, emote.name, "kick");
         selection.insertNodes([emoteNode]);
+      } else {
+        return;
       }
     });
   };

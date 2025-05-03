@@ -70,7 +70,7 @@ const KickTalkBadges = memo(({ badges }) => {
   );
 
   return badges.map((badge) => {
-    const badgeUrl = `https://api.kicktalk.app/badges/${badge.type}`;
+    const badgeUrl = `https://cdn.kicktalk.app/${badge.type}.webp`;
     return (
       <div className="chatroomBadge" key={badge.type} onMouseMove={handleMouseMove}>
         <BadgeTooltip showBadgeInfo={showBadgeInfo} mousePos={mousePos} badgeInfo={{ ...badge, src: badgeUrl }} />

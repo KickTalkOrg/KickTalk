@@ -1,9 +1,17 @@
 import Store from "electron-store";
 
 const schema = {
-  alwaysOnTop: {
-    type: "boolean",
-    default: true,
+  general: {
+    type: "object",
+    properties: {
+      alwaysOnTop: {
+        type: "boolean",
+        default: true,
+      },
+    },
+    default: {
+      alwaysOnTop: true,
+    },
   },
   chatrooms: {
     type: "object",
@@ -105,15 +113,6 @@ const schema = {
       },
     },
     default: { x: undefined, y: undefined, width: 480, height: 900 },
-  },
-  userDialog: {
-    type: "object",
-    properties: {
-      alwaysOnTop: {
-        type: "boolean",
-        default: true,
-      },
-    },
   },
 };
 

@@ -2,7 +2,7 @@ import { memo, useCallback, useState } from "react";
 import EmoteTooltip from "./EmoteTooltip";
 
 const Emote = memo(({ emote, type }) => {
-  const { id, name } = emote;
+  const { id, name, width, height } = emote;
 
   const [showEmoteInfo, setShowEmoteInfo] = useState(false);
   const [mousePos, setMousePos] = useState({ x: null, y: null });
@@ -26,18 +26,26 @@ const Emote = memo(({ emote, type }) => {
   );
 
   return (
-    <div className="chatroomEmote" onMouseEnter={handleMouseEnter} onMouseLeave={handleMouseLeave} onMouseMove={handleMouseMove}>
+    <span
+      className="chatroomEmoteWrapper"
+      style={{ width: type === "stv" ? width : "32px", height: type === "stv" ? height : "32px" }}>
       <EmoteTooltip type={type} showEmoteInfo={showEmoteInfo} mousePos={mousePos} emoteInfo={emote} />
-      <img
-        className={type === "stv" ? "stvEmote emote" : "kickEmote emote"}
-        src={type === "stv" ? `https://cdn.7tv.app/emote/${id}/1x.webp` : `https://files.kick.com/emotes/${id}/fullsize`}
-        alt={name}
-        title={name}
-        loading="lazy"
-        fetchpriority="low"
-        decoding="async"
-      />
-    </div>
+      <div
+        className="chatroomEmote"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        onMouseMove={handleMouseMove}>
+        <img
+          className={type === "stv" ? "stvEmote emote" : "kickEmote emote"}
+          src={type === "stv" ? `https://cdn.7tv.app/emote/${id}/1x.webp` : `https://files.kick.com/emotes/${id}/fullsize`}
+          alt={name}
+          title={name}
+          loading="lazy"
+          fetchpriority="low"
+          decoding="async"
+        />
+      </div>
+    </span>
   );
 });
 

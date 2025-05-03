@@ -45,12 +45,15 @@
   height: 100%;
   background-color: transparent;
   border: none;
-  color: rgba(255, 255, 255, 0.4);
+  opacity: 0.4;
+  transition:
+    0.15s ease-in-out opacity,
+    0.15s ease-in-out background-color;
 }
 
 .titleBarControls button:hover {
   background-color: rgba(255, 255, 255, 0.2);
-  color: rgba(255, 255, 255, 0.8);
+  opacity: 0.8;
   cursor: default;
 }
 
@@ -81,7 +84,7 @@
   app-region: no-drag;
   flex: 1 1 40%;
   color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
+  font-size: 12px;
   font-weight: 600;
   background-color: #182f21;
   cursor: pointer;

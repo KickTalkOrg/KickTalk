@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import useChatStore from "../providers/ChatProvider";
 import Plus from "../assets/icons/plus-bold.svg?asset";
 import X from "../assets/icons/x-bold.svg?asset";
+import useClickOutside from "../utils/useClickOutside";
 
 const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
   const addChatroom = useChatStore((state) => state.addChatroom);
@@ -15,6 +16,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
   const [isConnecting, setIsConnecting] = useState(false);
   const inputRef = useRef(null);
   const chatroomListRef = useRef(null);
+  const addChatroomDialogRef = useRef(null);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -62,6 +64,8 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
     onSelectChatroom(savedChatrooms[0].id);
   }, []);
 
+  useClickOutside(addChatroomDialogRef, () => setAddChatroomDialog(false));
+
   return (
     <div className="navbarContainer" ref={chatroomListRef}>
       <div className="chatroomsList">
@@ -74,7 +78,11 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
                 await handleRemoveChatroom(chatroom.id);
               }
             }}
-            className={clsx("chatroomStreamer", chatroom.id === currentChatroomId && "chatroomStreamerActive")}>
+            className={clsx(
+              "chatroomStreamer",
+              chatroom.id === currentChatroomId && "chatroomStreamerActive",
+              chatroom?.isStreamerLive && "chatroomStreamerLive",
+            )}>
             <div className="streamerInfo">
               {chatroom.streamerData?.user?.profile_pic && (
                 <img
@@ -93,20 +101,25 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
       </div>
 
       <div className={clsx("navbarAddChatroomDialog", showAddChatroomDialog && "open")}>
-        <div className="navbarAddChatroomDialogBody">
+        <div className="navbarAddChatroomDialogBody" ref={addChatroomDialogRef}>
           <div className="navbarAddChatroomDialogHead">
-            <h2>Add Chatroom</h2>
+            <div className="navbarAddChatroomDialogHeadInfo">
+              <h2>Add Chatroom</h2>
+              <p>Enter a channel name to add a new chatroom</p>
+            </div>
             <button
               className="navbarAddChatroomDialogClose"
               onClick={() => setAddChatroomDialog(false)}
               aria-label="Close Add Chatroom">
-              {/* <X size={16} weight="bold" /> */}
+              <img src={X} width={16} height={16} alt="Close Add Chatroom" />
             </button>
           </div>
           <form onSubmit={handleSubmit} className="navbarAddForm">
-            <input ref={inputRef} placeholder="Enter username" disabled={isConnecting} />
+            <div>
+              <input ref={inputRef} placeholder="Enter username" disabled={isConnecting} />
+            </div>
             <button className="navbarAddChatroom" type="submit" disabled={isConnecting}>
-              {isConnecting ? "Connecting..." : "Add"}
+              {isConnecting ? "Connecting..." : "Add Chatroom"}
             </button>
           </form>
         </div>

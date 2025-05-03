@@ -8,8 +8,8 @@
 }
 
 .authLoginHeader {
-  font-size: 48px;
-  font-weight: 600;
+  font-size: 40px;
+  font-weight: 700;
   color: #fff;
   app-region: no-drag;
 }

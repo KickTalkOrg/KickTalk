@@ -5,6 +5,8 @@
   margin: 0 auto;
   display: flex;
   position: relative;
+  min-height: 64px;
+  padding-left: 16px;
   align-items: center;
   background: #182f21;
   border: 1px solid rgba(80, 123, 97, 0.5);
@@ -54,14 +56,13 @@
 }
 
 .chatInput {
-  padding: 16px;
   border-bottom: 0;
   border-radius: 6px 0 0 0;
   border-right: none;
-  display: block;
+  display: inline-flex;
   max-height: 148px;
-  min-height: 64px;
   overflow-y: auto;
+  height: 100%;
   overflow-x: hidden;
   width: 100%;
   color: #fff;
@@ -71,7 +72,8 @@
 }
 
 .editor-paragraph {
-  padding: 4px 0;
+  padding: 18px 0;
+  padding-right: 16px;
   width: 100%;
 }
 
@@ -252,7 +254,7 @@
   background-color: #1e2d21;
   border-radius: 8px;
   padding: 12px;
-  min-height: 80px;
+  min-height: 50%;
   overflow: hidden;
   transition: height 0.2s ease-in-out;
 }

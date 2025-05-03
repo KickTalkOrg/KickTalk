@@ -1,12 +1,14 @@
 import "../assets/styles/components/Chat/Message.css";
-import { memo, useCallback } from "react";
+import { memo, useCallback, useRef } from "react";
 import ModActionMessage from "../components/Messages/ModActionMessage";
 import RegularMessage from "../components/Messages/RegularMessage";
 import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg?asset";
 import clsx from "clsx";
 
 const Message = memo(
-  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, updatedPlayedSound }) => {
+  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, updateSoundPlayed }) => {
+    const messageRef = useRef(null);
+
     const handleOpenUserDialog = useCallback(
       (e) => {
         e.preventDefault();
@@ -19,7 +21,6 @@ const Message = memo(
       [message?.sender, chatroomId],
     );
 
-    // TODO: Future Reply Dialog
     const userKickTalkBadges = kickTalkBadges?.find(
       (badge) => badge.username.toLowerCase() === message?.sender?.username?.toLowerCase(),
     )?.badges;
@@ -32,21 +33,27 @@ const Message = memo(
 
     const shouldHighlight = checkForPhrases();
 
-    if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true) {
+    if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true && !message?.is_old) {
       const audio = new Audio(settings?.notifications?.soundFile);
       audio.volume = settings?.notifications?.soundVolume || 0.1;
       audio.play().catch((error) => {
         console.error("Error playing sound:", error);
       });
-      updatedPlayedSound(message.id, chatroomId);
+      updateSoundPlayed(chatroomId, message.id);
     }
 
     return (
       <div
-        className={clsx("chatMessageItem", type === "dialog" && "dialogChatMessageItem")}
+        className={clsx(
+          "chatMessageItem",
+          message.is_old && "old",
+          message.deleted && "deleted",
+          type === "dialog" && "dialogChatMessageItem",
+        )}
         style={{
           backgroundColor: shouldHighlight ? settings?.notifications?.backgroundColour : "transparent",
-        }}>
+        }}
+        ref={messageRef}>
         {message.type === "message" && (
           <RegularMessage
             type={type}
@@ -97,7 +104,8 @@ const Message = memo(
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.deleted === nextProps.message.deleted &&
-      prevProps.settings === nextProps.settings
+      prevProps.settings === nextProps.settings &&
+      prevProps.kickTalkBadges === nextProps.kickTalkBadges
     );
   },
 );

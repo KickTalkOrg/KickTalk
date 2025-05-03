@@ -7,8 +7,6 @@ import TitleBar from "../components/TitleBar";
 function ChatPage() {
   const [activeChatroomId, setActiveChatroomId] = useState(null);
 
-  const [kickTalkBadges, setKickTalkBadges] = useState(null);
-
   return (
     <div>
       <TitleBar />
@@ -23,7 +21,7 @@ function ChatPage() {
         ) : (
           <div className="chatroomsEmptyState">
             <h1>No Chats</h1>
-            <p>Add a chatroom by using "CTRL +" or clicking Add top right</p>
+            <p>Add a chatroom by using "CTRL"+" or clicking Add top right</p>
           </div>
         )}
       </div>

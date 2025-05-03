@@ -1,4 +1,4 @@
-appId: com.electron.app
+appId: com.kicktalk.app
 productName: kicktalk
 directories:
   buildResources: build
@@ -39,4 +39,4 @@ appImage:
 npmRebuild: false
 publish:
   provider: generic
-  url: https://example.com/auto-updates
+  url: https://kicktalk.app/auto-updates

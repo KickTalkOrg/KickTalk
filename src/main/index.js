@@ -1,4 +1,4 @@
-import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, Menu, safeStorage } from "electron";
+import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, Menu, Tray } from "electron";
 import { join } from "path";
 import { getKickTalkBadges } from "../../utils/services/kick/kickAPI";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
@@ -26,6 +26,7 @@ const isDev = process.env.NODE_ENV === "development";
 
 const chatLogsStore = new Map();
 let kickTalkBadges = null;
+let tray = null;
 
 const storeToken = async (token_name, token) => {
   if (!token || !token_name) return;
@@ -67,21 +68,14 @@ let authDialog = null;
 const initializeKickTalkBadges = async () => {
   try {
     const badges = await getKickTalkBadges();
-    kickTalkBadges = badges.data || [];
+    kickTalkBadges = badges || [];
   } catch (error) {
     console.error("[KickTalk Badges]: Error getting KickTalk badges:", error);
   }
 };
 
-ipcMain.handle("kicktalk:getBadges", async () => {
-  try {
-    const badges = await getKickTalkBadges();
-    kickTalkBadges = badges?.data || [];
-    return kickTalkBadges;
-  } catch (error) {
-    console.error("[KickTalk Badges]: Error fetching badges:", error);
-    return [];
-  }
+ipcMain.handle("kicktalk:getBadges", () => {
+  return kickTalkBadges;
 });
 
 ipcMain.handle("store:get", async (e, { key }) => {
@@ -94,8 +88,15 @@ ipcMain.handle("store:set", (e, { key, value }) => {
 
   mainWindow.webContents.send("store:updated", { [key]: value });
 
-  if (key === "alwaysOnTop") {
-    mainWindow.setAlwaysOnTop(value);
+  if (key === "general") {
+    if (process.platform === "darwin") {
+      mainWindow.setVisibleOnAllWorkspaces(value.alwaysOnTop, { visibleOnFullScreen: true });
+      mainWindow.setAlwaysOnTop(value.alwaysOnTop);
+    } else if (process.platform === "win32") {
+      mainWindow.setAlwaysOnTop(value.alwaysOnTop, "screen-saver", 1);
+    } else if (process.platform === "linux") {
+      mainWindow.setAlwaysOnTop(value.alwaysOnTop, "screen-saver", 1);
+    }
   }
 
   return result;
@@ -130,7 +131,7 @@ ipcMain.handle("chatLogs:add", async (e, { data }) => {
 
   const userLogs = roomLogs.get(userId) || { messages: [] };
   const updatedLogs = {
-    messages: [...userLogs.messages.filter((m) => m.id !== message.id), { ...message, timestamp: Date.now() }].slice(-100),
+    messages: [...userLogs.messages.filter((m) => m.id !== message.id), { ...message, timestamp: Date.now() }].slice(-80),
     lastUpdate: Date.now(),
   };
 
@@ -156,15 +157,20 @@ ipcMain.handle("bring-to-front", () => {
 });
 
 const setAlwaysOnTop = (window) => {
-  window.setAlwaysOnTop(store.get("alwaysOnTop"));
+  const alwaysOnTopSetting = store.get("general.alwaysOnTop");
 
-  if (process.platform === "darwin") {
-    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-    window.setFullScreenable(false);
-  } else if (process.platform === "win32") {
-    window.setAlwaysOnTop(true, "always-on-top", 1);
-  } else if (process.platform === "linux") {
-    window.setAlwaysOnTop(true, "screen-saver");
+  if (alwaysOnTopSetting) {
+    if (process.platform === "darwin") {
+      window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
+      window.setFullScreenable(false);
+      window.setAlwaysOnTop(true);
+    } else if (process.platform === "win32") {
+      window.setAlwaysOnTop(true, "screen-saver");
+      window.setVisibleOnAllWorkspaces(true);
+    } else if (process.platform === "linux") {
+      window.setAlwaysOnTop(true, "screen-saver");
+      window.setVisibleOnAllWorkspaces(true);
+    }
   }
 };
 
@@ -180,7 +186,7 @@ const createWindow = () => {
     backgroundColor: "#06190e",
     autoHideMenuBar: true,
     titleBarStyle: "hidden",
-    icon: join(__dirname, "../../resources/logos/win/KickTalk_v1.ico"),
+    icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
     webPreferences: {
       devTools: true,
       nodeIntegration: false,
@@ -190,10 +196,25 @@ const createWindow = () => {
     },
   });
 
+  mainWindow.setThumbarButtons([
+    {
+      icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
+      click: () => {
+        mainWindow.show();
+      },
+    },
+  ]);
+
+  setAlwaysOnTop(mainWindow);
+
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
+    setAlwaysOnTop(mainWindow);
     initializeKickTalkBadges();
-    mainWindow.webContents.openDevTools();
+
+    if (isDev) {
+      mainWindow.webContents.openDevTools();
+    }
   });
 
   mainWindow.on("resize", () => {
@@ -210,10 +231,6 @@ const createWindow = () => {
   });
 
   mainWindow.webContents.setZoomFactor(store.get("zoomFactor"));
-
-  mainWindow.on("always-on-top-changed", (event, isAlwaysOnTop) => {
-    console.log(isAlwaysOnTop, "changed");
-  });
 
   // HMR for renderer base on electron-vite cli.
   // Load the remote URL for development or the local html file for production.
@@ -249,6 +266,7 @@ const loginToKick = async (method) => {
       show: true,
       resizable: false,
       transparent: true,
+      parent: authDialog,
       roundedCorners: true,
       webPreferences: {
         autoplayPolicy: "user-gesture-required",
@@ -261,6 +279,9 @@ const loginToKick = async (method) => {
     switch (method) {
       case "kick":
         loginDialog.loadURL("https://kick.com/login");
+        loginDialog.webContents.on("did-finish-load", () => {
+          loginDialog.webContents.setAudioMuted(true);
+        });
         break;
       case "google":
         loginDialog.loadURL(
@@ -312,28 +333,13 @@ const loginToKick = async (method) => {
   });
 };
 
-const buildMenuTemplate = (params) => {
-  const menuTemplate = [
-    {
-      label: "Copy",
-      click: () => {
-        console.log("Copy");
-      },
-    },
-    {
-      label: "Paste",
-      click: () => {
-        console.log("Paste");
-      },
-    },
-  ];
-  return menuTemplate;
-};
-
 // This method will be called when Electron has finished
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
+  tray = new Tray(join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"));
+  tray.setToolTip("KickTalk");
+
   // Set the icon for the app
   if (process.platform === "win32") {
     app.setAppUserModelId(process.execPath);
@@ -388,12 +394,6 @@ app.whenReady().then(() => {
       store.set("zoomFactor", newZoomFactor);
     }
   });
-
-  mainWindow.webContents.on("context-menu", (e, params) => {
-    const menuTemplate = buildMenuTemplate(params);
-    const contextMenu = Menu.buildFromTemplate(menuTemplate);
-    contextMenu.popup({ window: mainWindow.webContents });
-  });
 });
 
 // Logout Handler
@@ -416,20 +416,19 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   if (userDialog) {
     userDialog.setPosition(newX, newY);
     userDialog.webContents.send("userDialog:data", data);
-    userDialog.focus();
     return;
   }
 
   userDialog = new BrowserWindow({
-    width: 500,
-    height: 500,
+    width: 550,
+    height: 600,
     x: newX,
     y: newY,
-    show: true,
+    show: false,
     resizable: false,
     frame: false,
     transparent: true,
-    roundedCorners: true,
+    parent: mainWindow,
     webPreferences: {
       devTools: true,
       nodeIntegration: false,
@@ -448,21 +447,32 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
 
   userDialog.once("ready-to-show", () => {
     userDialog.show();
-    userDialog.webContents.openDevTools();
+    userDialog.setAlwaysOnTop(false);
+    userDialog.focus();
     userDialog.webContents.send("userDialog:data", data);
   });
 
   // TODO: Handle Pin of Dialog
-  // userDialog.on("blur", () => {
-  //   if (userDialog) {
-  //     userDialog.close();
-  //   }
-  // });
+  userDialog.on("blur", () => {
+    if (userDialog && !userDialog.isAlwaysOnTop()) {
+      userDialog.close();
+      mainWindow.setAlwaysOnTop(store.get("general.alwaysOnTop"));
+    }
+  });
 
   userDialog.on("closed", () => {
     dialogInfo = null;
     userDialog = null;
   });
+});
+
+ipcMain.handle("userDialog:pin", async (e, forcePinState) => {
+  if (userDialog) {
+    const newPinState = forcePinState !== undefined ? forcePinState : !userDialog.isAlwaysOnTop();
+
+    await userDialog.setAlwaysOnTop(newPinState, "screen-saver");
+    await userDialog.setVisibleOnAllWorkspaces(newPinState);
+  }
 });
 
 // Auth Dialog Handler
@@ -472,8 +482,8 @@ ipcMain.handle("authDialog:open", (e) => {
     x: mainWindowPos[0],
     y: mainWindowPos[1],
   });
-  const newX = currentDisplay.bounds.x + Math.round((currentDisplay.bounds.width - 500) / 2);
-  const newY = currentDisplay.bounds.y + Math.round((currentDisplay.bounds.height - 600) / 2);
+  const newX = currentDisplay.bounds.x + Math.round((currentDisplay.bounds.width - 600) / 2);
+  const newY = currentDisplay.bounds.y + Math.round((currentDisplay.bounds.height - 750) / 2);
 
   if (authDialog) {
     authDialog.focus();
@@ -481,8 +491,8 @@ ipcMain.handle("authDialog:open", (e) => {
   }
 
   authDialog = new BrowserWindow({
-    width: 500,
-    height: 600,
+    width: 600,
+    height: 750,
     x: newX,
     y: newY,
     show: true,
@@ -490,6 +500,7 @@ ipcMain.handle("authDialog:open", (e) => {
     frame: false,
     transparent: true,
     roundedCorners: true,
+    parent: mainWindow,
     webPreferences: {
       devTools: true,
       nodeIntegration: false,
@@ -508,15 +519,10 @@ ipcMain.handle("authDialog:open", (e) => {
 
   authDialog.once("ready-to-show", () => {
     authDialog.show();
-    authDialog.webContents.openDevTools();
+    if (isDev) {
+      authDialog.webContents.openDevTools();
+    }
   });
-
-  // TODO: Handle Pin of Dialog
-  // authDialog.on("blur", () => {
-  //   if (authDialog) {
-  //     authDialog.close();
-  //   }
-  // });
 
   authDialog.on("closed", () => {
     authDialog = null;

@@ -3,7 +3,7 @@ import "../../assets/styles/components/Dialogs/AuthDialog.css";
 import GoogleIcon from "../../assets/logos/googleLogo.svg?asset";
 import AppleIcon from "../../assets/logos/appleLogo.svg?asset";
 import KickIconIcon from "../../assets/logos/kickLogoIcon.svg?asset";
-import GhostIcon from "../../assets/icons/ghost.svg?asset";
+import GhostIcon from "../../assets/icons/ghost-fill.svg?asset";
 const Auth = () => {
   const handleAuthLogin = (type) => {
     switch (type) {

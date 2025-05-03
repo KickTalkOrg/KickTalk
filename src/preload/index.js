@@ -6,12 +6,12 @@ import {
   getChannelChatroomInfo,
   getKickEmotes,
   getSelfInfo,
+  sendUsernameToServer,
   getUserChatroomInfo,
   getSilencedUsers,
   getKickTalkBadges,
   getInitialChatroomMessages,
 } from "../../utils/services/kick/kickAPI";
-import handleEmotes from "../../utils/emotes";
 import { getChannelEmotes } from "../../utils/services/seventv/stvAPI";
 
 import Store from "electron-store";
@@ -70,6 +70,7 @@ if (process.contextIsolated) {
         open: (data) => ipcRenderer.invoke("userDialog:open", { data }),
         close: () => ipcRenderer.send("userDialog:close"),
         move: (x, y) => ipcRenderer.send("userDialog:move", { x, y }),
+        pin: (pinState) => ipcRenderer.invoke("userDialog:pin", pinState),
         onData: (callback) => {
           const handler = (_, data) => callback(data);
 
@@ -95,6 +96,7 @@ if (process.contextIsolated) {
         getChannelChatroomInfo,
         sendMessage: (channelId, message) => sendMessageToChannel(channelId, message, authSession.token, authSession.session),
         getSilencedUsers,
+        sendUsernameToServer,
         getSelfInfo: async () => {
           try {
             const response = await getSelfInfo(authSession.token, authSession.session);
@@ -119,7 +121,6 @@ if (process.contextIsolated) {
       // Utility functions
       utils: {
         openExternal: (url) => shell.openExternal(url),
-        handleEmotes,
         getKickTalkBadges,
         getBadges: async () => await ipcRenderer.invoke("kicktalk:getBadges"),
       },
