@@ -1,7 +1,8 @@
 import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, Menu, Tray } from "electron";
 import { join } from "path";
-import { getKickTalkBadges } from "../../utils/services/kick/kickAPI";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
+import { kickTalkBadges } from "../../utils/kickTalkBadges";
+
 import Store from "electron-store";
 import store from "../../utils/config";
 
@@ -25,7 +26,6 @@ ipcMain.setMaxListeners(100);
 const isDev = process.env.NODE_ENV === "development";
 
 const chatLogsStore = new Map();
-let kickTalkBadges = null;
 let tray = null;
 
 const storeToken = async (token_name, token) => {
@@ -64,15 +64,6 @@ let dialogInfo = null;
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
-
-const initializeKickTalkBadges = async () => {
-  try {
-    const badges = await getKickTalkBadges();
-    kickTalkBadges = badges || [];
-  } catch (error) {
-    console.error("[KickTalk Badges]: Error getting KickTalk badges:", error);
-  }
-};
 
 ipcMain.handle("kicktalk:getBadges", () => {
   return kickTalkBadges;
@@ -210,7 +201,6 @@ const createWindow = () => {
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
-    initializeKickTalkBadges();
 
     if (isDev) {
       mainWindow.webContents.openDevTools();

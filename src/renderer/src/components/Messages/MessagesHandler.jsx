@@ -1,10 +1,11 @@
-import { memo, useEffect, useRef } from "react";
+import { memo } from "react";
 import useChatStore from "../../providers/ChatProvider";
 import Message from "../../utils/Message";
 
 const MessagesHandler = memo(
   ({ chatroomId, slug, channel7TVEmotes, subscriberBadges, kickTalkBadges, updateSoundPlayed, settings }) => {
     const messages = useChatStore((state) => state.messages[chatroomId]);
+    const stvCosmetics = useChatStore((state) => state.chatroomCosmetics);
 
     return (
       <div>
@@ -20,6 +21,7 @@ const MessagesHandler = memo(
               message={message}
               updateSoundPlayed={updateSoundPlayed}
               settings={settings}
+              stvCosmetics={stvCosmetics}
             />
           );
         })}

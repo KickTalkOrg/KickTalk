@@ -114,13 +114,21 @@
 
   > .chatMessageUsername {
     display: inline;
-    font-weight: bold;
+    font-weight: 800;
     cursor: pointer;
     background: none;
     border: none;
     font-size: var(--chat-message-font-size);
     cursor: pointer;
     vertical-align: middle;
+
+    &.chatMessageUsernamePaint {
+      background-color: currentColor;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      -webkit-background-clip: text;
+      background-size: cover;
+    }
   }
 }
 

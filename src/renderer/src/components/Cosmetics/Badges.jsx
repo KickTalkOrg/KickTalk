@@ -86,4 +86,41 @@ const KickTalkBadges = memo(({ badges }) => {
   });
 });
 
-export { KickBadges, KickTalkBadges };
+const StvBadges = memo(({ badge }) => {
+  const [showBadgeInfo, setShowBadgeInfo] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: null, y: null });
+
+  const handleMouseEnter = useCallback((e) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
+    setShowBadgeInfo(true);
+  }, []);
+
+  const handleMouseLeave = useCallback(() => {
+    setShowBadgeInfo(false);
+  }, []);
+
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (showBadgeInfo) {
+        setMousePos({ x: e.clientX, y: e.clientY });
+      }
+    },
+    [showBadgeInfo],
+  );
+
+  const badgeUrl = badge.url;
+  return (
+    <div className="chatroomBadge" key={badge.type} onMouseMove={handleMouseMove}>
+      <BadgeTooltip showBadgeInfo={showBadgeInfo} mousePos={mousePos} badgeInfo={{ ...badge, src: badgeUrl }} />
+      <img
+        className="chatroomBadgeIcon"
+        src={badgeUrl}
+        alt={badge.title}
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+      />
+    </div>
+  );
+});
+
+export { KickBadges, KickTalkBadges, StvBadges };

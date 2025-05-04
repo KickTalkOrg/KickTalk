@@ -106,7 +106,7 @@ const useChatStore = create((set, get) => ({
           }));
           break;
         case "entitlement.create":
-          console.log("entitlement.create", body);
+          console.log("entitlement.create", body.object.user.username);
           set((state) => ({
             chatroomCosmetics: {
               ...state.chatroomCosmetics,

@@ -34,6 +34,12 @@
   src: url("../fonts/Inter/Inter-SemiBold.ttf");
 }
 
+@font-face {
+  font-family: "Inter";
+  font-weight: 800;
+  src: url("../fonts/Inter/Inter-ExtraBold.ttf");
+}
+
 #main {
   background: linear-gradient(180deg, #020a05 0%, #06190e 100%), linear-gradient(180deg, #031209 0%, #06190e 100%);
 }
