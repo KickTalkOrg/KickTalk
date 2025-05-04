@@ -20,8 +20,12 @@ const Chat = memo(
     const chatBodyRef = useRef();
     const { settings } = useSettings();
 
-    const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
-    const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
+
+  const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
+  const messages = useChatStore((state) => state.messages[chatroomId]);
+  const stvCosmetics = useChatStore((state) => state.chatroomCosmetics);
+  console.log("Chatroom cosmetics", stvCosmetics);
+  const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
 
     const updateSoundPlayed = useCallback(
       (messageId) => updateSoundPlayedStore(chatroomId, messageId),
@@ -98,28 +102,34 @@ const Chat = memo(
           </div>
         </div>
 
-        {chatroom?.pinnedMessage && (
-          <PinnedMessage
-            pinnedMessage={chatroom?.pinnedMessage}
-            showPinnedMessage={showPinnedMessage}
-            setShowPinnedMessage={setShowPinnedMessage}
-            pinnedMessageExpanded={pinnedMessageExpanded}
-            setPinnedMessageExpanded={setPinnedMessageExpanded}
-          />
-        )}
+      {chatroom?.pinnedMessage && (
+        <PinnedMessage
+          pinnedMessage={chatroom?.pinnedMessage}
+          showPinnedMessage={showPinnedMessage}
+          setShowPinnedMessage={setShowPinnedMessage}
+          pinnedMessageExpanded={pinnedMessageExpanded}
+          setPinnedMessageExpanded={setPinnedMessageExpanded}
+        />
+      )}
 
-        <div className="chatBody" ref={chatBodyRef} onScroll={handleScroll}>
-          <MessagesHandler
-            chatroomId={chatroomId}
-            slug={chatroom?.slug}
-            channel7TVEmotes={chatroom?.channel7TVEmotes}
-            subscriberBadges={subscriberBadges}
-            kickTalkBadges={kickTalkBadges}
-            updateSoundPlayed={updateSoundPlayed}
-            settings={settings}
-          />
-        </div>
-
+      <div className="chatBody" ref={chatBodyRef} onScroll={handleScroll}>
+        {messages?.map((message) => {
+          return (
+            <Message
+              key={message.id}
+              chatroomId={chatroomId}
+              chatroomName={chatroom?.slug}
+              subscriberBadges={subscriberBadges}
+              sevenTVEmotes={chatroom?.channel7TVEmotes}
+              kickTalkBadges={kickTalkBadges}
+              stvCosmetics={stvCosmetics}
+              message={message}
+              updateSoundPlayed={updateSoundPlayed}
+              settings={settings}
+            />
+          );
+        })}
+      </div>
         <div className="chatBoxContainer">
           <button
             className={clsx("scrollToBottomBtn", showScrollToBottom ? "show" : "hide")}

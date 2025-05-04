@@ -63,7 +63,6 @@ const useChatStore = create((set, get) => ({
   },
 
   addMessage: (chatroomId, message) => {
-    // console.log("saved cosmetics", get().chatroomCosmetics);
     set((state) => ({
       messages: {
         ...state.messages,

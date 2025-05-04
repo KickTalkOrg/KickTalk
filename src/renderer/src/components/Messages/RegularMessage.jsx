@@ -15,17 +15,17 @@ const RegularMessage = memo(
     sevenTVSettings,
     stvCosmetics,
     type,
+    stvCosmetics,
   }) => {
     const [stvBadge, setStvBadge] = useState(null);
     const [stvPaint, setStvPaint] = useState(null);
-
+    
     useEffect(() => {
       if (stvCosmetics && message.sender.username) {
         const userInfo = stvCosmetics.userInfo?.[message.sender.username.toLowerCase()];
         if (userInfo?.entitlement?.object?.user?.style) {
           const paintId = userInfo.entitlement.object.user.style.paint_id;
           const badgeId = userInfo.entitlement.object.user.style.badge_id;
-
           const foundPaint = stvCosmetics.chatroomCosmetics?.paints?.find((p) => p.id === paintId);
           const foundBadge = stvCosmetics.chatroomCosmetics?.badges?.find((b) => b.id === badgeId);
 
@@ -47,7 +47,6 @@ const RegularMessage = memo(
               kickTalkBadges={kickTalkBadges}
             />
           </div>
-
           <button
             onClick={handleOpenUserDialog}
             className={clsx("chatMessageUsername", stvPaint && "chatMessageUsernamePaint")}
@@ -57,7 +56,7 @@ const RegularMessage = memo(
                 : { color: message.sender.identity?.color }
             }>
             <span>{message.sender.username}:&nbsp;</span>
-          </button>
+          </button>)}
         </div>
 
         <span className="chatMessageContent">

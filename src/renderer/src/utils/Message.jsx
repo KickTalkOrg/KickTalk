@@ -87,6 +87,7 @@ const Message = memo(
               sevenTVEmotes={sevenTVEmotes}
               handleOpenUserDialog={handleOpenUserDialog}
               sevenTVSettings={settings?.sevenTV}
+              stvCosmetics={stvCosmetics}
             />
           </div>
         )}

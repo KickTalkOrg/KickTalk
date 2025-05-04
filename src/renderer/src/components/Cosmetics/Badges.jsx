@@ -107,7 +107,6 @@ const StvBadges = memo(({ badge }) => {
     },
     [showBadgeInfo],
   );
-
   const badgeUrl = badge.url;
   return (
     <div className="chatroomBadge" key={badge.type} onMouseMove={handleMouseMove}>
