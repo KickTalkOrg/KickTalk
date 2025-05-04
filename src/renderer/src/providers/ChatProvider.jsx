@@ -64,7 +64,6 @@ const useChatStore = create((set, get) => ({
   },
 
   addMessage: (chatroomId, message) => {
-    console.log("saved cosmetics", get().chatroomCosmetics);
     set((state) => ({
       messages: {
         ...state.messages,
@@ -75,7 +74,8 @@ const useChatStore = create((set, get) => ({
 
   connectToStvWebSocket: (chatroom) => {
     
-  const stvId = chatroom?.channel7TVEmotes.user.id || null;
+  const stvId = chatroom?.channel7TVEmotes?.user?.id;
+  if(!stvId) return;
   const stvEmoteSets = chatroom?.channel7TVEmotes.emote_set.id || [];
   const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
   set((state) => ({

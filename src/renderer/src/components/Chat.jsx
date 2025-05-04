@@ -21,6 +21,8 @@ const Chat = memo(({ chatroomId }) => {
 
   const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
   const messages = useChatStore((state) => state.messages[chatroomId]);
+  const stvCosmetics = useChatStore((state) => state.chatroomCosmetics);
+  console.log("Chatroom cosmetics", stvCosmetics);
   const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
 
   const updateSoundPlayed = useCallback(
@@ -116,6 +118,7 @@ const Chat = memo(({ chatroomId }) => {
               subscriberBadges={subscriberBadges}
               sevenTVEmotes={chatroom?.channel7TVEmotes}
               kickTalkBadges={kickTalkBadges}
+              stvCosmetics={stvCosmetics}
               message={message}
               updateSoundPlayed={updateSoundPlayed}
               settings={settings}
