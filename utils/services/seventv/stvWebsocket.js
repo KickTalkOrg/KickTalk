@@ -252,6 +252,36 @@ class StvWebSocket extends EventTarget {
         console.log(`[7TV]: Subscribed to entitlement.update`);
       }
 
+      const subscribeAllEmotes = {
+        op: 35,
+        t: Date.now(),
+        d: {
+          type: "emote.*",
+          condition: { platform: "KICK", ctx: "channel", id: this.channelKickID },
+        },
+      };
+
+      if (this.channelKickID !== "0") {
+        this.chat.send(JSON.stringify(subscribeAllEmotes));
+
+        console.log(`[7TV]: Subscribed to emote.*`);
+      }
+
+      const subscribeAllEmoteset = {
+        op: 35,
+        t: Date.now(),
+        d: {
+          type: "emote_set.*",
+          condition: { object_id: this.stvEmoteSetId },
+        },
+      };
+
+      if (this.channelKickID !== "0") {
+        this.chat.send(JSON.stringify(subscribeAllEmoteset));
+
+        console.log(`[7TV]: Subscribed to emote_set.*`);
+      }
+
       this.chat.onmessage = (event) => {
         
         try {
@@ -286,8 +316,16 @@ class StvWebSocket extends EventTarget {
                       detail: { body, type: "entitlement.create", },
                     })
                   );
-                  break;
                 }
+                break;
+              case "emote_set.update":
+                    console.log(type, body);
+                    this.dispatchEvent(
+                      new CustomEvent("message", {
+                        detail: { body, type: "emote_set.update", },
+                      })
+                    );
+                  break;
             }
             }
           } catch (error) {

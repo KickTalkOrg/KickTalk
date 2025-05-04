@@ -13,7 +13,6 @@ const RegularMessage = memo(
     sevenTVEmotes,
     handleOpenUserDialog,
     sevenTVSettings,
-    stvCosmetics,
     type,
     stvCosmetics,
   }) => {
@@ -56,7 +55,7 @@ const RegularMessage = memo(
                 : { color: message.sender.identity?.color }
             }>
             <span>{message.sender.username}:&nbsp;</span>
-          </button>)}
+          </button>
         </div>
 
         <span className="chatMessageContent">

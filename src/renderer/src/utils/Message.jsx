@@ -42,7 +42,7 @@ const Message = memo(
       updateSoundPlayed(chatroomId, message.id);
     }
 
-    console.log("test", stvCosmetics);
+    //console.log("test", stvCosmetics);
 
     return (
       <div

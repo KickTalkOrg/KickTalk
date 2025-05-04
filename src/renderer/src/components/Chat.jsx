@@ -115,7 +115,7 @@ const Chat = memo(
       <div className="chatBody" ref={chatBodyRef} onScroll={handleScroll}>
         {messages?.map((message) => {
           return (
-            <Message
+            <MessagesHandler
               key={message.id}
               chatroomId={chatroomId}
               chatroomName={chatroom?.slug}
