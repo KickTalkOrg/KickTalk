@@ -1,4 +1,4 @@
-import "../assets/styles/components/Chat/Input.css";
+import "../assets/styles/components/Chat/Input.scss";
 import {
   $getRoot,
   KEY_ENTER_COMMAND,
@@ -266,6 +266,12 @@ const initialConfig = {
 const ChatInput = memo(
   ({ chatroomId }) => {
     const sendMessage = useChatStore((state) => state.sendMessage);
+    const chatroomInfo = useChatStore(
+      useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatroomInfo),
+    );
+    const userChatroomInfo = useChatStore(
+      useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.userChatroomInfo),
+    );
 
     // Reset selected index when changing chatrooms
     useEffect(() => {
@@ -293,14 +299,20 @@ const ChatInput = memo(
     return (
       <div className="chatInputWrapper">
         <div className="chatInfoBar">
-          <p>Chat in slowmode</p>
+          {chatroomInfo?.followers_mode?.enabled
+            ? `Followers Only Mode [${chatroomInfo?.followers_mode?.min_duration} minutes]`
+            : chatroomInfo?.emotes_mode?.enabled
+              ? "Emote Only Mode"
+              : chatroomInfo?.slow_mode?.enabled
+                ? `Slow Mode [${chatroomInfo?.slow_mode?.seconds} seconds]`
+                : ""}
         </div>
         <div className="chatInputContainer">
           <LexicalComposer key={`composer-${chatroomId}`} initialConfig={initialConfig}>
             <div className="chatInputBox">
               <PlainTextPlugin
                 contentEditable={
-                  <div className="chatInputBoxContainer">
+                  <div>
                     <ContentEditable
                       className="chatInput"
                       enterKeyHint="send"

@@ -45,24 +45,24 @@
     background-color 0.2s ease-in-out,
     border-color 0.2s ease-in-out,
     color 0.2s ease-in-out;
-}
 
-.authLoginButton:hover {
-  background-color: rgba(255, 255, 255, 0.2);
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.4);
-}
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.2);
+    color: #fff;
+    border-color: rgba(255, 255, 255, 0.4);
 
-.authLoginButton:hover img,
-.authLoginButton:hover svg {
-  opacity: 1;
-}
+    img,
+    svg {
+      opacity: 1;
+    }
+  }
 
-.authLoginButton img {
-  width: 24px;
-  height: 24px;
-  opacity: 0.6;
-  transition: opacity 0.2s ease-in-out;
+  img {
+    width: 24px;
+    height: 24px;
+    opacity: 0.6;
+    transition: opacity 0.2s ease-in-out;
+  }
 }
 
 .authAnonymousButton {

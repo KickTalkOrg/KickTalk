@@ -1,4 +1,3 @@
-/* @import "./base.css"; */
 /* @font-face {
   font-family: "Indivisible";
   font-weight: 500;
@@ -185,42 +184,42 @@ body {
   border-radius: 4px;
   box-shadow: 0 3px 6px rgb(255 255 255 / 5%);
   text-align: center;
-}
 
-.dialog input {
-  width: 80%;
-  padding: 10px;
-  margin-bottom: 20px;
-  border: 1.5px solid #ffffff1c;
-  border-radius: 5px;
-  background: rgb(27 55 40);
-  color: white;
-  font-size: 16px;
-  outline: none;
-  transition: border 0.3s ease;
-}
+  input {
+    width: 80%;
+    padding: 10px;
+    margin-bottom: 20px;
+    border: 1.5px solid #ffffff1c;
+    border-radius: 5px;
+    background: rgb(27 55 40);
+    color: white;
+    font-size: 16px;
+    outline: none;
+    transition: border 0.3s ease;
 
-.dialog input:focus {
-  border-color: rgba(66, 202, 19, 1);
-}
+    &:focus {
+      border-color: rgba(66, 202, 19, 1);
+    }
+  }
 
-.dialog button {
-  background: rgba(66, 202, 19, 1);
-  color: white;
-  border: none;
-  padding: 10px 20px;
-  border-radius: 5px;
-  cursor: pointer;
-  font-size: 16px;
-  transition: background 0.3s ease;
-}
+  button {
+    background: rgba(66, 202, 19, 1);
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 16px;
+    transition: background 0.3s ease;
 
-.dialog button:hover {
-  background: rgba(66, 202, 19, 0.8);
-}
+    &:hover {
+      background: rgba(66, 202, 19, 0.8);
+    }
+  }
 
-.dialog h3 {
-  font-size: 1rem;
+  h3 {
+    font-size: 1rem;
+  }
 }
 
 .close {

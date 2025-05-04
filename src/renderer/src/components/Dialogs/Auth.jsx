@@ -1,5 +1,5 @@
 import React from "react";
-import "../../assets/styles/components/Dialogs/AuthDialog.css";
+import "../../assets/styles/components/Dialogs/AuthDialog.scss";
 import GoogleIcon from "../../assets/logos/googleLogo.svg?asset";
 import AppleIcon from "../../assets/logos/appleLogo.svg?asset";
 import KickIconIcon from "../../assets/logos/kickLogoIcon.svg?asset";

@@ -4,7 +4,6 @@ import { chatroomErrorHandler } from "../utils/chatErrors";
 import queueChannelFetch from "../../../../utils/fetchQueue";
 import StvWebSocket from "../../../../utils/services/seventv/stvWebsocket";
 
-
 // Load initial state from local storage
 const getInitialState = () => {
   const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
@@ -73,83 +72,94 @@ const useChatStore = create((set, get) => ({
   },
 
   connectToStvWebSocket: (chatroom) => {
-    
-  const stvId = chatroom?.channel7TVEmotes?.user?.id;
-  if(!stvId) return;
-  const stvEmoteSets = chatroom?.channel7TVEmotes.emote_set.id || [];
-  const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
-  set((state) => ({
-    connections: {
-      ...state.connections,
-      [chatroom.streamerData.user_id]: {
-        ...state.connections[chatroom.streamerData.user_id],
-       stvSocket: stvSocket,
+    const stvId = chatroom?.channel7TVEmotes?.user?.id;
+    if (!stvId) return;
+
+    const stvEmoteSets = chatroom?.channel7TVEmotes?.emote_set?.id || [];
+    const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
+
+    set((state) => ({
+      connections: {
+        ...state.connections,
+        [chatroom.id]: {
+          ...state.connections[chatroom.id],
+          stvSocket: stvSocket,
+        },
       },
-    },
-  }));
-  stvSocket.connect();
-   stvSocket.addEventListener("message", (event) => {
-    console.log("messages", get().messages);
+    }));
+
+    stvSocket.connect();
+
+    stvSocket.addEventListener("message", (event) => {
       const SevenTVEvent = event.detail;
       const { type, body } = SevenTVEvent;
-      console.log("7TV WebSocket message:", type, body);
-      if (type === "cosmetic.create") {
-      console.log("cosmetic.creation", body);
-      set((state) => ({
-        chatroomCosmetics: {
-          ...state.chatroomCosmetics,
-          chatroomCosmetics: body,
-        }
-      }));
-      }
-      if(type === "entitlement.create") {
-        console.log("entitlement.create", body);
-        set((state) => ({
-          chatroomCosmetics: {
-            ...state.chatroomCosmetics,
+
+      switch (type) {
+        case "cosmetic.create":
+          console.log("cosmetic.creation", body);
+          set((state) => ({
+            chatroomCosmetics: {
+              ...state.chatroomCosmetics,
+              chatroomCosmetics: body,
+            },
+          }));
+          break;
+        case "entitlement.create":
+          console.log("entitlement.create", body);
+          set((state) => ({
+            chatroomCosmetics: {
+              ...state.chatroomCosmetics,
               userInfo: {
                 ...state.chatroomCosmetics.userInfo,
                 [body.object.user.username]: {
                   ...state.chatroomCosmetics[body.id],
                   entitlement: body,
-                }
-              }
-          }
-        }));
+                },
+              },
+            },
+          }));
+          break;
+        default:
+          break;
       }
     });
 
     stvSocket.addEventListener("open", () => {
-      console.log("7TV WebSocket connected");
+      console.log("7TV WebSocket connected for chatroom:", chatroom.id);
     });
 
     stvSocket.addEventListener("close", () => {
-      console.log("7TV WebSocket disconnected");
+      console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
     });
   },
 
   connectToChatroom: (chatroom) => {
+    if (!chatroom?.id) return;
     const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id);
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {
       console.info("Connected to chatroom:", chatroom.id);
 
-      get().addMessage(chatroom.id, {
-        id: crypto.randomUUID(),
-        type: "system",
-        ...event?.detail,
-        timestamp: new Date().toISOString(),
-      });
+      if (!get().connections[chatroom.id]) {
+        get().addMessage(chatroom.id, {
+          id: crypto.randomUUID(),
+          type: "system",
+          ...event?.detail,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      return;
     });
 
     // Channel Events
     pusher.addEventListener("channel", (event) => {
       const parsedEvent = JSON.parse(event.detail.data);
       switch (event.detail.event) {
-        // case "App\\Events\\ChatroomUpdatedEvent":
-        //   get().handleChatroomUpdated(chatroom.id, parsedEvent);
-        //   break;
+        case "App\\Events\\ChatroomUpdatedEvent":
+          get().handleChatroomUpdated(chatroom.id, parsedEvent);
+          break;
         case "App\\Events\\StreamerIsLive":
           console.log("Streamer is live", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
@@ -183,6 +193,7 @@ const useChatStore = create((set, get) => ({
             userId: parsedEvent.sender.id,
             message: parsedEvent,
           });
+
           break;
         case "App\\Events\\MessageDeletedEvent":
           get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
@@ -238,7 +249,7 @@ const useChatStore = create((set, get) => ({
           if (room.id === chatroom.id) {
             return {
               ...room,
-              chatroomInfo: { ...data },
+              chatroomInfo: data,
               isStreamerLive: data?.livestream?.is_live,
               streamStatus: data?.livestream,
             };
@@ -250,6 +261,24 @@ const useChatStore = create((set, get) => ({
 
     fetchInitialChatroomInfo();
 
+    const fetchInitialUserChatroomInfo = async () => {
+      const { data } = await window.app.kick.getUserChatroomInfo(chatroom.slug);
+      console.log("userChatroomInfo", data);
+      set((state) => ({
+        chatrooms: state.chatrooms.map((room) => {
+          if (room.id === chatroom.id) {
+            return {
+              ...room,
+              userChatroomInfo: data,
+            };
+          }
+          return room;
+        }),
+      }));
+    };
+
+    fetchInitialUserChatroomInfo();
+
     // Fetch initial messages
     // TODO: Finish adding initial messages
     const fetchInitialMessages = async () => {
@@ -259,6 +288,7 @@ const useChatStore = create((set, get) => ({
 
       if (!data) return;
 
+      // Handle initialpinned message
       if (data?.pinned_message) {
         get().handlePinnedMessageCreated(chatroom.id, data.pinned_message);
       }
@@ -274,9 +304,9 @@ const useChatStore = create((set, get) => ({
     set((state) => ({
       connections: {
         ...state.connections,
-        [chatroom.id]:{
-          kickpusher: pusher,
-        }
+        [chatroom.id]: {
+          kickPusher: pusher,
+        },
       },
     }));
   },
@@ -306,6 +336,8 @@ const useChatStore = create((set, get) => ({
 
       // Connect to chatroom
       get().connectToChatroom(newChatroom);
+
+      // Connect to 7TV WebSocket
       get().connectToStvWebSocket(newChatroom);
 
       // Save to local storage
@@ -321,9 +353,10 @@ const useChatStore = create((set, get) => ({
     const { connections } = get();
     const connection = connections[chatroomId];
     const stvSocket = connection?.stvSocket;
-    const kickpusher = connection?.kickpusher;
+    const kickPusher = connection?.kickPusher;
+
     if (stvSocket) stvSocket.close();
-    if (kickpusher) kickpusher.close();
+    if (kickPusher) kickPusher.close();
 
     set((state) => {
       const { [chatroomId]: _, ...messages } = state.messages;
@@ -344,8 +377,11 @@ const useChatStore = create((set, get) => ({
   initializeConnections: () => {
     get()?.chatrooms?.forEach((chatroom) => {
       if (!get().connections[chatroom.id]) {
-        get().connectToStvWebSocket(chatroom);
+        // Connect to chatroom
         get().connectToChatroom(chatroom);
+
+        // Connect to 7TV WebSocket
+        get().connectToStvWebSocket(chatroom);
       }
     });
   },
@@ -462,6 +498,17 @@ const useChatStore = create((set, get) => ({
       chatrooms: state.chatrooms.map((room) => {
         if (room.id === chatroomId) {
           return { ...room, isStreamerLive: isLive, streamStatus: event };
+        }
+        return room;
+      }),
+    }));
+  },
+
+  handleChatroomUpdated: (chatroomId, event) => {
+    set((state) => ({
+      chatrooms: state.chatrooms.map((room) => {
+        if (room.id === chatroomId) {
+          return { ...room, chatroomInfo: event };
         }
         return room;
       }),

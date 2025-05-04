@@ -5,7 +5,7 @@ import Minus from "../assets/icons/minus-bold.svg?asset";
 import Square from "../assets/icons/square-bold.svg?asset";
 import X from "../assets/icons/x-bold.svg?asset";
 
-import "../assets/styles/components/TitleBar.css";
+import "../assets/styles/components/TitleBar.scss";
 import Settings from "./Settings/Settings";
 import clsx from "clsx";
 

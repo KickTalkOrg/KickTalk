@@ -1,4 +1,4 @@
-import "../assets/styles/components/Chat/Message.css";
+import "../assets/styles/components/Chat/Message.scss";
 import { memo, useCallback, useRef } from "react";
 import ModActionMessage from "../components/Messages/ModActionMessage";
 import RegularMessage from "../components/Messages/RegularMessage";

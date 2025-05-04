@@ -1,4 +1,4 @@
-import "../../assets/styles/components/Settings.css";
+import "../../assets/styles/components/Settings.scss";
 import { useState, useRef } from "react";
 import clsx from "clsx";
 import SignOut from "../../assets/icons/sign-out-bold.svg?asset";

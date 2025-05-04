@@ -1,4 +1,4 @@
-import "../assets/styles/components/Navbar.css";
+import "../assets/styles/components/Navbar.scss";
 import clsx from "clsx";
 import { useEffect, useRef, useState } from "react";
 import useChatStore from "../providers/ChatProvider";

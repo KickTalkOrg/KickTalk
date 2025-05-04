@@ -61,7 +61,9 @@ class KickPusher extends EventTarget {
 
     this.chat.addEventListener("close", () => {
       console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
+
       this.dispatchEvent(new Event("close"));
+
       if (this.shouldReconnect) {
         setTimeout(() => {
           console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
@@ -79,6 +81,7 @@ class KickPusher extends EventTarget {
 
         if (jsonData.event === "pusher_internal:subscription_succeeded") {
           console.log(`Subscription successful for chatroom: ${this.chatroomNumber}`);
+          console.log(event);
           this.dispatchEvent(
             new CustomEvent("connection", {
               detail: {

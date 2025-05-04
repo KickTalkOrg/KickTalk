@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import "../../assets/styles/components/Dialogs/UserDialog.css";
+import "../../assets/styles/components/Dialogs/UserDialog.scss";
 import Message from "../../utils/Message";
 import Pin from "../../assets/icons/push-pin-fill.svg?asset";
 import clsx from "clsx";

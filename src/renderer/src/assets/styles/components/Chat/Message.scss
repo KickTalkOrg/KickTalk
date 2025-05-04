@@ -1,0 +1,281 @@
+:root {
+  --chat-message-font-size: 16px;
+}
+
+.chatMessageItem {
+  font-size: var(--chat-message-font-size);
+  padding: 4px 12px 4px 16px;
+  overflow-wrap: anywhere;
+  border-radius: 4px;
+  position: relative;
+
+  &.old,
+  &.deleted {
+    opacity: 0.4;
+  }
+
+  &.dialogChatMessageItem {
+    padding: 0px;
+  }
+
+  &:hover .chatMessageActions {
+    opacity: 1;
+  }
+}
+
+.systemMessage {
+  opacity: 0.5;
+}
+
+/** [Reply Message] **/
+
+.chatMessageReply {
+  display: inline-flex;
+  flex-direction: column;
+  max-width: 100%;
+  line-height: 24px;
+
+  > .chatMessageReplyText {
+    display: inline-flex;
+    gap: 4px;
+    opacity: 0.35;
+
+    > .chatMessageReplyTextSender {
+      flex: 1 0 auto;
+      display: block;
+      max-width: fit-content;
+      font-weight: 700;
+    }
+
+    > .chatMessageReplyTextContent {
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+
+    > .chatMessageReplySymbol {
+      width: 28px;
+      height: 24px;
+      vertical-align: top;
+    }
+  }
+}
+
+/** [End of Reply Message] **/
+
+/** [Message Item] **/
+
+.chatMessageActions {
+  position: absolute;
+  right: 8px;
+  top: -16px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+  > button {
+    background: none;
+    border: none;
+    background-color: rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 4px;
+    transition: background-color 0.2s ease;
+
+    > img {
+      filter: invert(1);
+      opacity: 0.5;
+      transition: opacity 0.2s ease;
+    }
+
+    &:hover {
+      background-color: rgba(255, 255, 255, 0.2);
+      opacity: 1;
+    }
+  }
+}
+
+.chatMessageContent {
+  display: inline;
+  color: rgba(255, 255, 255, 0.9);
+  overflow-wrap: anywhere;
+  line-height: 24px;
+  vertical-align: middle;
+  transition: opacity 0.2s ease;
+
+  a {
+    color: white;
+  }
+}
+
+.chatMessageUser {
+  display: inline-flex;
+  word-break: break-all;
+  flex-wrap: nowrap;
+  align-items: center;
+  vertical-align: middle;
+
+  > .chatMessageUsername {
+    display: inline;
+    font-weight: bold;
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-size: var(--chat-message-font-size);
+    cursor: pointer;
+    vertical-align: middle;
+  }
+}
+
+/** [End of Message Item] **/
+
+/** [Badges] **/
+
+.chatMessageBadges {
+  display: inline-block;
+  vertical-align: middle;
+
+  > .chatroomBadge {
+    display: inline-block;
+    margin-right: 5px;
+
+    > .chatroomBadgeIcon {
+      width: calc(var(--chat-message-font-size) * (18 / 13));
+      height: calc(var(--chat-message-font-size) * (18 / 13));
+      vertical-align: middle;
+    }
+  }
+}
+
+/** [End of Badges] **/
+/** [Emotes] **/
+
+.kickEmote {
+  font-weight: 900;
+  white-space: normal;
+  width: inherit;
+  height: inherit;
+}
+
+.stvEmote {
+  white-space: normal;
+  display: inline-block;
+}
+
+.chatroomEmoteWrapper {
+  position: relative;
+  display: inline-flex;
+  vertical-align: middle;
+  align-items: center;
+  justify-content: center;
+  margin-right: 2px;
+  flex-direction: row;
+}
+
+.chatroomEmote {
+  top: 50%;
+  left: 0;
+  position: absolute;
+  width: inherit;
+  display: flex;
+  align-items: center;
+  gap: 44px;
+  justify-content: center;
+  height: inherit;
+  transform: translate(0, -50%) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);
+}
+
+/** [End of Emote] **/
+
+/** [Mod Action Message] **/
+
+.modActionMessage {
+  background: -webkit-linear-gradient(45deg, #779c85 80%, #030f08 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  font-weight: 600;
+  letter-spacing: -0.05px;
+
+  > span {
+    font-weight: 800;
+  }
+}
+
+/** [End of Mod Action Message] **/
+.tooltipItem {
+  display: none;
+  border-radius: 6px;
+  position: fixed;
+  background-color: #0b160f;
+  border: 1px solid #192c1f;
+  border-bottom-width: 4px;
+  margin-bottom: 0;
+  text-align: center;
+  pointer-events: none;
+  max-width: 250px;
+  gap: 16px;
+  z-index: 99;
+}
+
+.showTooltip {
+  position: fixed;
+  display: flex;
+  flex-direction: column;
+  padding: 0;
+  min-width: 132px;
+  z-index: 99;
+  max-width: 100%;
+  font-size: 18px;
+  align-items: center;
+  justify-content: center;
+  padding: 8px 24px;
+
+  > img {
+    height: 40px;
+    width: max-content;
+    object-fit: contain;
+    display: block;
+  }
+
+  > span {
+    font-size: 18px;
+    display: block;
+    width: 100%;
+    text-align: center;
+    overflow: hidden;
+    margin: 0;
+    padding: 0;
+  }
+}
+
+.emoteTooltipInfo {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  > p {
+    margin: 0;
+    padding: 0;
+    color: rgba(255, 255, 255, 0.7);
+    > span {
+      font-weight: 800;
+      overflow-wrap: break-word;
+      word-wrap: break-word;
+      word-break: break-word;
+      color: rgba(255, 255, 255, 1);
+    }
+  }
+}
+
+.emoteTooltipInfoHeader {
+  display: flex;
+  flex-direction: column;
+
+  > span {
+    font-weight: 800;
+    font-size: 16px;
+    color: rgba(255, 255, 255, 1);
+  }
+
+  > p {
+    font-size: 14px;
+    color: rgba(255, 255, 255, 0.7);
+  }
+}

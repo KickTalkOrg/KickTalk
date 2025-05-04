@@ -51,34 +51,33 @@
   display: flex;
   align-items: center;
   justify-content: center;
-
   app-region: no-drag;
   transition: background-color 0.2s ease-in-out;
-}
 
-.dialogOptionsPin.pinned {
-  background-color: #17a645;
-}
+  &.pinned {
+    background-color: #17a645;
 
-.dialogOptionsPin.pinned:hover {
-  background-color: #17a645;
-}
+    &:hover {
+      background-color: #17a645;
+    }
 
-.dialogOptionsPin.pinned img {
-  opacity: 1;
-}
+    img {
+      opacity: 1;
+    }
+  }
 
-.dialogOptionsPin:hover {
-  background-color: #192c1f;
-}
+  &:hover {
+    background-color: #192c1f;
 
-.dialogOptionsPin img {
-  opacity: 0.5;
-  transition: opacity 0.2s ease-in-out;
-}
+    img {
+      opacity: 1;
+    }
+  }
 
-.dialogOptionsPin:hover img {
-  opacity: 1;
+  img {
+    opacity: 0.5;
+    transition: opacity 0.2s ease-in-out;
+  }
 }
 
 .dialogHeaderUser {
@@ -88,40 +87,46 @@
   width: 100%;
   align-items: center;
   padding: 0 16px;
-}
 
-.dialogHeaderUser img {
-  width: inherit;
-  height: inherit;
-  object-fit: cover;
-  border-radius: 4px;
-  border: 1px solid #192c1f;
+  img {
+    width: inherit;
+    height: inherit;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid #192c1f;
+  }
 }
 
 .dialogHeaderOptions {
   width: 100%;
   display: flex;
-}
 
-.dialogHeaderOptions button {
-  background-color: #192c1f;
-  border: none;
-  padding: 16px;
-  width: 100%;
-  font-size: 16px;
-  color: #8db89c;
-  app-region: no-drag;
-  cursor: pointer;
-}
+  button {
+    background-color: #192c1f;
+    border: none;
+    padding: 16px;
+    width: 100%;
+    font-size: 16px;
+    color: #8db89c;
+    app-region: no-drag;
+    cursor: pointer;
 
-.dialogHeaderOptions button:hover {
-  background-color: #2d4b38;
+    &:hover {
+      background-color: #2d4b38;
+    }
+  }
 }
 
 .dialogHeaderUserInfo {
   display: flex;
   gap: 8px;
   flex-direction: column;
+
+  > h1 {
+    font-size: 22px;
+    width: max-content;
+    app-region: no-drag;
+  }
 }
 
 .dialogHeaderUserDates {
@@ -130,27 +135,21 @@
   flex-direction: column;
 }
 
-.dialogHeaderUserInfo > h1 {
-  font-size: 22px;
-  width: max-content;
-  app-region: no-drag;
-}
-
 .dialogHeaderDate {
   display: flex;
   gap: 4px;
   width: max-content;
   app-region: no-drag;
-}
 
-.dialogHeaderDate > span {
-  font-weight: 600;
-  color: rgb(255 255 255 / 90%);
-}
+  > span {
+    font-weight: 600;
+    color: rgb(255 255 255 / 90%);
+  }
 
-.dialogHeaderDate > p {
-  font-weight: 600;
-  color: rgb(255 255 255 / 75%);
+  > p {
+    font-weight: 600;
+    color: rgb(255 255 255 / 75%);
+  }
 }
 
 .dialogHeaderUserImage {
@@ -167,18 +166,18 @@
   display: flex;
   flex-direction: column;
   margin-right: 8px;
-}
 
-.dialogLogsContent::-webkit-scrollbar {
-  width: 8px;
-}
+  &::-webkit-scrollbar {
+    width: 8px;
+  }
 
-.dialogLogsContent::-webkit-scrollbar-thumb {
-  background-color: #b6d2c277;
-  border-radius: 2px;
-  background-clip: content-box;
-  min-width: 32px;
-  min-height: 32px;
+  &::-webkit-scrollbar-thumb {
+    background-color: #b6d2c277;
+    border-radius: 2px;
+    background-clip: content-box;
+    min-width: 32px;
+    min-height: 32px;
+  }
 }
 
 /* 
@@ -248,19 +247,10 @@
 
 .emote {
   vertical-align: middle;
-  margin-left: 1px;
-  margin-right: 1px;
+  width: 24px;
 }
 
-.kickEmote {
-  font-weight: 900;
-  margin-right: 4px;
-  white-space: normal;
-  width: 38px;
+.showTooltip > span {
+  font-size: 14px;
 }
-
-.stvEmote {
-  font-weight: 900;
-  margin-right: 4px;
-  white-space: normal;
-} */
+*/

@@ -1,4 +1,4 @@
-import { kickEmoteRegex, urlRegex } from "../../../../utils/constants";
+import { kickEmoteRegex, urlRegex, mentionRegex } from "../../../../utils/constants";
 import Emote from "../components/Cosmetics/Emote";
 
 const stvEmotes = new Map();
@@ -33,6 +33,19 @@ const rules = [
         {match[0]}
       </a>
     ),
+  },
+
+  {
+    // Mention rule
+    regexPattern: mentionRegex,
+    component: ({ match, index }) => {
+      const { username } = match.groups;
+      return (
+        <span style={{ color: "#fff", fontWeight: "bold" }} key={`mention-${index}`}>
+          {match[0]}
+        </span>
+      );
+    },
   },
 ];
 
