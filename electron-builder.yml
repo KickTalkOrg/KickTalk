@@ -34,6 +34,8 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  channel: latest,
-  url: https://kicktalk.app/auto-updates
+  owner: kicktalkorg
+  repo: kicktalk
+  provider: github
+  publisherName:
+    - ftk789 & darkness

@@ -1,11 +1,26 @@
-import { app, ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
+import { ipcMain } from "electron";
+console.log("AutoUpdater initialized");
+const startDownload = (callback, completedCallback) => {
+  autoUpdater.on("download-progress", (progress) => {
+    mainWindow.webContents.send("autoUpdater:downloadProgress", progress);
+  });
 
-const update = (window) => {
-  autoUpdater.autoDownload = false;
-  autoUpdater.disableWebInstaller = false;
+  autoUpdater.on("error", (error) => {
+    console.log("autoUpdater:downloadError", error);
+  });
+
+  autoUpdater.on("update-downloaded", completedCallback);
+
+  autoUpdater.downloadUpdate();
+};
+
+export const update = (mainWindow) => {
+  autoUpdater.autoDownload = true;
+  autoUpdater.disableWebInstaller = true;
   autoUpdater.allowDowngrade = false;
   autoUpdater.autoInstallOnAppQuit = true;
+  autoUpdater.forceDevUpdateConfig = true;
 
   autoUpdater.on("checking-for-update", () => {
     console.log("Checking for update...");
@@ -13,9 +28,26 @@ const update = (window) => {
 
   autoUpdater.on("update-available", (info) => {
     console.log("Update available:", info);
+    mainWindow.webContents.send("autoUpdater:update-available", info);
+    startDownload(
+      (error, progressInfo) => {
+        if (error) {
+          console.log("autoUpdater:downloadError", error);
+          mainWindow.webContents.send("autoUpdater:downloadError", error);
+        } else {
+          console.log("autoUpdater:downloadProgress", progressInfo);
+          mainWindow.webContents.send("autoUpdater:downloadProgress", progressInfo);
+        }
+      },
+      () => {
+        console.log("autoUpdater:downloadCompleted");
+        mainWindow.webContents.send("autoUpdater:downloadCompleted");
+      },
+    );
   });
 
   autoUpdater.on("update-not-available", (info) => {
+    mainWindow.webContents.send("audoUpdater:update-not-available", info);
     console.log("Update not available:", info);
   });
 
@@ -27,9 +59,10 @@ const update = (window) => {
     autoUpdater.checkForUpdatesAndNotify();
   });
 
+  autoUpdater.checkForUpdatesAndNotify();
+
   ipcMain.on("autoUpdater:download", (event, callback) => {
     startDownload(
-      callback,
       (error, progressInfo) => {
         if (error) {
           event.reply("autoUpdater:downloadError", error);
@@ -47,19 +80,3 @@ const update = (window) => {
     autoUpdater.quitAndInstall();
   });
 };
-
-const startDownload = (callback, completedCallback) => {
-  autoUpdater.on("download-progress", (progress) => {
-    callback(null, progress);
-  });
-
-  autoUpdater.on("error", (error) => {
-    callback(error, null);
-  });
-
-  autoUpdater.on("update-downloaded", completedCallback);
-
-  autoUpdater.downloadUpdate();
-};
-
-export default update;

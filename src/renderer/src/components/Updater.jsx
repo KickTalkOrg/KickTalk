@@ -1,5 +1,20 @@
+import { useEffect, useState } from "react";
+
+
 const Updater = () => {
-  return <div>Updater</div>;
+  const [update, setUpdate] = useState(null);
+  useEffect(() => {
+    const callbackFunction = (update) => {
+      console.log("update", update);
+      setUpdate(update);
+    }
+    const cleanup = window.app.update.onUpdate(callbackFunction);
+    console.log(cleanup);
+    return () => {
+      cleanup();
+    };
+  }, []);
+  return <div>sadas</div>;
 };
 
 export default Updater;

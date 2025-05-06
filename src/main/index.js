@@ -1,12 +1,41 @@
 import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, Menu, Tray } from "electron";
 import { join } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
-import update from "./update";
+import { update } from "./update";
 import Store from "electron-store";
 import store from "../../utils/config";
+import fs from "fs";
+import path from "path";
 
 import dotenv from "dotenv";
 dotenv.config();
+
+function serialize(arg) {
+  if (arg instanceof Error) {
+    return `${arg.name}: ${arg.message}\n${arg.stack}`;
+  }
+  try {
+    return typeof arg === 'string' ? arg : JSON.stringify(arg, null, 2);
+  } catch {
+    return '[Unserializable Object]';
+  }
+}
+
+function setupLogging() {
+  const logPath = path.join(app.getPath('userData'), 'log.txt');
+  const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+
+  const writeLog = (level, ...args) => {
+    const timestamp = new Date().toISOString();
+    const message = args.map(serialize).join(' ');
+    logStream.write(`[${level} ${timestamp}] ${message}\n`);
+  };
+
+  console.log = (...args) => writeLog('LOG', ...args);
+  console.error = (...args) => writeLog('ERROR', ...args);
+}
+
+setupLogging();
 
 const authStore = new Store({
   fileExtension: "env",
@@ -21,6 +50,7 @@ const authStore = new Store({
 });
 
 ipcMain.setMaxListeners(100);
+
 
 const isDev = process.env.NODE_ENV === "development";
 
@@ -197,7 +227,7 @@ const createWindow = () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
 
-    if (isDev) {
+    if (true) {
       mainWindow.webContents.openDevTools();
     }
   });

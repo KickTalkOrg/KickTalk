@@ -27,6 +27,22 @@
     "build:mac": "npm run build && electron-builder --mac",
     "build:linux": "npm run build && electron-builder --linux"
   },
+  "repository": "https://github.com/KickTalkOrg/KickTalk",
+  "publish": {
+    "provider": "github",
+    "releaseType": "release"
+  },
+  "product-name": "KickTalk",
+  "win": {
+    "target":
+      {
+        "target": "nsis"
+      },
+      "directories": {
+        "output": "dist"
+      },
+    "icon": "./public/icon.ico"
+  },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.1",
     "@electron-toolkit/utils": "^4.0.0",
