@@ -641,22 +641,24 @@ const ChatInput = memo(
     const chatroomMode = useMemo(() => {
       if (!chatroomInfo) return null;
 
+      const secondsToMinutes = (seconds) => Math.ceil(seconds / 60);
+
       if (chatroomInfo?.chatroom) {
-        if (chatroomInfo?.chatroom?.followers_mode) {
-          return `Followers Only Mode [${chatroomInfo?.chatroom?.following_min_duration} seconds]`;
-        } else if (chatroomInfo?.chatroom?.emotes_mode) {
-          return `Emote Only Mode`;
-        } else if (chatroomInfo?.chatroom?.slow_mode) {
-          return `Slow Mode [${chatroomInfo?.chatroom?.message_interval} seconds]`;
-        }
+      if (chatroomInfo?.chatroom?.followers_mode) {
+        return `Followers Only Mode [${secondsToMinutes(chatroomInfo?.chatroom?.following_min_duration)} minutes]`;
+      } else if (chatroomInfo?.chatroom?.emotes_mode) {
+        return `Emote Only Mode`;
+      } else if (chatroomInfo?.chatroom?.slow_mode) {
+        return `Slow Mode [${secondsToMinutes(chatroomInfo?.chatroom?.message_interval)} minutes]`;
+      }
       } else {
-        if (chatroomInfo?.followers_mode?.enabled) {
-          return `Followers Only Mode [${chatroomInfo?.followers_mode?.min_duration} seconds]`;
-        } else if (chatroomInfo?.emotes_mode?.enabled) {
-          return `Emote Only Mode [${chatroomInfo?.emotes_mode?.min_duration} seconds]`;
-        } else if (chatroomInfo?.slow_mode?.enabled) {
-          return `Slow Mode [${chatroomInfo?.slow_mode?.message_interval} seconds]`;
-        }
+      if (chatroomInfo?.followers_mode?.enabled) {
+        return `Followers Only Mode [${secondsToMinutes(chatroomInfo?.followers_mode?.min_duration)} minutes]`;
+      } else if (chatroomInfo?.emotes_mode?.enabled) {
+        return `Emote Only Mode [${secondsToMinutes(chatroomInfo?.emotes_mode?.min_duration)} minutes]`;
+      } else if (chatroomInfo?.slow_mode?.enabled) {
+        return `Slow Mode [${secondsToMinutes(chatroomInfo?.slow_mode?.message_interval)} minutes]`;
+      }
       }
 
       return null;

@@ -14,7 +14,7 @@ const Updater = () => {
       cleanup();
     };
   }, []);
-  return <div>sadas</div>;
+  return <div></div>;
 };
 
 export default Updater;
