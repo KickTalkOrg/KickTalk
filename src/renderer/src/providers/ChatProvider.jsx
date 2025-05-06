@@ -118,13 +118,13 @@ const useChatStore = create((set, get) => ({
         case "connection_established":
           break;
         case "emote_set.update":
-          console.log("Emote set update", body);
-          // get().handleEmoteSetUpdate(body);
+          get().handleEmoteSetUpdate(body);
           break;
         case "cosmetic.create":
           useCosmeticsStore?.getState()?.addCosmetics(body);
           break;
-        case "entitlement.create":          const username = body.object.user.username.toLowerCase();
+        case "entitlement.create":
+          const username = body.object.user.username.toLowerCase();
           useCosmeticsStore?.getState()?.addUserStyle(username, body);
           break;
 
@@ -545,6 +545,10 @@ const useChatStore = create((set, get) => ({
         [chatroomId]: [...(state.messages[chatroomId] || []), ...data],
       },
     }));
+  },
+
+  handleEmoteSetUpdate: (body) => {
+    if (!body?.pulled?.length) return;
   },
 }));
 

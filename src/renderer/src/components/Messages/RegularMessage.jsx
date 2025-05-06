@@ -52,11 +52,7 @@ const RegularMessage = memo(
     );
   },
   (prevProps, nextProps) => {
-    return (
-      prevProps.message === nextProps.message &&
-      prevProps.sevenTVSettings === nextProps.sevenTVSettings &&
-      prevProps.stvCosmetics === nextProps.stvCosmetics
-    );
+    return prevProps.message === nextProps.message && prevProps.sevenTVSettings === nextProps.sevenTVSettings;
   },
 );
 
