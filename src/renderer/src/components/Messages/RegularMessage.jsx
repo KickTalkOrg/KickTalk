@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useEffect, useState } from "react";
 import { MessageParser } from "../../utils/MessageParser";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import CopyIcon from "../../assets/icons/copy-simple-fill.svg";
@@ -52,7 +52,11 @@ const RegularMessage = memo(
     );
   },
   (prevProps, nextProps) => {
-    return prevProps.message === nextProps.message && prevProps.sevenTVSettings === nextProps.sevenTVSettings;
+    return (
+      prevProps.message === nextProps.message &&
+      prevProps.sevenTVSettings === nextProps.sevenTVSettings &&
+      prevProps.stvCosmetics === nextProps.stvCosmetics
+    );
   },
 );
 

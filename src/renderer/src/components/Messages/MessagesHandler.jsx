@@ -5,6 +5,7 @@ import Message from "../../utils/Message";
 const MessagesHandler = memo(
   ({ chatroomId, slug, channel7TVEmotes, subscriberBadges, kickTalkBadges, settings }) => {
     const messages = useChatStore((state) => state.messages[chatroomId]);
+    const stvCosmetics = useChatStore((state) => state.chatroomCosmetics);
 
     return (
       <div>
@@ -19,6 +20,7 @@ const MessagesHandler = memo(
               kickTalkBadges={kickTalkBadges}
               message={message}
               settings={settings}
+              stvCosmetics={stvCosmetics}
             />
           );
         })}

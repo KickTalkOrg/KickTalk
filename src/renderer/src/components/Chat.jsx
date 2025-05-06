@@ -21,7 +21,6 @@ const Chat = memo(
   ({ chatroomId }) => {
     const chatBodyRef = useRef();
     const { settings } = useSettings();
-
     const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
     const messages = useChatStore((state) => state.messages[chatroomId]);
 
@@ -112,7 +111,6 @@ const Chat = memo(
             settings={settings}
           />
         </div>
-
         <div className="chatBoxContainer">
           <button
             className={clsx("scrollToBottomBtn", showScrollToBottom ? "show" : "hide")}

@@ -124,8 +124,7 @@ const useChatStore = create((set, get) => ({
         case "cosmetic.create":
           useCosmeticsStore?.getState()?.addCosmetics(body);
           break;
-        case "entitlement.create":
-          const username = body.object.user.username.toLowerCase();
+        case "entitlement.create":          const username = body.object.user.username.toLowerCase();
           useCosmeticsStore?.getState()?.addUserStyle(username, body);
           break;
 

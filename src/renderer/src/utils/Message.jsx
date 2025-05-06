@@ -42,6 +42,8 @@ const Message = memo(
     //   updateSoundPlayed(chatroomId, message.id);
     // }
 
+    console.log("test", stvCosmetics);
+
     return (
       <div
         className={clsx(
@@ -82,6 +84,7 @@ const Message = memo(
               sevenTVEmotes={sevenTVEmotes}
               handleOpenUserDialog={handleOpenUserDialog}
               sevenTVSettings={settings?.sevenTV}
+              stvCosmetics={stvCosmetics}
             />
           </div>
         )}
