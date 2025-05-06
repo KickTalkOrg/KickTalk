@@ -1,5 +1,5 @@
 import "../../assets/styles/components/Settings.scss";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import clsx from "clsx";
 import SignOut from "../../assets/icons/sign-out-bold.svg?asset";
 import Check from "../../assets/icons/check-bold.svg?asset";
@@ -7,7 +7,7 @@ import { useSettings } from "../../providers/SettingsProvider";
 import ColorPicker from "./ColorPicker";
 import useClickOutside from "../../utils/useClickOutside";
 
-const Settings = ({ settingsModalOpen, setSettingsModalOpen }) => {
+const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
   const { settings, updateSettings } = useSettings();
   const [openColorPicker, setOpenColorPicker] = useState(false);
 
@@ -56,9 +56,9 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen }) => {
         </div>
       </div>
 
-      <span className="settingsDivider" />
+      {/* <span className="settingsDivider" /> */}
 
-      <div className="settingsSection chatroomSettings">
+      {/* <div className="settingsSection chatroomSettings">
         <h5>Chatroom Settings</h5>
 
         <div className="settingOptions chatroomSettingsOptions">
@@ -78,7 +78,7 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen }) => {
             </button>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <span className="settingsDivider" />
 
@@ -191,6 +191,27 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen }) => {
               }
             }}
           />
+        </div>
+      </div>
+
+      <div className="aboutDevelopers">
+        <span>Designed & Developed by:</span>
+
+        <div className="aboutDevelopersList">
+          <div className="aboutDeveloper">
+            <a href="https://x.com/drkerco/" target="_blank" rel="noopener noreferrer">
+              dark
+            </a>
+          </div>
+          <div className="aboutDeveloper">
+            <a href="https://x.com/ftk789YT/" target="_blank" rel="noopener noreferrer">
+              ftk789
+            </a>
+          </div>
+        </div>
+
+        <div className="aboutAppInfo">
+          <span>Version: {appInfo.appVersion}</span>
         </div>
       </div>
     </div>

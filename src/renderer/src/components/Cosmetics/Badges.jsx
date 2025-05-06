@@ -73,7 +73,11 @@ const KickTalkBadges = memo(({ badges }) => {
     const badgeUrl = `https://cdn.kicktalk.app/${badge.type}.webp`;
     return (
       <div className="chatroomBadge" key={badge.type} onMouseMove={handleMouseMove}>
-        <BadgeTooltip showBadgeInfo={showBadgeInfo} mousePos={mousePos} badgeInfo={{ ...badge, src: badgeUrl }} />
+        <BadgeTooltip
+          showBadgeInfo={showBadgeInfo}
+          mousePos={mousePos}
+          badgeInfo={{ ...badge, src: badgeUrl, owner: { username: "d9" } }}
+        />
         <img
           className="chatroomBadgeIcon"
           src={badgeUrl}

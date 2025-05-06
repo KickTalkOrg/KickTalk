@@ -1,180 +1,152 @@
-// This websocket class originally made by https://github.com/Fiszh and edited by ftk789
+// This websocket class originally made by https://github.com/Fiszh and edited by ftk789 and Drkness
 
 const cosmetics = {
   paints: [],
   badges: [],
-}
+};
 
-async function updateCosmetics(body) {
-  if (!body) { return; }
+const updateCosmetics = async (body) => {
+  if (!body?.object) {
+    return;
+  }
 
-  if (body.object) {
-      if (body.object.kind === "BADGE") {
-          const object = body.object
+  const { object } = body;
 
-          if (!object.user) {
-              const data = object.data
+  if (object?.kind === "BADGE") {
+    if (!object?.user) {
+      const data = object.data;
 
-              const foundBadge = cosmetics.badges.find(badge =>
-                  badge &&
-                  badge.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id)
-              );
+      const foundBadge = cosmetics.badges.find(
+        (badge) => badge && badge.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id),
+      );
 
-              if (foundBadge) { return; }
-
-              cosmetics.badges.push({
-                  id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
-                  title: data.tooltip,
-                  url: `${data.host.url}/${data.host.files[data.host.files.length - 1].name}`
-              });
-          }
+      if (foundBadge) {
+        return;
       }
 
-      if (body.object.kind === "PAINT") {
-          const object = body.object
+      cosmetics.badges.push({
+        id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
+        title: data.tooltip,
+        url: `https:${data.host.url}/${data.host.files[data.host.files.length - 1].name}`,
+      });
+    }
+  }
 
-          if (!object.user) {
-              const data = object.data
+  if (object?.kind === "PAINT") {
+    if (!object.user) {
+      const data = object.data;
 
-              const foundPaint = cosmetics.paints.find(paint =>
-                  paint &&
-                  paint.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id)
-              );
+      const foundPaint = cosmetics.paints.find(
+        (paint) => paint && paint.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id),
+      );
 
-              if (foundPaint) { return; }
+      if (foundPaint) {
+        return;
+      }
 
-              const randomColor = "#00f742";
+      const randomColor = "#00f742";
 
-              let push = {};
+      let push = {};
 
-              if (data.stops.length) {
-                  const normalizedColors = data.stops.map((stop) => ({
-                      at: stop.at * 100,
-                      color: stop.color
-                  }));
+      if (data.stops.length) {
+        const normalizedColors = data.stops.map((stop) => ({
+          at: stop.at * 100,
+          color: stop.color,
+        }));
 
-                  const gradient = normalizedColors.map(stop =>
-                      `${argbToRgba(stop.color)} ${stop.at}%`
-                  ).join(', ');
+        const gradient = normalizedColors.map((stop) => `${argbToRgba(stop.color)} ${stop.at}%`).join(", ");
 
-                  if (data.repeat) {
-                      data.function = `repeating-${data.function}`;
-                  }
+        if (data.repeat) {
+          data.function = `repeating-${data.function}`;
+        }
 
-                  data.function = data.function.toLowerCase().replace('_', '-')
+        data.function = data.function.toLowerCase().replace("_", "-");
 
-                  let isDeg_or_Shape = `${data.angle}deg`
+        let isDeg_or_Shape = `${data.angle}deg`;
 
-                  if (data.function !== "linear-gradient" && data.function !== "repeating-linear-gradient") {
-                      isDeg_or_Shape = data.shape
-                  }
+        if (data.function !== "linear-gradient" && data.function !== "repeating-linear-gradient") {
+          isDeg_or_Shape = data.shape;
+        }
 
-                  push = {
-                      id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
-                      name: data.name,
-                      style: data.function,
-                      shape: data.shape,
-                      backgroundImage: `${data.function || "linear-gradient"}(${isDeg_or_Shape}, ${gradient})` || `${data.style || "linear-gradient"}(${data.shape || ""} 0deg, ${randomColor}, ${randomColor})`,
-                      shadows: null,
-                      KIND: 'non-animated',
-                      url: data.image_url
-                  }
-              } else {
-                  push = {
-                      id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
-                      name: data.name,
-                      style: data.function,
-                      shape: data.shape,
-                      backgroundImage: `url('${[data.image_url]}')` || `${data.style || "linear-gradient"}(${data.shape || ""} 0deg, ${randomColor}, ${randomColor})`,
-                      shadows: null,
-                      KIND: 'animated',
-                      url: data.image_url
-                  }
-              }
-
-              // SHADOWS
-              let shadow = null;
-
-              if (data.shadows.length) {
-                  const shadows = data.shadows;
-
-                  shadow = await shadows.map(shadow => {
-                      let rgbaColor = argbToRgba(shadow.color);
-
-                      rgbaColor = rgbaColor.replace(/rgba\((\d+), (\d+), (\d+), (\d+(\.\d+)?)\)/, `rgba($1, $2, $3)`);
-
-                      return `drop-shadow(${rgbaColor} ${shadow.x_offset}px ${shadow.y_offset}px ${shadow.radius}px)`;
-                  }).join(' ');
-
-                  push["shadows"] = shadow
-              }
-
-              cosmetics.paints.push(push);
-          }
-      } else if (body.object?.name === "Personal Emotes" || body.object?.name === "Personal Emotes Set" || body.object?.user || body.object?.id === "00000000000000000000000000" || (body.object?.flags && (body.object.flags === 11 || body.object.flags === 4))) {
-          if (body.object?.id === "00000000000000000000000000" && body.object?.ref_id) {
-              body.object.id = body.object.ref_id;
-          }
-      
-          createCosmetic7TVProfile(body);
-      } else if (body?.object?.kind == "BADGE") {
-          const object = body.object
-          const data = object.data
-
-          const foundBadge = cosmetics.badges.find(badge =>
-              badge &&
-              badge.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id)
-          );
-
-          if (foundBadge) { return; }
-
-          cosmetics.badges.push({
-              id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
-              title: data.tooltip,
-              url: `${data.host.url}/${data.host.files[data.host.files.length - 1].name}`
-          });
+        push = {
+          id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
+          name: data.name,
+          style: data.function,
+          shape: data.shape,
+          backgroundImage:
+            `${data.function || "linear-gradient"}(${isDeg_or_Shape}, ${gradient})` ||
+            `${data.style || "linear-gradient"}(${data.shape || ""} 0deg, ${randomColor}, ${randomColor})`,
+          shadows: null,
+          KIND: "non-animated",
+          url: data.image_url,
+        };
       } else {
-          console.log("Didn't process", body);
+        push = {
+          id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
+          name: data.name,
+          style: data.function,
+          shape: data.shape,
+          backgroundImage:
+            `url('${[data.image_url]}')` ||
+            `${data.style || "linear-gradient"}(${data.shape || ""} 0deg, ${randomColor}, ${randomColor})`,
+          shadows: null,
+          KIND: "animated",
+          url: data.image_url,
+        };
       }
-  }
-  console.log("Cosmetics", cosmetics);
-}
 
-async function createCosmetic7TVProfile(body) {
-  if ((!body.object.owner || !body.object.owner.id) && !body.object.user.id) {
+      // SHADOWS
+      let shadow = null;
+
+      if (data.shadows.length) {
+        const shadows = data.shadows;
+
+        shadow = await shadows
+          .map((shadow) => {
+            let rgbaColor = argbToRgba(shadow.color);
+
+            rgbaColor = rgbaColor.replace(/rgba\((\d+), (\d+), (\d+), (\d+(\.\d+)?)\)/, `rgba($1, $2, $3)`);
+
+            return `drop-shadow(${rgbaColor} ${shadow.x_offset}px ${shadow.y_offset}px ${shadow.radius}px)`;
+          })
+          .join(" ");
+
+        push["shadows"] = shadow;
+      }
+
+      cosmetics.paints.push(push);
+    }
+  } else if (
+    object?.name === "Personal Emotes" ||
+    object?.name === "Personal Emotes Set" ||
+    object?.user ||
+    object?.id === "00000000000000000000000000" ||
+    (object?.flags && (object.flags === 11 || object.flags === 4))
+  ) {
+    if (object?.id === "00000000000000000000000000" && object?.ref_id) {
+      object.id = object.ref_id;
+    }
+  } else if (object?.kind == "BADGE") {
+    const data = object.data;
+
+    const foundBadge = cosmetics.badges.find(
+      (badge) => badge && badge.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id),
+    );
+
+    if (foundBadge) {
       return;
+    }
+
+    cosmetics.badges.push({
+      id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
+      title: data.tooltip,
+      url: `https:${data.host.url}/${data.host.files[data.host.files.length - 1].name}`,
+    });
+  } else {
+    console.log("[7TV] Didn't process cosmetics:", body);
   }
+};
 
-  const owner = body.object.owner || body.object.user;
-
-  let infoTable = {
-      lastUpdate: Date.now(),
-      user_id: owner.id,
-      ttv_user_id: null,
-      paint_id: null,
-      badge_id: null,
-      avatar_url: null,
-      personal_emotes: [],
-      personal_set_id: [],
-  };
-
-  if (owner.connections) {
-      const twitchConnection = owner.connections.find(connection => connection["platform"] === "TWITCH");
-      if (twitchConnection) {
-          infoTable["ttv_user_id"] = twitchConnection.id;
-      }
-  }
-
-  if (owner.style) {
-      const styleInfo = owner.style;
-      if (styleInfo["paint_id"]) {
-          infoTable["paint_id"] = styleInfo["paint_id"];
-      }
-      if (styleInfo["badge_id"]) {
-          infoTable["badge_id"] = styleInfo["badge_id"];
-      }
-  }
-}
 class StvWebSocket extends EventTarget {
   constructor(channelKickID, stvId = "0", stvEmoteSetId = "0") {
     super();
@@ -191,133 +163,181 @@ class StvWebSocket extends EventTarget {
     this.chat = new WebSocket("wss://events.7tv.io/v3");
 
     this.chat.onopen = async () => {
-      let waitStartTime = Date.now();
       console.log(`[7TV]: Connection opened`);
 
-      while (Date.now() - waitStartTime < 1000) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
+      await this.delay(1000);
+
+      const waitStartTime = Date.now();
+      while ((this.stvId === "0" || this.stvEmoteSetId === "0") && Date.now() - waitStartTime < 1000) {
+        await this.delay(100);
       }
 
-      waitStartTime = Date.now();
-
-      while ((this.stvId === "0" || this.stvEmoteSetId === "0") && Date.now() - waitStartTime < 10000) {
-        await new Promise((resolve) => setTimeout(resolve, 100));
-      }
-
-      console.log(`[7TV]: Subscribed to emote.set`);
-
-      const subscribeuserMessage = {
-        op: 35,
-        t: Date.now(),
-        d: {
-          type: "user.*",
-          condition: { object_id: this.stvId },
-        },
-      };
-
+      // Subscribe to user & cosmetic events
       if (this.stvId !== "0") {
-        this.chat.send(JSON.stringify(subscribeuserMessage));
-
-        console.log(`[7TV]: Subscribed to user.*`);
+        this.subscribeToUserEvents();
+        this.subscribeToCosmeticEvents();
       }
 
-      const subscribecosmeticcreate  = {
-        op: 35,
-        t: Date.now(),
-        d: {
-          type: "cosmetic.*",
-          condition: { platform: "KICK", ctx: "channel", id: this.channelKickID },
-        },
-      };
-
-      if (this.stvId !== "0") {
-        this.chat.send(JSON.stringify(subscribecosmeticcreate));
-
-        console.log(`[7TV]: Subscribed to subscribecosmeticcreate`);
-      }
-
-
-      const subscribeAllentitlements = {
-        op: 35,
-        t: Date.now(),
-        d: {
-          type: "entitlement.*",
-          condition: { platform: "KICK", ctx: "channel", id: this.channelKickID },
-        },
-      };
-
+      // Subscribe to entitlement events
       if (this.channelKickID !== "0") {
-        this.chat.send(JSON.stringify(subscribeAllentitlements));
-
-        console.log(`[7TV]: Subscribed to entitlement.update`);
+        this.subscribeToEntitlementEvents();
+        if (this.stvEmoteSetId !== "0") {
+          this.subscribeToEmoteSetEvents();
+        }
       }
 
-      this.chat.onmessage = (event) => {
-        
-        try {
-          const msg = JSON.parse(event.data);
+      // Setup message handler
+      this.setupMessageHandler();
 
-          if (msg && msg.d && msg.d.body) {
-            const body = msg.d.body;
-            const type = msg.d.type;
-            switch (type) {
-            case "user.update":
-              console.log(type, body);
-              this.dispatchEvent(
-                new CustomEvent("message", {
-                  detail: { body, type: "user.update", },
-                })
-              );
-              break;
-            case "cosmetic.create":
-              console.log(type, body);
-              updateCosmetics(body);
-              this.dispatchEvent(
-                new CustomEvent("message", {
-                  detail: { body: cosmetics, type: "cosmetic.create", },
-                })
-              );
-              break;
-              case "entitlement.create":
-                if(body.kind === 10){
-                  console.log(type, body);
-                  this.dispatchEvent(
-                    new CustomEvent("message", {
-                      detail: { body, type: "entitlement.create", },
-                    })
-                  );
-                  break;
-                }
-            }
-            }
-          } catch (error) {
-            console.log("Error parsing message:", error);
-          }
-          };
-
-         this.chat.onerror = (event) => {
-         console.log(`[7TV]: Error: ${event.message}`);
+      this.chat.onerror = (event) => {
+        console.log(`[7TV]: Error: ${event.message}`);
       };
     };
   }
 
+  /**
+   * Subscribe to user events
+   */
+  subscribeToUserEvents() {
+    const subscribeUserMessage = {
+      op: 35,
+      t: Date.now(),
+      d: {
+        type: "user.*",
+        condition: { object_id: this.stvId },
+      },
+    };
+
+    this.chat.send(JSON.stringify(subscribeUserMessage));
+    console.log(`[7TV]: Subscribed to user.* events`);
+  }
+
+  /**
+   * Subscribe to all cosmetic events
+   */
+  subscribeToCosmeticEvents() {
+    const subscribeAllCosmetics = {
+      op: 35,
+      t: Date.now(),
+      d: {
+        type: "cosmetic.*",
+        condition: { platform: "KICK", ctx: "channel", id: this.channelKickID },
+      },
+    };
+
+    this.chat.send(JSON.stringify(subscribeAllCosmetics));
+    console.log(`[7TV]: Subscribed to cosmetic.* events`);
+  }
+
+  /**
+   * Subscribe to all entitlement events
+   */
+  subscribeToEntitlementEvents() {
+    const subscribeAllEntitlements = {
+      op: 35,
+      t: Date.now(),
+      d: {
+        type: "entitlement.*",
+        condition: { platform: "KICK", ctx: "channel", id: this.channelKickID },
+      },
+    };
+
+    this.chat.send(JSON.stringify(subscribeAllEntitlements));
+    console.log(`[7TV]: Subscribed to entitlement.* events`);
+
+    this.dispatchEvent(new CustomEvent("open", { detail: { body: "SUBSCRIBED", type: "entitlement.*" } }));
+  }
+
+  /**
+   * Subscribe to all emote set events
+   */
+  subscribeToEmoteSetEvents() {
+    const subscribeAllEmoteSets = {
+      op: 35,
+      t: Date.now(),
+      d: {
+        type: "emote_set.*",
+        condition: { object_id: this.stvEmoteSetId },
+      },
+    };
+
+    this.chat.send(JSON.stringify(subscribeAllEmoteSets));
+    console.log(`[7TV]: Subscribed to emote_set.* events`);
+  }
+
+  setupMessageHandler() {
+    this.chat.onmessage = (event) => {
+      try {
+        const msg = JSON.parse(event.data);
+
+        if (!msg?.d?.body) return;
+
+        const { body, type } = msg.d;
+
+        switch (type) {
+          case "user.update":
+            this.dispatchEvent(
+              new CustomEvent("message", {
+                detail: { body, type: "user.update" },
+              }),
+            );
+            break;
+
+          case "emote_set.update":
+            this.dispatchEvent(
+              new CustomEvent("message", {
+                detail: { body, type: "emote_set.update" },
+              }),
+            );
+            break;
+
+          case "cosmetic.create":
+            updateCosmetics(body);
+
+            this.dispatchEvent(
+              new CustomEvent("message", {
+                detail: { body: cosmetics, type: "cosmetic.create" },
+              }),
+            );
+            break;
+
+          case "entitlement.create":
+            if (body.kind === 10) {
+              this.dispatchEvent(
+                new CustomEvent("message", {
+                  detail: { body, type: "entitlement.create" },
+                }),
+              );
+            }
+            break;
+        }
+      } catch (error) {
+        console.log("Error parsing message:", error);
+      }
+    };
+  }
+
+  delay(ms) {
+    return new Promise((resolve) => setTimeout(resolve, ms));
+  }
+
   close() {
-    console.log(`Closing connection for chatroom ${this.chatroomNumber}`);
+    console.log(`Closing connection for chatroom ${this.channelKickID}`);
     this.shouldReconnect = false;
 
     if (this.chat && this.chat.readyState === WebSocket.OPEN) {
       try {
         this.chat.close();
         this.chat = null;
-        console.log("WebSocket connection closed");
+        console.log(`[7TV]: Connection closed for chatroom ${this.channelKickID}`);
       } catch (error) {
-        console.error("Error during closing of connection:", error);
+        console.error(`[7TV]: Error during closing of connection for chatroom ${this.channelKickID}:`, error);
       }
     }
   }
 }
 
-function argbToRgba(color) {
+const argbToRgba = (color) => {
   if (color < 0) {
     color = color >>> 0;
   }
@@ -326,6 +346,6 @@ function argbToRgba(color) {
   const green = (color >> 16) & 0xff;
   const blue = (color >> 8) & 0xff;
   return `rgba(${red}, ${green}, ${blue}, 1)`;
-}
+};
 
 export default StvWebSocket;

@@ -44,9 +44,14 @@ const BadgeTooltip = ({ showBadgeInfo, mousePos, badgeInfo }) => {
         opacity: showBadgeInfo ? 1 : 0,
         height: "140px",
       }}
-      className={clsx("tooltipItem", showBadgeInfo ? "showTooltip" : "")}>
+      className={clsx("tooltipItem showTooltip", showBadgeInfo ? "showTooltip" : "")}>
       <img src={badgeInfo?.src} alt={badgeInfo?.title} />
       <span>{badgeInfo?.title}</span>
+      {badgeInfo?.owner?.username && (
+        <span className="tooltipItemCreatedBy">
+          Created by <span className="tooltipItemCreatedByUsername">{badgeInfo?.owner?.username}</span>
+        </span>
+      )}
     </div>
   );
 };

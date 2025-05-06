@@ -6,7 +6,7 @@ import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg?asset";
 import clsx from "clsx";
 
 const Message = memo(
-  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, updateSoundPlayed, stvCosmetics }) => {
+  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type }) => {
     const messageRef = useRef(null);
 
     const handleOpenUserDialog = useCallback(
@@ -21,7 +21,7 @@ const Message = memo(
       [message?.sender, chatroomId],
     );
 
-    const userKickTalkBadges = kickTalkBadges?.find(
+    const filteredKickTalkBadges = kickTalkBadges?.find(
       (badge) => badge.username.toLowerCase() === message?.sender?.username?.toLowerCase(),
     )?.badges;
 
@@ -33,16 +33,14 @@ const Message = memo(
 
     const shouldHighlight = checkForPhrases();
 
-    if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true && !message?.is_old) {
-      const audio = new Audio(settings?.notifications?.soundFile);
-      audio.volume = settings?.notifications?.soundVolume || 0.1;
-      audio.play().catch((error) => {
-        console.error("Error playing sound:", error);
-      });
-      updateSoundPlayed(chatroomId, message.id);
-    }
-
-    console.log("test", stvCosmetics);
+    // if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true && !message?.is_old) {
+    //   const audio = new Audio(settings?.notifications?.soundFile);
+    //   audio.volume = settings?.notifications?.soundVolume || 0.1;
+    //   audio.play().catch((error) => {
+    //     console.error("Error playing sound:", error);
+    //   });
+    //   updateSoundPlayed(chatroomId, message.id);
+    // }
 
     return (
       <div
@@ -60,13 +58,11 @@ const Message = memo(
           <RegularMessage
             type={type}
             message={message}
-            userKickTalkBadges={userKickTalkBadges}
+            filteredKickTalkBadges={filteredKickTalkBadges}
             subscriberBadges={subscriberBadges}
-            kickTalkBadges={kickTalkBadges}
             sevenTVEmotes={sevenTVEmotes}
-            handleOpenUserDialog={handleOpenUserDialog}
             sevenTVSettings={settings?.sevenTV}
-            stvCosmetics={stvCosmetics}
+            handleOpenUserDialog={handleOpenUserDialog}
           />
         )}
         {message.type === "reply" && (
@@ -81,9 +77,8 @@ const Message = memo(
 
             <RegularMessage
               message={message}
-              userKickTalkBadges={userKickTalkBadges}
               subscriberBadges={subscriberBadges}
-              kickTalkBadges={kickTalkBadges}
+              filteredKickTalkBadges={filteredKickTalkBadges}
               sevenTVEmotes={sevenTVEmotes}
               handleOpenUserDialog={handleOpenUserDialog}
               sevenTVSettings={settings?.sevenTV}
@@ -107,9 +102,7 @@ const Message = memo(
     return (
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.deleted === nextProps.message.deleted &&
-      prevProps.settings === nextProps.settings &&
-      prevProps.kickTalkBadges === nextProps.kickTalkBadges &&
-      prevProps.stvCosmetics === nextProps.stvCosmetics
+      prevProps.settings === nextProps.settings
     );
   },
 );

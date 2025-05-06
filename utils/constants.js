@@ -2,6 +2,7 @@ export const urlRegex = /(https:\/\/[www.]?[-a-zA-Z0-9@:%._+~#=]{1,256}\.[a-zA-Z
 export const kickEmoteRegex = /\[emote:(?<id>\d+)[:]?(?<name>[a-zA-Z0-9-_!]*)[:]?\]/g;
 export const kickEmoteInputRegex = /(?:^|\s)(:(?<emoteCase1>\w{3,}):)|(?:^|\s)(?<emoteCase2>\w{2,})\b/g;
 export const mentionRegex = /(?:^|\s)(@(?<username>[a-zA-Z0-9_]{3,}))(?=\s|$)/g;
+export const kickClipRegex = /^https?:\/\/(www\.)?kick\.com\/.*\/clips\/.*/i;
 
 export const kickBadgeMap = {
   subscriber: (badge, subscriberBadges) => {
@@ -48,4 +49,8 @@ export const CHAT_ERROR_CODES = {
   ["Unauthorized"]: "You must login to chat.",
   ["BANNED_ERROR"]: "You are banned or temporarily banned from this channel.",
   ["SLOW_MODE_ERROR"]: "Chatroom is in slow mode. Slow down your messages.",
+  ["NO_LINKS_ERROR"]: "You are not allowed to send links in this chatroom.",
+  ["SUBSCRIBERS_ONLY_EMOTE_ERROR"]: "Message contains subscriber only emote.",
+  ["EMOTES_ONLY_ERROR"]: "Chatroom is in emote only mode. Only emotes are allowed.",
+  ["SUBSCRIBERS_ONLY_ERROR"]: "Chatroom is in subscribers only mode.",
 };

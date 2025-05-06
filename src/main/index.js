@@ -1,8 +1,7 @@
 import { app, shell, BrowserWindow, ipcMain, screen, globalShortcut, session, Menu, Tray } from "electron";
 import { join } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
-import { kickTalkBadges } from "../../utils/kickTalkBadges";
-
+import update from "./update";
 import Store from "electron-store";
 import store from "../../utils/config";
 
@@ -64,10 +63,6 @@ let dialogInfo = null;
 let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
-
-ipcMain.handle("kicktalk:getBadges", () => {
-  return kickTalkBadges;
-});
 
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
@@ -171,7 +166,7 @@ const createWindow = () => {
     height: store.get("lastMainWindowState.height"),
     x: store.get("lastMainWindowState.x"),
     y: store.get("lastMainWindowState.y"),
-    minWidth: 350,
+    minWidth: 400,
     minHeight: 250,
     show: false,
     backgroundColor: "#06190e",
@@ -198,7 +193,7 @@ const createWindow = () => {
 
   setAlwaysOnTop(mainWindow);
 
-  mainWindow.on("ready-to-show", () => {
+  mainWindow.on("ready-to-show", async () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
 
@@ -229,6 +224,8 @@ const createWindow = () => {
   } else {
     mainWindow.loadFile(join(__dirname, "../renderer/index.html"));
   }
+
+  update(mainWindow);
 };
 
 const loginToKick = async (method) => {
@@ -440,6 +437,10 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
     userDialog.setAlwaysOnTop(false);
     userDialog.focus();
     userDialog.webContents.send("userDialog:data", data);
+    userDialog.webContents.setWindowOpenHandler((details) => {
+      shell.openExternal(details.url);
+      return { action: "deny" };
+    });
   });
 
   // TODO: Handle Pin of Dialog
@@ -482,7 +483,7 @@ ipcMain.handle("authDialog:open", (e) => {
 
   authDialog = new BrowserWindow({
     width: 600,
-    height: 750,
+    minHeight: 450,
     x: newX,
     y: newY,
     show: true,
@@ -587,6 +588,16 @@ ipcMain.handle("window-drag", (e, { mouseX, mouseY }) => {
   if (win) {
     win.setPosition(mouseX, mouseY);
   }
+});
+
+// Get App Info
+ipcMain.handle("get-app-info", () => {
+  return {
+    appVersion: app.getVersion(),
+    electronVersion: process.versions.electron,
+    chromeVersion: process.versions.chrome,
+    nodeVersion: process.versions.node,
+  };
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

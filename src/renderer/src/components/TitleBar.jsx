@@ -8,16 +8,27 @@ import X from "../assets/icons/x-bold.svg?asset";
 import "../assets/styles/components/TitleBar.scss";
 import Settings from "./Settings/Settings";
 import clsx from "clsx";
+import Updater from "./Updater";
 
 const TitleBar = () => {
   const [userData, setUserData] = useState(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
+  const [appInfo, setAppInfo] = useState({});
 
   useEffect(() => {
+    const getAppInfo = async () => {
+      const appInfo = await window.app.getAppInfo();
+      setAppInfo(appInfo);
+    };
+
     const fetchUserData = async () => {
       try {
         const data = await window.app.kick.getSelfInfo();
-        // const sendUsernameToServer = await window.app.sendUsernameToServer(data.username);
+        const kickId = localStorage.getItem("kickId");
+
+        if (!kickId && data?.id) {
+          localStorage.setItem("kickId", data.id);
+        }
 
         setUserData(data);
       } catch (error) {
@@ -25,6 +36,7 @@ const TitleBar = () => {
       }
     };
 
+    getAppInfo();
     fetchUserData();
   }, []);
 
@@ -37,7 +49,7 @@ const TitleBar = () => {
   return (
     <div className="titleBar">
       <div className="titleBarLeft">
-        <span>KickTalk 0.0.1</span>
+        <span>KickTalk {appInfo.appVersion}</span>
       </div>
 
       <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
@@ -52,8 +64,10 @@ const TitleBar = () => {
           </button>
         )}
 
-        <Settings settingsModalOpen={settingsModalOpen} setSettingsModalOpen={setSettingsModalOpen} />
+        <Settings settingsModalOpen={settingsModalOpen} setSettingsModalOpen={setSettingsModalOpen} appInfo={appInfo} />
       </div>
+
+      <Updater />
 
       <div className="titleBarRight">
         <div className="titleBarControls">

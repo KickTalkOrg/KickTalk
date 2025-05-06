@@ -1,6 +1,7 @@
 import { DecoratorNode } from "lexical";
 
 const CustomEmoteComponent = ({ emoteId, emoteName, platform }) => {
+  console.log(emoteId, emoteName, platform);
   if (platform === "kick") {
     return (
       <img src={`https://files.kick.com/emotes/${emoteId}/fullsize`} alt={emoteName} emote-id={emoteId} emote-name={emoteName} />
@@ -73,6 +74,7 @@ export class EmoteNode extends DecoratorNode {
       type: this.getType(),
       emoteId: this.__emoteId,
       emoteName: this.__emoteName,
+      platform: this.__platform,
     };
   }
 
@@ -82,6 +84,7 @@ export class EmoteNode extends DecoratorNode {
 
   getTextContent() {
     if (this.__platform === "kick") {
+      console.log("kick", this.__emoteId, this.__emoteName);
       return `[emote:${this.__emoteId}:${this.__emoteName}]`;
     } else if (this.__platform === "7tv") {
       return ` ${this.__emoteName} `;

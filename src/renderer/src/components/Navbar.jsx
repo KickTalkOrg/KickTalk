@@ -62,9 +62,25 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
 
     if (!savedChatrooms.length) return;
     onSelectChatroom(savedChatrooms[0].id);
+
+    const handleWheel = (e) => {
+      e.preventDefault();
+
+      chatroomListRef?.current?.scrollBy({
+        left: e.deltaY < 0 ? -30 : 30,
+      });
+    };
+
+    chatroomListRef?.current?.addEventListener("wheel", handleWheel, { passive: false });
+
+    return () => {
+      chatroomListRef?.current?.removeEventListener("wheel", handleWheel);
+    };
   }, []);
 
-  useClickOutside(addChatroomDialogRef, () => setAddChatroomDialog(false));
+  useClickOutside(addChatroomDialogRef, () => {
+    setAddChatroomDialog(false);
+  });
 
   return (
     <div className="navbarContainer" ref={chatroomListRef}>

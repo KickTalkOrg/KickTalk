@@ -158,6 +158,14 @@
     }
   }
 
+  &.activeDialog {
+    background-color: rgba(80, 123, 97, 0.8);
+
+    img {
+      opacity: 1;
+    }
+  }
+
   img {
     vertical-align: middle;
     opacity: 0.5;
@@ -168,7 +176,7 @@
 .kickEmoteButton {
   height: 32px;
   width: 32px;
-  background-color: #2c4b38;
+  background-color: rgba(80, 123, 97, 0.2);
   border-radius: 4px;
   overflow: hidden;
 
@@ -210,7 +218,7 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
-  overflow-y: scroll;
+  overflow-y: auto;
   border-radius: 6px;
   flex: 1;
   padding-right: 4px;
@@ -253,15 +261,15 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 16px 8px;
-  opacity: 0.3;
+  padding: 16px 12px;
+  opacity: 0.5;
 }
 
 .dialogBodySection {
   background-color: #1e2d21;
   border-radius: 8px;
   padding: 12px;
-  min-height: 50%;
+  min-height: calc(50% - 12px);
   overflow: hidden;
   transition: height 0.2s ease-in-out;
   &.opened {
@@ -328,6 +336,106 @@
     color: #779c85;
   }
 }
+
+/** [End of Emote Dialogs] **/
+
+/** [Emote Suggestions] **/
+
+.emoteSuggestionsWrapper {
+  background: #102117ed;
+  backdrop-filter: blur(5px);
+  border: 1px solid #294133;
+  border-radius: 6px;
+  height: 180px;
+  position: absolute;
+  left: 0;
+  bottom: 72px;
+  z-index: 9999;
+  min-width: 100%;
+  padding: 8px;
+  overflow-y: auto;
+  display: none;
+
+  &.show {
+    display: block;
+  }
+}
+
+.emoteSuggestions {
+  display: flex;
+  height: 100%;
+  gap: 4px;
+  flex-direction: column;
+
+  &.show {
+    display: block;
+  }
+}
+
+.emoteSuggestion {
+  display: flex;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  gap: 8px;
+  cursor: pointer;
+  flex: 1 1 auto;
+  max-height: 56px;
+  padding: 8px;
+  border-radius: 4px;
+  transition:
+    background 0.15s ease-in-out,
+    border 0.15s ease-in-out;
+
+  &:hover,
+  &.selected {
+    background: #1c36279e;
+    border: 1px solid #355342;
+
+    span {
+      color: #afd5bd;
+    }
+  }
+
+  > .emoteSuggestionImage {
+    min-width: 32px;
+    min-height: 32px;
+    flex: 1 0 auto;
+    border-radius: 4px;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    img {
+      max-height: 32px;
+      object-fit: cover;
+    }
+  }
+
+  > .emoteSuggestionInfo {
+    display: flex;
+    justify-content: space-between;
+    flex: 1 1 100%;
+
+    .emoteTags > span {
+      border: 1px solid #2a4d39ed;
+      padding: 4px 8px;
+      border-radius: 4px;
+      color: #3e5c4a;
+      font-weight: 700;
+      font-size: 13px;
+    }
+  }
+
+  span {
+    font-size: 16px;
+    font-weight: 600;
+    color: #779c85;
+    transition: color 0.15s ease-in-out;
+  }
+}
+/** [End of Emote Suggestions] **/
 
 @keyframes slideAndFadeIn {
   0% {

@@ -10,6 +10,8 @@ import useChatStore from "../providers/ChatProvider";
 import PinnedMessage from "./Chat/PinnedMessage";
 import MessagesHandler from "./Messages/MessagesHandler";
 import { useSettings } from "../providers/SettingsProvider";
+import { userKickTalkBadges } from "../../../../utils/kickTalkBadges";
+
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 dayjs.extend(relativeTime);
@@ -21,14 +23,15 @@ const Chat = memo(
     const { settings } = useSettings();
 
     const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
-    const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
+    const messages = useChatStore((state) => state.messages[chatroomId]);
 
-    const updateSoundPlayed = useCallback(
-      (messageId) => updateSoundPlayedStore(chatroomId, messageId),
-      [chatroomId, updateSoundPlayedStore],
-    );
+    // const updateSoundPlayedStore = useChatStore((state) => state.updateSoundPlayed);
 
-    const [kickTalkBadges, setKickTalkBadges] = useState([]);
+    // const updateSoundPlayed = useCallback(
+    //   (messageId) => updateSoundPlayedStore(chatroomId, messageId),
+    //   [chatroomId, updateSoundPlayedStore],
+    // );
+
     const [pinnedMessageExpanded, setPinnedMessageExpanded] = useState(false);
     const [showPinnedMessage, setShowPinnedMessage] = useState(false);
 
@@ -40,7 +43,7 @@ const Chat = memo(
     const handleScroll = useCallback(() => {
       if (!chatBodyRef.current) return;
       const { scrollHeight, clientHeight, scrollTop } = chatBodyRef.current;
-      const nearBottom = scrollHeight - clientHeight - scrollTop < 200;
+      const nearBottom = scrollHeight - clientHeight - scrollTop < 150;
 
       setShouldAutoScroll(nearBottom);
       setShowScrollToBottom(!nearBottom);
@@ -50,7 +53,7 @@ const Chat = memo(
       if (!chatBodyRef.current || !shouldAutoScroll) return;
 
       chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight - chatBodyRef.current.clientHeight;
-    }, [chatBodyRef, shouldAutoScroll]);
+    }, [messages, chatBodyRef, shouldAutoScroll]);
 
     useEffect(() => {
       setShouldAutoScroll(true);
@@ -60,16 +63,6 @@ const Chat = memo(
         chatBodyRef.current.scrollTop = chatBodyRef.current.scrollHeight - chatBodyRef.current.clientHeight;
       }
     }, [chatroomId]);
-
-    // Fetch KickTalk badges
-    useEffect(() => {
-      const fetchBadges = async () => {
-        const badges = await window.app.utils.getBadges();
-        setKickTalkBadges(badges);
-      };
-
-      fetchBadges();
-    }, []);
 
     return (
       <div className="chatContainer">
@@ -114,8 +107,8 @@ const Chat = memo(
             slug={chatroom?.slug}
             channel7TVEmotes={chatroom?.channel7TVEmotes}
             subscriberBadges={subscriberBadges}
-            kickTalkBadges={kickTalkBadges}
-            updateSoundPlayed={updateSoundPlayed}
+            kickTalkBadges={userKickTalkBadges}
+            // updateSoundPlayed={updateSoundPlayed}
             settings={settings}
           />
         </div>
@@ -138,7 +131,7 @@ const Chat = memo(
     );
   },
   (prevProps, nextProps) => {
-    return prevProps.chatroomId === nextProps.chatroomId;
+    return prevProps.chatroomId === nextProps.chatroomId && prevProps.settings === nextProps.settings;
   },
 );
 

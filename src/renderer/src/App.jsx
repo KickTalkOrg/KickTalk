@@ -1,17 +1,11 @@
-import { HashRouter, Routes, Route } from "react-router-dom";
+import Updater from "./components/Updater";
 import ChatPage from "./pages/ChatPage";
-import Settings from "./components/Settings/Settings";
 import SettingsProvider from "./providers/SettingsProvider";
 
 function App() {
   return (
     <SettingsProvider>
-      <HashRouter>
-        <Routes>
-          <Route path="/" element={<ChatPage />} />
-          <Route path="/dialog/settings" element={<Settings />} />
-        </Routes>
-      </HashRouter>
+      <ChatPage />
     </SettingsProvider>
   );
 }

@@ -9,6 +9,7 @@ const PinnedMessage = memo(
   ({ pinnedMessage, showPinnedMessage, setShowPinnedMessage, pinnedMessageExpanded, setPinnedMessageExpanded }) => {
     const pinnedBy = pinnedMessage?.pinned_by || pinnedMessage?.pinnedBy;
     const originalSender = pinnedMessage?.message?.sender;
+
     return (
       <div className={clsx("pinnedMessage", showPinnedMessage && "open", pinnedMessageExpanded && "expanded")}>
         <div className="pinnedMessageHeader">

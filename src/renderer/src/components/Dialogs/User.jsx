@@ -1,15 +1,17 @@
 import { useEffect, useRef, useState } from "react";
+import clsx from "clsx";
 import "../../assets/styles/components/Dialogs/UserDialog.scss";
 import Message from "../../utils/Message";
 import Pin from "../../assets/icons/push-pin-fill.svg?asset";
-import clsx from "clsx";
+import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
+import ArrowUpRight from "../../assets/icons/arrow-up-right-bold.svg?asset";
+import Copy from "../../assets/icons/copy-simple-fill.svg?asset";
 const User = () => {
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
   const [subscriberBadges, setSubscriberBadges] = useState([]);
   const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
-  const [kickTalkBadges, setKickTalkBadges] = useState(null);
   const [isDialogPinned, setIsDialogPinned] = useState(false);
   const dialogLogsRef = useRef(null);
 
@@ -24,8 +26,6 @@ const User = () => {
       setSubscriberBadges(currentChatroom?.streamerData?.subscriber_badges || []);
 
       const { messages } = await window.app.logs.get({ chatroomId: data.chatroomId, userId: data.sender.id });
-      const badges = await window.app.utils.getBadges();
-      setKickTalkBadges(badges || []);
 
       setUserLogs(messages || []);
 
@@ -33,7 +33,7 @@ const User = () => {
       const { data: user } = await window.app.kick.getUserChatroomInfo(currentChatroom?.slug, data?.sender?.username);
       setUserProfile(user);
 
-      // Always make sure dialog starts unpinned
+      // Pin starts unpinned
       await window.app.userDialog.pin(false);
     };
 
@@ -96,13 +96,27 @@ const User = () => {
           </div>
         </div>
         <div className="dialogHeaderOptions">
-          <button>Mute User</button>
-          <button>User Card </button>
+          <button className="dialogHeaderOptionsButton" disabled>
+            Mute User
+          </button>
+          <button
+            className="dialogHeaderOptionsButton"
+            onClick={() => {
+              const transformedUsername = dialogData?.sender?.username.toLowerCase().replace("_", "-");
+              window.open(`https://kick.com/${transformedUsername}`, "_blank", "noopener,noreferrer");
+            }}>
+            Open Channel <img src={ArrowUpRight} width={18} height={18} />
+          </button>
         </div>
 
         <div className="dialogOptions">
-          <button className={clsx("dialogOptionsPin", isDialogPinned ? "pinned" : "")} onClick={handlePinToggle}>
-            <img src={Pin} width={16} height={16} />
+          <button className={clsx("dialogOptionsButton", isDialogPinned ? "pinned" : "")} onClick={handlePinToggle}>
+            <img src={Pin} width={16} height={16} alt="Pin" />
+          </button>
+          <button
+            className="dialogOptionsButton"
+            onClick={() => navigator.clipboard.writeText(dialogData?.sender?.username ?? "N/A")}>
+            <img src={Copy} width={16} height={16} alt="Copy" />
           </button>
         </div>
       </div>
@@ -121,7 +135,7 @@ const User = () => {
                 chatroomId={dialogData?.chatroomId}
                 subscriberBadges={subscriberBadges}
                 sevenTVEmotes={sevenTVEmotes}
-                kickTalkBadges={kickTalkBadges}
+                kickTalkBadges={userKickTalkBadges}
                 type={"dialog"}
               />
             );

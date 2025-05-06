@@ -9,9 +9,10 @@ import {
   sendUsernameToServer,
   getUserChatroomInfo,
   getSilencedUsers,
-  getKickTalkBadges,
+  getLinkThumbnail,
   getInitialChatroomMessages,
 } from "../../utils/services/kick/kickAPI";
+import { getUserStvId } from "../../utils/services/seventv/stvAPI";
 import { getChannelEmotes } from "../../utils/services/seventv/stvAPI";
 
 import Store from "electron-store";
@@ -30,24 +31,40 @@ const authSession = {
 };
 
 // Validate Session Token by Fetching User Data
-// const validateSessionToken = async () => {
-//   if (!authSession.token) return false;
+const validateSessionToken = async () => {
+  if (!authSession.token || !authSession.session) return false;
 
-//   try {
-//     await getSelfInfo(authSession.token, authSession.session);
-//     return true;
-//   } catch (error) {
-//     console.error("Error validating session token:", error);
-//     return false;
-//   }
-// };
+  try {
+    // Get Kick ID and Username
+    const { data } = await getSelfInfo(authSession.token, authSession.session);
 
-// validateSessionToken();
+    const kickId = localStorage.getItem("kickId");
+    const kickUsername = localStorage.getItem("kickUsername");
 
-// Utility Functions
-const openURLExternally = (url) => {
-  shell.openExternal(url);
+    if (data?.streamer_channel?.user_id) {
+      if (!kickId || kickId !== data?.streamer_channel?.user_id) {
+        localStorage.setItem("kickId", data.streamer_channel.user_id);
+      }
+
+      if (!kickUsername || kickUsername !== data?.streamer_channel?.slug) {
+        localStorage.setItem("kickUsername", data.streamer_channel.slug);
+      }
+    }
+
+    // Get STV ID
+    const stvId = await getUserStvId(data.id);
+    if (stvId) {
+      localStorage.setItem("stvId", stvId);
+    }
+
+    return true;
+  } catch (error) {
+    console.error("Error validating session token:", error);
+    return false;
+  }
 };
+
+validateSessionToken();
 
 if (process.contextIsolated) {
   try {
@@ -57,6 +74,7 @@ if (process.contextIsolated) {
       close: () => ipcRenderer.send("close"),
       bringToFront: () => ipcRenderer.invoke("bring-to-front"),
       logout: () => ipcRenderer.invoke("logout"),
+      getAppInfo: () => ipcRenderer.invoke("get-app-info"),
 
       alwaysOnTop: () => ipcRenderer.invoke("alwaysOnTop"),
 
@@ -121,8 +139,6 @@ if (process.contextIsolated) {
       // Utility functions
       utils: {
         openExternal: (url) => shell.openExternal(url),
-        getKickTalkBadges,
-        getBadges: async () => await ipcRenderer.invoke("kicktalk:getBadges"),
       },
 
       store: {

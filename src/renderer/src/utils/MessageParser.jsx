@@ -1,7 +1,8 @@
-import { kickEmoteRegex, urlRegex, mentionRegex } from "../../../../utils/constants";
+import { kickEmoteRegex, urlRegex, mentionRegex, kickClipRegex } from "../../../../utils/constants";
 import Emote from "../components/Cosmetics/Emote";
+import LinkPreview from "../components/Cosmetics/LinkPreview";
 
-const stvEmotes = new Map();
+const chatroomEmotes = new Map();
 const WHITESPACE_REGEX = /\s+/;
 
 const rules = [
@@ -28,11 +29,19 @@ const rules = [
   {
     // URL rule
     regexPattern: urlRegex,
-    component: ({ match, index }) => (
-      <a style={{ color: "#c3d6c9" }} key={`link-${index}`} href={match[0]} target="_blank" rel="noreferrer">
-        {match[0]}
-      </a>
-    ),
+    component: ({ match, index }) => {
+      const url = match[0];
+
+      // if (kickClipRegex.test(url)) {
+      //   return <LinkPreview key={`link-${index}`} url={url} />;
+      // }
+
+      return (
+        <a style={{ color: "#c3d6c9" }} key={`link-${index}`} href={url} target="_blank" rel="noreferrer">
+          {url}
+        </a>
+      );
+    },
   },
 
   {
@@ -49,9 +58,15 @@ const rules = [
   },
 ];
 
-const getEmoteData = (emoteName, sevenTVEmotes) => {
-  if (stvEmotes.has(emoteName)) {
-    return stvEmotes.get(emoteName);
+const getEmoteData = (emoteName, sevenTVEmotes, chatroomId) => {
+  if (!chatroomEmotes.has(chatroomId)) {
+    chatroomEmotes.set(chatroomId, new Map());
+  }
+
+  const roomEmotes = chatroomEmotes.get(chatroomId);
+
+  if (roomEmotes.has(emoteName)) {
+    return roomEmotes.get(emoteName);
   }
 
   const emote = sevenTVEmotes?.emote_set?.emotes.find((e) => e.name === emoteName);
@@ -67,7 +82,7 @@ const getEmoteData = (emoteName, sevenTVEmotes) => {
     };
 
     // Cache the emote data
-    stvEmotes.set(emoteName, emoteData);
+    roomEmotes.set(emoteName, emoteData);
 
     return emoteData;
   }
@@ -122,8 +137,10 @@ export const MessageParser = ({ message, sevenTVEmotes, sevenTVSettings, type })
     // Split where there is one or more whitespace
     const textParts = part.split(WHITESPACE_REGEX);
     const lastIndex = textParts.length - 1;
+
     textParts.forEach((textPart, j) => {
-      const emoteData = getEmoteData(textPart, sevenTVEmotes);
+      const emoteData = getEmoteData(textPart, sevenTVEmotes, message.chatroomId);
+
       if (emoteData) {
         finalParts.push(<Emote key={`stvEmote-${emoteData.id}-${message.timestamp}-${i}-${j}`} emote={emoteData} type={"stv"} />);
       } else {

@@ -3,6 +3,12 @@ import KickPusher from "../../../../utils/services/kick/kickPusher";
 import { chatroomErrorHandler } from "../utils/chatErrors";
 import queueChannelFetch from "../../../../utils/fetchQueue";
 import StvWebSocket from "../../../../utils/services/seventv/stvWebsocket";
+import useCosmeticsStore from "./CosmeticsProvider";
+import { sendUserPresence } from "../../../../utils/services/seventv/stvAPI";
+
+let stvPresenceUpdates = new Map();
+let storeStvId = null;
+const PRESENCE_UPDATE_INTERVAL = 1000 * 60 * 5; // 5 minutes
 
 // Load initial state from local storage
 const getInitialState = () => {
@@ -12,12 +18,27 @@ const getInitialState = () => {
     chatrooms: savedChatrooms,
     messages: {},
     connections: {},
-    chatroomCosmetics: {},
   };
 };
 
 const useChatStore = create((set, get) => ({
   ...getInitialState(),
+
+  // Handles Sending Presence Updates to 7TV for a chatroom
+  sendPresenceUpdate: async (stvId, userId) => {
+    const currentTime = Date.now();
+
+    if (stvPresenceUpdates.has(userId)) {
+      const lastUpdateTime = stvPresenceUpdates.get(userId);
+      console.log("[7TV Presence]: Last update time for chatroom:", userId, lastUpdateTime, stvPresenceUpdates);
+      if (currentTime - lastUpdateTime < PRESENCE_UPDATE_INTERVAL) {
+        return;
+      }
+    }
+
+    stvPresenceUpdates.set(userId, currentTime);
+    sendUserPresence(stvId, userId);
+  },
 
   sendMessage: async (chatroomId, content) => {
     try {
@@ -48,22 +69,21 @@ const useChatStore = create((set, get) => ({
     }
   },
 
-  updateSoundPlayed: (chatroomId, messageId) => {
-    set((state) => ({
-      messages: {
-        ...state.messages,
-        [chatroomId]: state.messages[chatroomId].map((message) => {
-          if (message.id === messageId) {
-            return { ...message, soundPlayed: true };
-          }
-          return message;
-        }),
-      },
-    }));
-  },
+  // updateSoundPlayed: (chatroomId, messageId) => {
+  //   set((state) => ({
+  //     messages: {
+  //       ...state.messages,
+  //       [chatroomId]: state.messages[chatroomId].map((message) => {
+  //         if (message.id === messageId) {
+  //           return { ...message, soundPlayed: true };
+  //         }
+  //         return message;
+  //       }),
+  //     },
+  //   }));
+  // },
 
   addMessage: (chatroomId, message) => {
-    // console.log("saved cosmetics", get().chatroomCosmetics);
     set((state) => ({
       messages: {
         ...state.messages,
@@ -74,7 +94,6 @@ const useChatStore = create((set, get) => ({
 
   connectToStvWebSocket: (chatroom) => {
     const stvId = chatroom?.channel7TVEmotes?.user?.id;
-    if (!stvId) return;
 
     const stvEmoteSets = chatroom?.channel7TVEmotes?.emote_set?.id || [];
     const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
@@ -96,41 +115,37 @@ const useChatStore = create((set, get) => ({
       const { type, body } = SevenTVEvent;
 
       switch (type) {
+        case "connection_established":
+          break;
+        case "emote_set.update":
+          console.log("Emote set update", body);
+          // get().handleEmoteSetUpdate(body);
+          break;
         case "cosmetic.create":
-          console.log("cosmetic.creation", body);
-          set((state) => ({
-            chatroomCosmetics: {
-              ...state.chatroomCosmetics,
-              chatroomCosmetics: body,
-            },
-          }));
+          useCosmeticsStore?.getState()?.addCosmetics(body);
           break;
         case "entitlement.create":
-          console.log("entitlement.create", body.object.user.username);
-          set((state) => ({
-            chatroomCosmetics: {
-              ...state.chatroomCosmetics,
-              userInfo: {
-                ...state.chatroomCosmetics.userInfo,
-                [body.object.user.username]: {
-                  ...state.chatroomCosmetics[body.id],
-                  entitlement: body,
-                },
-              },
-            },
-          }));
+          const username = body.object.user.username.toLowerCase();
+          useCosmeticsStore?.getState()?.addUserStyle(username, body);
           break;
+
         default:
           break;
       }
     });
 
+    storeStvId = localStorage.getItem("stvId");
+
     stvSocket.addEventListener("open", () => {
       console.log("7TV WebSocket connected for chatroom:", chatroom.id);
+
+      sendUserPresence(storeStvId, chatroom.streamerData.user_id);
+      stvPresenceUpdates.set(chatroom.streamerData.user_id, Date.now());
     });
 
     stvSocket.addEventListener("close", () => {
       console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
+      stvPresenceUpdates.delete(chatroom.streamerData.user_id);
     });
   },
 
@@ -243,7 +258,7 @@ const useChatStore = create((set, get) => ({
 
     // Fetch Initial Chatroom Info
     const fetchInitialChatroomInfo = async () => {
-      const { data } = await window.app.kick.getChannelChatroomInfo(chatroom.slug);
+      const { data } = await window.app.kick.getChannelChatroomInfo(chatroom?.slug);
 
       set((state) => ({
         chatrooms: state.chatrooms.map((room) => {
@@ -262,23 +277,22 @@ const useChatStore = create((set, get) => ({
 
     fetchInitialChatroomInfo();
 
-    const fetchInitialUserChatroomInfo = async () => {
-      const { data } = await window.app.kick.getUserChatroomInfo(chatroom.slug);
-      console.log("userChatroomInfo", data);
-      set((state) => ({
-        chatrooms: state.chatrooms.map((room) => {
-          if (room.id === chatroom.id) {
-            return {
-              ...room,
-              userChatroomInfo: data,
-            };
-          }
-          return room;
-        }),
-      }));
-    };
+    // const fetchInitialUserChatroomInfo = async () => {
+    //   const { data } = await window.app.kick.getUserChatroomInfo(chatroom?.slug);
+    //   set((state) => ({
+    //     chatrooms: state.chatrooms.map((room) => {
+    //       if (room.id === chatroom.id) {
+    //         return {
+    //           ...room,
+    //           userChatroomInfo: data,
+    //         };
+    //       }
+    //       return room;
+    //     }),
+    //   }));
+    // };
 
-    fetchInitialUserChatroomInfo();
+    // fetchInitialUserChatroomInfo();
 
     // Fetch initial messages
     // TODO: Finish adding initial messages
@@ -289,7 +303,7 @@ const useChatStore = create((set, get) => ({
 
       if (!data) return;
 
-      // Handle initialpinned message
+      // Handle initial pinned message
       if (data?.pinned_message) {
         get().handlePinnedMessageCreated(chatroom.id, data.pinned_message);
       }
@@ -315,7 +329,11 @@ const useChatStore = create((set, get) => ({
   addChatroom: async (username) => {
     try {
       const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
-      if (savedChatrooms.some((chatroom) => chatroom.username.toLowerCase() === username.toLowerCase())) {
+
+      if (
+        savedChatrooms.some((chatroom) => chatroom.username.toLowerCase() === username.toLowerCase()) ||
+        savedChatrooms.length >= 5
+      ) {
         return;
       }
 
@@ -522,8 +540,6 @@ const useChatStore = create((set, get) => ({
       message.metadata = JSON.parse(message.metadata);
     });
 
-    console.log("Adding initial chatroom messages:", data);
-
     set((state) => ({
       messages: {
         ...state.messages,
@@ -535,5 +551,49 @@ const useChatStore = create((set, get) => ({
 
 // Initialize connections when the store is created
 useChatStore.getState().initializeConnections();
+
+// Initialize presence updates when the store is created
+let presenceUpdatesInterval = null;
+
+const initializePresenceUpdates = () => {
+  if (presenceUpdatesInterval) {
+    clearInterval(presenceUpdatesInterval);
+  }
+
+  if (!storeStvId) {
+    console.log("[7TV Presence]: No 7TV ID found, skipping presence update checks");
+    setTimeout(() => {
+      storeStvId = localStorage.getItem("stvId");
+      if (storeStvId) {
+        initializePresenceUpdates();
+      } else {
+        console.log("[7TV Presence]: No STV ID found after delay");
+      }
+    }, 10000);
+
+    return;
+  }
+
+  // Send presence updates every 1 minute
+  console.log("[7TV Presence]: Initializing presence update checks");
+  presenceUpdatesInterval = setInterval(
+    () => {
+      useChatStore.getState().chatrooms.forEach((chatroom) => {
+        console.log("[7TV Presence]: Sending presence update for chatroom:", chatroom.streamerData.user_id);
+        useChatStore.getState().sendPresenceUpdate(storeStvId, chatroom.streamerData.user_id);
+      });
+    },
+    1000 * 60 * 1, // 1 minute
+  );
+
+  return () => {
+    if (presenceUpdatesInterval) {
+      console.log("[7TV Presence]: Clearing presence update checks");
+      clearInterval(presenceUpdatesInterval);
+    }
+  };
+};
+
+initializePresenceUpdates();
 
 export default useChatStore;

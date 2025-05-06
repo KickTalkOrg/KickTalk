@@ -65,6 +65,76 @@ const getChannelEmotes = async (channelId) => {
   return formattedGlobalEmotes;
 };
 
+const sendUserPresence = async (stvId, userId) => {
+  try {
+    const response = await axios.post(
+      `https://7tv.io/v3/users/${stvId}/presences`,
+      {
+        kind: 1,
+        passive: true,
+        session_id: undefined,
+        data: {
+          platform: "KICK",
+          id: `${userId}`,
+        },
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (response.status !== 200) {
+      throw new Error(`[7TV Emotes] Error while sending user presence: ${response.status}`);
+    }
+
+    return response.data;
+  } catch (error) {
+    console.error("[7TV Emotes] Error while sending user presence:", error.message);
+  }
+};
+
+const getUserStvId = async (platformId) => {
+  try {
+    const getUserByConnectionQuery = `
+    query GetUserByConnection($platform: ConnectionPlatform!, $id: String!) {
+      user: userByConnection(platform: $platform, id: $id) {
+        id
+        username
+        connections {
+          id
+          username
+          display_name
+          platform
+          linked_at
+        }
+      }
+    }
+  `;
+    const response = await axios.post(
+      "https://7tv.io/v3/gql",
+      {
+        query: getUserByConnectionQuery,
+        variables: { platform: "KICK", id: `${platformId}` },
+      },
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+      },
+    );
+
+    if (response.status !== 200) {
+      throw new Error(`[7TV Emotes] Error while fetching user STV ID: ${response.status}`);
+    }
+
+    return response?.data?.data?.user?.id;
+  } catch (error) {
+    console.error("[7TV Emotes] Error while fetching user STV ID:", error.message);
+  }
+};
+
 // const getGlobalEmotes = async () => {
 //   const response = await axios.get(`https://7tv.io/v3/emote-sets/global`);
 
@@ -78,4 +148,4 @@ const getChannelEmotes = async (channelId) => {
 
 // const getUserCosmetics = async (id) => {};
 
-export { getChannelEmotes };
+export { getChannelEmotes, sendUserPresence, getUserStvId };

@@ -1,4 +1,4 @@
-export const kickTalkBadges = [
+export const userKickTalkBadges = [
   {
     username: "ftk789",
     badges: [

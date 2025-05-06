@@ -1,59 +1,34 @@
-import { memo, useEffect, useState } from "react";
+import { memo } from "react";
 import { MessageParser } from "../../utils/MessageParser";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import CopyIcon from "../../assets/icons/copy-simple-fill.svg";
 import clsx from "clsx";
+import { useShallow } from "zustand/shallow";
+import useCosmeticsStore from "../../providers/CosmeticsProvider";
 
 const RegularMessage = memo(
-  ({
-    message,
-    userKickTalkBadges,
-    subscriberBadges,
-    kickTalkBadges,
-    sevenTVEmotes,
-    handleOpenUserDialog,
-    sevenTVSettings,
-    stvCosmetics,
-    type,
-  }) => {
-    const [stvBadge, setStvBadge] = useState(null);
-    const [stvPaint, setStvPaint] = useState(null);
-
-    useEffect(() => {
-      if (stvCosmetics && message.sender.username) {
-        const userInfo = stvCosmetics.userInfo?.[message.sender.username.toLowerCase()];
-        if (userInfo?.entitlement?.object?.user?.style) {
-          const paintId = userInfo.entitlement.object.user.style.paint_id;
-          const badgeId = userInfo.entitlement.object.user.style.badge_id;
-
-          const foundPaint = stvCosmetics.chatroomCosmetics?.paints?.find((p) => p.id === paintId);
-          const foundBadge = stvCosmetics.chatroomCosmetics?.badges?.find((b) => b.id === badgeId);
-
-          setStvBadge(foundBadge);
-          setStvPaint(foundPaint);
-        }
-      }
-    }, [stvCosmetics, message.sender.username]);
+  ({ message, filteredKickTalkBadges, subscriberBadges, sevenTVEmotes, handleOpenUserDialog, sevenTVSettings, type }) => {
+    const userStyle = useCosmeticsStore(useShallow((state) => state.getUserStyle(message.sender.username)));
 
     return (
       <span className={`chatMessageContainer ${message.deleted ? "deleted" : ""}`}>
         <div className="chatMessageUser">
           <div className="chatMessageBadges">
-            {userKickTalkBadges && <KickTalkBadges badges={userKickTalkBadges} />}
-            {stvBadge && <StvBadges stvCosmetics={stvCosmetics} sevenTVSettings={sevenTVSettings} badge={stvBadge} />}
+            {filteredKickTalkBadges && <KickTalkBadges badges={filteredKickTalkBadges} />}
+            {userStyle?.badge && <StvBadges badge={userStyle?.badge} />}
             <KickBadges
               badges={message.sender.identity?.badges}
               subscriberBadges={subscriberBadges}
-              kickTalkBadges={kickTalkBadges}
+              kickTalkBadges={filteredKickTalkBadges}
             />
           </div>
 
           <button
             onClick={handleOpenUserDialog}
-            className={clsx("chatMessageUsername", stvPaint && "chatMessageUsernamePaint")}
+            className={clsx("chatMessageUsername", userStyle?.paint && "chatMessageUsernamePaint")}
             style={
-              stvPaint
-                ? { backgroundImage: stvPaint?.backgroundImage, filter: stvPaint?.shadows }
+              userStyle?.paint
+                ? { backgroundImage: userStyle?.paint?.backgroundImage, filter: userStyle?.paint?.shadows }
                 : { color: message.sender.identity?.color }
             }>
             <span>{message.sender.username}:&nbsp;</span>
@@ -77,11 +52,7 @@ const RegularMessage = memo(
     );
   },
   (prevProps, nextProps) => {
-    return (
-      prevProps.message === nextProps.message &&
-      prevProps.sevenTVSettings === nextProps.sevenTVSettings &&
-      prevProps.stvCosmetics === nextProps.stvCosmetics
-    );
+    return prevProps.message === nextProps.message && prevProps.sevenTVSettings === nextProps.sevenTVSettings;
   },
 );
 

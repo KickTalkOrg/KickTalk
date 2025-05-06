@@ -51,7 +51,7 @@ const EmoteTooltip = ({ showEmoteInfo, mousePos, emoteInfo, type }) => {
         left: position.left,
         opacity: showEmoteInfo ? 1 : 0,
       }}
-      className={clsx("tooltipItem", showEmoteInfo ? "showTooltip" : "")}>
+      className={clsx("tooltipItem showTooltip", showEmoteInfo ? "showTooltip" : "")}>
       <img
         src={
           type === "stv"

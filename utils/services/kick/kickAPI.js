@@ -2,6 +2,32 @@ import axios from "axios";
 const APIUrl = "https://kick.com";
 const KickTalkAPIUrl = "https://api.kicktalk.app";
 
+const getLinkThumbnail = async (url) => {
+  const response = await axios.get(url, {
+    referrer: `${url}`,
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "GET",
+    mode: "cors",
+    credentials: "include",
+  });
+
+  if (response.status !== 200) {
+    return null;
+  }
+
+  const ogUrlMatch = response.data.match(/<meta\s+property=["']og:image["']\s+content=["']([^"']+)["']\s*\/?>/i)?.[1];
+  const descriptionMatch = response.data.match(/<meta name="description" content="(.*?)"\/>/)?.[1];
+
+  if (ogUrlMatch?.includes("kick.com") && descriptionMatch) {
+    return {
+      clipThumbnailUrl: ogUrlMatch,
+      clipTitle: descriptionMatch,
+    };
+  }
+
+  return null;
+};
+
 const getChannelInfo = async (channelID) => {
   // TODO: Update Regex replace for url
   const transformedChannelID = channelID.replace("_", "-");
@@ -20,6 +46,28 @@ const getChannelChatroomInfo = (channelName) => {
     mode: "cors",
     credentials: "include",
   });
+};
+
+const getUserKickId = async (sessionCookie, kickSession) => {
+  const response = await axios.get(`${APIUrl}/api/v1/user`, {
+    headers: {
+      accept: "*/*",
+      authorization: `Bearer ${sessionCookie}`,
+      priority: "u=1, i",
+      "x-xsrf-token": kickSession,
+    },
+    referrer: `https://kick.com/`,
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "GET",
+    mode: "cors",
+    credentials: "include",
+  });
+
+  if (!response?.data) {
+    return null;
+  }
+
+  return response.data.id;
 };
 
 const getUserChatroomStatus = (sessionCookie, kickSession, channelName) => {
@@ -74,12 +122,6 @@ const getSelfInfo = (sessionCookie, kickSession) => {
 const getUserChatroomInfo = (chatroomName, username, sessionCookie, kickSession) => {
   const transformedChannelName = chatroomName.replace("_", "-");
   return axios.get(`${APIUrl}/api/v2/channels/${transformedChannelName}/users/${username}`, {
-    headers: {
-      accept: "*/*",
-      authorization: `Bearer ${sessionCookie}`,
-      priority: "u=1, i",
-      "x-xsrf-token": kickSession,
-    },
     referrer: `https://kick.com/${transformedChannelName}`,
     referrerPolicy: "strict-origin-when-cross-origin",
     method: "GET",
@@ -149,4 +191,6 @@ export {
   getInitialChatroomMessages,
   getUserChatroomStatus,
   sendUsernameToServer,
+  getUserKickId,
+  getLinkThumbnail,
 };

@@ -1,6 +1,10 @@
 import Store from "electron-store";
 
 const schema = {
+  kickId: {
+    type: "string",
+    default: "",
+  },
   general: {
     type: "object",
     properties: {

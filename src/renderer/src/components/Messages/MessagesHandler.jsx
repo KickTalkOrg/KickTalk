@@ -3,9 +3,8 @@ import useChatStore from "../../providers/ChatProvider";
 import Message from "../../utils/Message";
 
 const MessagesHandler = memo(
-  ({ chatroomId, slug, channel7TVEmotes, subscriberBadges, kickTalkBadges, updateSoundPlayed, settings }) => {
+  ({ chatroomId, slug, channel7TVEmotes, subscriberBadges, kickTalkBadges, settings }) => {
     const messages = useChatStore((state) => state.messages[chatroomId]);
-    const stvCosmetics = useChatStore((state) => state.chatroomCosmetics);
 
     return (
       <div>
@@ -19,9 +18,7 @@ const MessagesHandler = memo(
               sevenTVEmotes={channel7TVEmotes}
               kickTalkBadges={kickTalkBadges}
               message={message}
-              updateSoundPlayed={updateSoundPlayed}
               settings={settings}
-              stvCosmetics={stvCosmetics}
             />
           );
         })}
@@ -29,7 +26,7 @@ const MessagesHandler = memo(
     );
   },
   (prevProps, nextProps) => {
-    return prevProps.chatroomId === nextProps.chatroomId;
+    return prevProps.chatroomId === nextProps.chatroomId && prevProps.settings === nextProps.settings;
   },
 );
 
