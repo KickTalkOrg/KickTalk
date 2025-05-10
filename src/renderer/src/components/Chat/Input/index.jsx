@@ -61,18 +61,18 @@ const EmoteSuggestions = memo(
     if (!suggestions?.length) return null;
 
     return (
-      <div className={clsx("emoteSuggestionsWrapper", suggestions?.length && "show")} ref={suggestionsRef}>
-        <div className="emoteSuggestions">
+      <div className={clsx("inputSuggestionsWrapper", suggestions?.length && "show")} ref={suggestionsRef}>
+        <div className="inputSuggestions">
           {suggestions?.map((emote, i) => {
             return (
               <div
                 key={emote?.id}
                 ref={selectedIndex === i ? selectedSuggestionRef : null}
-                className={clsx("emoteSuggestion", selectedIndex === i && "selected")}
+                className={clsx("inputSuggestion", selectedIndex === i && "selected")}
                 onClick={() => {
                   onSelect(emote);
                 }}>
-                <div className="emoteSuggestionImage">
+                <div className="inputSuggestionImage">
                   <img
                     className="emote"
                     src={
@@ -89,7 +89,7 @@ const EmoteSuggestions = memo(
                     decoding="async"
                   />
                 </div>
-                <div className="emoteSuggestionInfo">
+                <div className="inputSuggestionInfo">
                   <span>{emote?.name}</span>
                   <div className="emoteTags">
                     <span>{emote?.platform?.toUpperCase()}</span>
@@ -112,399 +112,293 @@ const EmoteSuggestions = memo(
   },
 );
 
+const ChatterSuggestions = memo(
+  ({ suggestions, onSelect, selectedIndex }) => {
+    const suggestionsRef = useRef(null);
+    const selectedSuggestionRef = useRef(null);
+
+    useEffect(() => {
+      if (!suggestionsRef.current) return;
+
+      const selectedElement = selectedSuggestionRef.current;
+      if (!selectedElement) return;
+
+      selectedElement.scrollIntoView({ block: "center", behavior: "instant" });
+    }, [selectedIndex]);
+
+    if (!suggestions?.length) return null;
+
+    return (
+      <div className={clsx("inputSuggestionsWrapper", suggestions?.length && "show")} ref={suggestionsRef}>
+        <div className="inputSuggestions">
+          {suggestions?.map((chatter, i) => {
+            return (
+              <div
+                key={chatter?.id}
+                ref={selectedIndex === i ? selectedSuggestionRef : null}
+                className={clsx("inputSuggestion", selectedIndex === i && "selected")}
+                onClick={() => {
+                  onSelect(chatter);
+                }}>
+                <div className="inputSuggestionInfo">
+                  <span>{chatter?.username}</span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.selectedIndex === nextProps.selectedIndex &&
+      prevProps.suggestions === nextProps.suggestions
+    );
+  },
+);
+
+
 const KeyHandler = ({ chatroomId, onSendMessage }) => {
   const [editor] = useLexicalComposerContext();
-  const [suggestions, setSuggestions] = useState([]);
+  const [emoteSuggestions, setEmoteSuggestions] = useState([]);
+  const [chatterSuggestions, setChatterSuggestions] = useState([]);
   const [searchText, setSearchText] = useState("");
-  const [tabSuggestions, setTabSuggestions] = useState([]);
-  const [selectedIndex, setSelectedIndex] = useState(0);
-  const [selectedTabIndex, setSelectedTabIndex] = useState(0);
+  const [selectedEmoteIndex, setSelectedEmoteIndex] = useState(0);
+  const [selectedChatterIndex, setSelectedChatterIndex] = useState(0);
   const [position, setPosition] = useState(null);
 
   const sevenTVEmotes = useChatStore(
     useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.channel7TVEmotes),
   );
-
-  const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
+  const chatters = useChatStore(
+    useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatters),
+  );
+  const kickEmotes = useChatStore(
+    useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes),
+  );
 
   const searchEmotes = useCallback(
     (text) => {
       if (!text) return [];
-
       const transformedText = text.toLowerCase();
 
-      // Handle 7TV emotes
       const sevenTvResults =
-        sevenTVEmotes?.emote_set?.emotes?.filter((emote) => emote.name.toLowerCase().includes(transformedText))?.slice(0, 10) ||
-        [];
+        sevenTVEmotes?.emote_set?.emotes?.filter((emote) => emote.name.toLowerCase().includes(transformedText))?.slice(0, 10) || [];
 
-      // Handle Kick emotes from multiple sets
       const kickResults =
-        kickEmotes
-          ?.flatMap((emoteSet) => emoteSet.emotes || [])
-          ?.filter((emote) => emote.name.toLowerCase().includes(transformedText))
-          ?.slice(0, 10) || [];
+        kickEmotes?.flatMap((emoteSet) => emoteSet.emotes || [])?.filter((emote) => emote.name.toLowerCase().includes(transformedText))?.slice(0, 10) || [];
 
       return [...sevenTvResults, ...kickResults];
     },
     [sevenTVEmotes, kickEmotes],
   );
 
-  const insertEmote = useCallback(
-    (emote) => {
-      editor.update(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) return;
+  const searchChatters = useCallback(
+    (text) => {
+      if (!text) return [];
+      const transformedText = text.toLowerCase();
 
-        // Delete searched text w/ colon
-        const node = selection.anchor.getNode();
-        if (!node) return;
-
-        const textContent = node.getTextContent();
-        const cursorOffset = selection.anchor.offset;
-
-        const colonIndex = textContent.indexOf(":");
-        if (colonIndex === -1) return;
-
-        const textBefore = textContent.slice(0, colonIndex);
-        const textAfter = textContent.slice(cursorOffset);
-
-        // Set text that is before emote
-        node.setTextContent(textBefore);
-
-        // Insert emote node
-        if (!emote?.platform) return;
-        const emoteNode = new EmoteNode(emote.id, emote.name, emote.platform);
-        selection.insertNodes([emoteNode, $createTextNode(" ")]);
-
-        // Set text after emote
-        if (textAfter) {
-          const afterNode = $createTextNode(textAfter);
-          selection.insertNodes([afterNode]);
-        }
-      });
-
-      setSuggestions([]);
-      setSearchText("");
-      setSelectedIndex(null);
-      setPosition(null);
+      return chatters?.filter((chatter) => chatter.username.toLowerCase().includes(transformedText))?.slice(0, 10) || [];
     },
-    [editor],
+    [chatters],
   );
+
+  const insertEmote = useCallback((emote) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+
+      const node = selection.anchor.getNode();
+      const textContent = node.getTextContent();
+      const cursorOffset = selection.anchor.offset;
+      const colonIndex = textContent.indexOf(":");
+      if (colonIndex === -1) return;
+
+      const textBefore = textContent.slice(0, colonIndex);
+      const textAfter = textContent.slice(cursorOffset);
+      node.setTextContent(textBefore);
+
+      if (!emote?.platform) return;
+      const emoteNode = new EmoteNode(emote.id, emote.name, emote.platform);
+      selection.insertNodes([emoteNode, $createTextNode(" ")]);
+
+      if (textAfter) {
+        selection.insertNodes([$createTextNode(textAfter)]);
+      }
+    });
+
+    setEmoteSuggestions([]);
+    setSearchText("");
+    setSelectedEmoteIndex(null);
+    setPosition(null);
+  }, [editor]);
+
+  const insertChatterMention = useCallback( (chatter) => {
+    editor.update(() => {
+      const selection = $getSelection();
+      if (!$isRangeSelection(selection)) return;
+
+      const node = selection.anchor.getNode();
+      if (!node) return;
+
+      const textContent = node.getTextContent();
+      const cursorOffset = selection.anchor.offset;
+
+      // Find last '@' before cursor
+      const atIndex = textContent.lastIndexOf("@", cursorOffset);
+      if (atIndex === -1) return;
+
+      const textBefore = textContent.slice(0, atIndex);
+      const textAfter = textContent.slice(cursorOffset);
+
+      // Replace node text up to '@'
+      node.setTextContent(textBefore);
+
+      // Insert @mention and restore following text
+      const mentionNode = $createTextNode(`@${chatter.username} `);
+      selection.insertNodes([mentionNode]);
+
+      if (textAfter) {
+        const afterNode = $createTextNode(textAfter);
+        selection.insertNodes([afterNode]);
+      }
+    });
+
+    setSuggestions2([]);
+    setSearchText("");
+    setSelectedIndex2(null);
+    setPosition(null);
+  },
+  [editor],
+);
 
   useEffect(() => {
     if (!editor) return;
 
-    // Paste
-    const registerPasteCommand = editor.registerCommand(
-      PASTE_COMMAND,
-      (e) => {
+    const unregisters = [
+      editor.registerCommand(KEY_ARROW_UP_COMMAND, (e) => {
         e.preventDefault();
-        const clipboardData = e.clipboardData;
-        if (!clipboardData) return false;
-
-        const pastedText = clipboardData.getData("text");
-        if (!pastedText) return false;
-
-        editor.update(() => {
-          const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return;
-
-          let lastIndex = 0;
-          const matches = [...pastedText.matchAll(kickEmoteRegex)];
-
-          matches.forEach((match) => {
-            // Insert text node before emote node
-            if (match.index > lastIndex) {
-              const textNode = $createTextNode(pastedText.slice(lastIndex, match.index));
-              selection.insertNodes([textNode]);
-            }
-
-            // Insert emote node
-            const emoteNode = new EmoteNode(match.groups.id, match.groups.name);
-            selection.insertNodes([emoteNode]);
-
-            lastIndex = match.index + match[0].length;
-          });
-
-          if (lastIndex < pastedText.length) {
-            const textNode = $createTextNode(pastedText.slice(lastIndex));
-            selection.insertNodes([textNode]);
-          }
-        });
-
-        return true;
-      },
-      COMMAND_PRIORITY_HIGH,
-    );
-
-    // Arrow Up Command
-    const registerArrowUpCommand = editor.registerCommand(
-      KEY_ARROW_UP_COMMAND,
-      (e) => {
-        e.preventDefault();
-
-        if (suggestions?.length) {
-          setSelectedIndex(selectedIndex <= 0 ? suggestions.length - 1 : selectedIndex - 1);
+        if (emoteSuggestions?.length) {
+          setSelectedEmoteIndex((prev) => (prev <= 0 ? emoteSuggestions.length - 1 : prev - 1));
           return true;
         }
-
-        const history = messageHistory.get(chatroomId);
-        if (!history?.sentMessages?.length) return false;
-
-        const currentIndex = history.selectedIndex !== undefined ? history.selectedIndex - 1 : history.sentMessages.length - 1;
-        if (currentIndex < 0) return false;
-
-        messageHistory.set(chatroomId, {
-          ...history,
-          selectedIndex: currentIndex,
-        });
-
-        editor.update(() => {
-          $getRoot().clear();
-
-          const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return;
-
-          const text = $createTextNode(history.sentMessages[currentIndex]);
-
-          selection.insertNodes([text]);
-        });
-
-        return true;
-      },
-      COMMAND_PRIORITY_HIGH,
-    );
-
-    // Arrow Down Command
-    const registerArrowDownCommand = editor.registerCommand(
-      KEY_ARROW_DOWN_COMMAND,
-      (e) => {
-        e.preventDefault();
-
-        if (suggestions?.length) {
-          if (selectedIndex === null) return setSelectedIndex(0);
-          setSelectedIndex(selectedIndex >= suggestions.length - 1 ? 0 : selectedIndex + 1);
+        if (chatterSuggestions?.length) {
+          setSelectedChatterIndex((prev) => (prev <= 0 ? chatterSuggestions.length - 1 : prev - 1));
           return true;
         }
+        return false;
+      }, COMMAND_PRIORITY_HIGH),
 
-        const history = messageHistory.get(chatroomId);
-        if (!history?.sentMessages?.length) return false;
+      editor.registerCommand(KEY_ARROW_DOWN_COMMAND, (e) => {
+        e.preventDefault();
+        if (emoteSuggestions?.length) {
+          setSelectedEmoteIndex((prev) => (prev === null || prev >= emoteSuggestions.length - 1 ? 0 : prev + 1));
+          return true;
+        }
+        if (chatterSuggestions?.length) {
+          setSelectedChatterIndex((prev) => (prev === null || prev >= chatterSuggestions.length - 1 ? 0 : prev + 1));
+          return true;
+        }
+        return false;
+      }, COMMAND_PRIORITY_HIGH),
 
-        const currentIndex = history.selectedIndex >= 0 ? history.selectedIndex + 1 : 0;
-        if (currentIndex > history.sentMessages.length) return false;
-
-        messageHistory.set(chatroomId, {
-          ...history,
-          selectedIndex: currentIndex,
-        });
-
-        editor.update(() => {
-          $getRoot().clear();
-
-          const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return;
-
-          const text = $createTextNode(history.sentMessages[currentIndex]);
-
-          selection.insertNodes([text]);
-        });
-
-        return true;
-      },
-      COMMAND_PRIORITY_HIGH,
-    );
-
-    // Enter Command
-    const registerEnterCommand = editor.registerCommand(
-      KEY_ENTER_COMMAND,
-      (e) => {
+      editor.registerCommand(KEY_ENTER_COMMAND, (e) => {
         if (e.shiftKey) return false;
         e.preventDefault();
-
-        if (suggestions?.length > 0) {
-          insertEmote(suggestions[selectedIndex]);
+        if (emoteSuggestions?.length > 0) {
+          insertEmote(emoteSuggestions[selectedEmoteIndex]);
           return true;
         }
-
+        if (chatterSuggestions?.length > 0) {
+          insertChatterMention(chatterSuggestions[selectedChatterIndex]);
+          return true;
+        }
         const content = $rootTextContent();
         if (!content.trim()) return true;
 
         onSendMessage(content);
         editor.update(() => {
-          if (e.ctrlKey) return;
-          $getRoot().clear();
+          if (!e.ctrlKey) $getRoot().clear();
         });
-
         return true;
-      },
-      COMMAND_PRIORITY_HIGH,
-    );
+      }, COMMAND_PRIORITY_HIGH),
 
-    // Tab Command
-    const registerTabCommand = editor.registerCommand(
-      KEY_TAB_COMMAND,
-      (e) => {
+      editor.registerCommand(KEY_TAB_COMMAND, (e) => {
         if (e.shiftKey) return false;
         e.preventDefault();
-
-        if (suggestions?.length) {
-          insertEmote(suggestions[selectedIndex]);
+        if (emoteSuggestions?.length) {
+          insertEmote(emoteSuggestions[selectedEmoteIndex]);
           return true;
         }
-
-        // if (tabSuggestions?.length) {
-        //   const nextIndex = (selectedTabIndex + 1) % tabSuggestions.length;
-        //   setSelectedTabIndex(nextIndex);
-
-        //   editor.update(() => {
-        //     const selection = $getSelection();
-        //     if (!$isRangeSelection(selection)) return;
-
-        //     const node = selection.anchor.getNode();
-        //     if (!node) return;
-
-        //     const textContent = node.getTextContent();
-        //     const currentEmote = tabSuggestions[nextIndex - 1];
-        //     const startIndex = textContent.lastIndexOf(tabSuggestions[nextIndex - 1]);
-        //     const endIndex = startIndex + tabSuggestions[nextIndex].length;
-
-        //     const textBefore = textContent.slice(startIndex, endIndex);
-        //     const textAfter = textContent.slice(endIndex);
-
-        //     // Delete the current word
-        //     node.setTextContent(textBefore + textAfter);
-
-        //     // Set text after emote
-        //     if (textAfter) {
-        //       const afterNode = $createTextNode(textAfter);
-        //       selection.insertNodes([afterNode]);
-        //     }
-        //   });
-        //   return true;
-        // }
-
-        // const content = $rootTextContent();
-        // if (!content.trim()) return false;
-
-        // // Get the text before the cursor in the current node
-        // const cursorOffset = $getSelection().anchor.offset;
-        // const textBeforeCursor = content.slice(0, cursorOffset);
-
-        // // Find the last word before the cursor
-        // const words = textBeforeCursor.split(/\s+/);
-        // const currentWord = words[words.length - 1];
-
-        // const foundEmotes = [];
-
-        // // Search 7TV Emotes for matches
-        // sevenTVEmotes?.emote_set?.emotes?.filter((emote) => {
-        //   if (emote.name.toLowerCase().startsWith(currentWord.toLowerCase())) {
-        //     foundEmotes.push(emote);
-        //   }
-        // });
-
-        // if (foundEmotes.length > 0) {
-        //   setTabSuggestions(foundEmotes);
-        //   setSelectedTabIndex(0);
-
-        //   editor.update(() => {
-        //     const selection = $getSelection();
-        //     if (!$isRangeSelection(selection)) return;
-
-        //     const node = selection.anchor.getNode();
-        //     if (!node) return;
-
-        //     const textContent = node.getTextContent();
-        //     const startIndex = textContent.lastIndexOf(currentWord);
-        //     console.log(startIndex);
-        //     const endIndex = startIndex + currentWord.length;
-
-        //     const textBefore = textContent.slice(0, startIndex);
-        //     const textAfter = textContent.slice(endIndex);
-
-        //     // Delete the current word
-        //     node.setTextContent(textBefore + textAfter + foundEmotes[0]?.name);
-
-        //     // Set text after emote
-        //     if (textAfter) {
-        //       const afterNode = $createTextNode(textAfter);
-        //       selection.insertNodes([afterNode]);
-        //     }
-        //   });
-        //   return true;
-        // }
-        // const emote = getEmoteData(currentWord, sevenTVEmotes, chatroomId);
-
-        // if (emote) {
-        //   insertEmote(emote);
-        //   return true;
-        // }
-
+        if (chatterSuggestions?.length) {
+          insertChatterMention(chatterSuggestions[selectedChatterIndex]);
+          return true;
+        }
         return true;
-      },
-      COMMAND_PRIORITY_HIGH,
-    );
+      }, COMMAND_PRIORITY_HIGH),
 
-    const registerUpdateListener = editor.registerUpdateListener(({ editorState }) => {
-      editorState.read(() => {
-        const selection = $getSelection();
-        if (!$isRangeSelection(selection)) return;
+      editor.registerUpdateListener(({ editorState }) => {
+        editorState.read(() => {
+          const selection = $getSelection();
+          if (!$isRangeSelection(selection)) return;
 
-        const node = selection.anchor.getNode();
-        if (!node) return;
+          const node = selection.anchor.getNode();
+          const textContent = node.getTextContent();
+          const cursorOffset = selection.anchor.offset;
 
-        const textContent = node.getTextContent();
-        const cursorOffset = selection.anchor.offset;
+          const textBeforeCursor = textContent.slice(0, cursorOffset);
+          const words = textBeforeCursor.split(/\s+/);
+          const currentWord = words[words.length - 1];
 
-        // Get the text before the cursor in the current node
-        const textBeforeCursor = textContent.slice(0, cursorOffset);
-
-        // Find the last word before the cursor
-        const words = textBeforeCursor.split(/\s+/);
-        const currentWord = words[words.length - 1];
-
-        // Make sure the last word before the cursor starts with a colon (emote search)
-        if (!currentWord.startsWith(":")) {
-          setSuggestions([]);
-          setSearchText("");
-          setSelectedIndex(null);
-          setPosition(null);
-          return;
-        }
-
-        // Remove the colon from the search text
-        const searchTextWithoutColon = currentWord.slice(1);
-
-        // Search for emotes that include the search text
-        const results = searchEmotes(searchTextWithoutColon);
-
-        if (results?.length) {
-          setSearchText(searchTextWithoutColon);
-          setSuggestions(results);
-          setSelectedIndex(0);
-          setPosition([cursorOffset - searchTextWithoutColon.length, cursorOffset]);
-        } else {
-          setSearchText("");
-          setSuggestions([]);
-          setSelectedIndex(null);
-          setPosition(null);
-        }
-      });
-    });
+          if (currentWord.startsWith(":")) {
+            const query = currentWord.slice(1);
+            const results = searchEmotes(query);
+            setSearchText(query);
+            setEmoteSuggestions(results);
+            setSelectedEmoteIndex(0);
+            setPosition([cursorOffset - query.length, cursorOffset]);
+          } else if (currentWord.startsWith("@")) {
+            const query = currentWord.slice(1);
+            const results = searchChatters(query);
+            setSearchText(query);
+            setChatterSuggestions(results);
+            setSelectedChatterIndex(0);
+            setPosition([cursorOffset - query.length, cursorOffset]);
+          } else {
+            setEmoteSuggestions([]);
+            setChatterSuggestions([]);
+            setSearchText("");
+            setSelectedEmoteIndex(null);
+            setSelectedChatterIndex(null);
+            setPosition(null);
+          }
+        });
+      }),
+    ];
 
     return () => {
-      registerEnterCommand();
-      registerUpdateListener();
-      registerArrowUpCommand();
-      registerArrowDownCommand();
-      registerTabCommand();
-      registerPasteCommand();
+      unregisters.forEach((unregister) => unregister());
     };
-  }, [editor, searchEmotes, suggestions, selectedIndex, insertEmote]);
+  }, [editor, searchEmotes, searchChatters, emoteSuggestions, chatterSuggestions, insertEmote, insertChatterMention]);
 
-  return <EmoteSuggestions suggestions={suggestions} position={position} selectedIndex={selectedIndex} onSelect={insertEmote} />;
+  return (
+    <>
+      <EmoteSuggestions
+        suggestions={emoteSuggestions}
+        position={position}
+        selectedIndex={selectedEmoteIndex}
+        onSelect={insertEmote}
+      />
+      <ChatterSuggestions
+        suggestions={chatterSuggestions}
+        selectedIndex={selectedChatterIndex}
+        onSelect={insertChatterMention}
+      />
+    </>
+  );
 };
+
 
 const processEmoteInput = ({ node, kickEmotes }) => {
   const matches = [];
@@ -603,8 +497,29 @@ const ChatInput = memo(
         });
       }
     }, [chatroomId]);
-
     const handleSendMessage = async (content) => {
+      if (content.startsWith("/")) {
+        const commandParts = content.slice(1).trim().split(" ");
+        const command = commandParts[0];
+        const usernameInput = commandParts[1]
+        if(!usernameInput) return;
+        if (command) {
+          const username = await window.app.kick.getUserInfo(chatroom.username ,usernameInput);
+          if(!username) return;
+          const sender = {
+            id: username.data.id,
+            username: username.data.username,
+            slug: username.data.slug,
+          };
+          window.app.userDialog.open({
+            sender: sender,
+            chatroomId,
+            cords: [0, 300],
+          });
+          console.log(`Command detected: ${command}, Sender: ${sender}`);
+          return;
+        }
+      }
       const res = await sendMessage(chatroomId, content);
 
       if (res) {

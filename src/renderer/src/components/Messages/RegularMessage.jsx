@@ -2,12 +2,13 @@ import { memo } from "react";
 import { MessageParser } from "../../utils/MessageParser";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import CopyIcon from "../../assets/icons/copy-simple-fill.svg";
+import PinIcon from "../../assets/icons/pin-filled.svg";
 import clsx from "clsx";
 import { useShallow } from "zustand/shallow";
 import useCosmeticsStore from "../../providers/CosmeticsProvider";
 
 const RegularMessage = memo(
-  ({ message, filteredKickTalkBadges, subscriberBadges, sevenTVEmotes, handleOpenUserDialog, sevenTVSettings, type }) => {
+  ({ message, filteredKickTalkBadges, subscriberBadges, sevenTVEmotes, handleOpenUserDialog, sevenTVSettings, type, chatroomName }) => {
     const userStyle = useCosmeticsStore(useShallow((state) => state.getUserStyle(message.sender.username)));
 
     return (
@@ -38,8 +39,22 @@ const RegularMessage = memo(
         <span className="chatMessageContent">
           <MessageParser type={type} message={message} sevenTVEmotes={sevenTVEmotes} sevenTVSettings={sevenTVSettings} />
         </span>
-
         <div className="chatMessageActions">
+              <button
+            onClick={() => {
+              console.log("message", message);
+              const data ={
+                chatroom_id: message.chatroom_id,
+                content: message.content,
+                id: message.id,
+                sender: message.sender,
+                chatroomName: chatroomName,
+              }
+              window.app.kick.pinMessage(data);
+            }}
+            className="chatMessageActionButton">
+            <img src={PinIcon} alt="Pin Message" width={16} height={16} />
+          </button>
           <button
             onClick={() => {
               navigator.clipboard.writeText(message.content);

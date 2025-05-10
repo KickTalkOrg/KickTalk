@@ -71,6 +71,9 @@
   top: -16px;
   opacity: 0;
   transition: opacity 0.2s ease;
+  display: flex;
+  gap: 8px;
+
   > button {
     display: flex;
     align-items: center;

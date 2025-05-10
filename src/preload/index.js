@@ -10,7 +10,10 @@ import {
   getUserChatroomInfo,
   getSilencedUsers,
   getLinkThumbnail,
+  silenceUser,
+  unsilenceUser,
   getInitialChatroomMessages,
+  pinMessage,
 } from "../../utils/services/kick/kickAPI";
 import { getUserStvId } from "../../utils/services/seventv/stvAPI";
 import { getChannelEmotes } from "../../utils/services/seventv/stvAPI";
@@ -21,6 +24,18 @@ const authStore = new Store({
   fileExtension: "env",
 });
 
+// Get Silenced users and save the in local storage
+const saveSilencedUsers = async (sessionCookie, kickSession) => {
+  try {
+    const response = await getSilencedUsers(sessionCookie, kickSession);
+    if (response.status === 200) {
+      const silencedUsers = response.data;
+      localStorage.setItem("silencedUsers", JSON.stringify(silencedUsers));
+    }
+  } catch (error) {
+    console.error("Error fetching silenced users:", error);
+  }
+};
 const retrieveToken = (token_name) => {
   return authStore.get(token_name);
 };
@@ -65,6 +80,8 @@ const validateSessionToken = async () => {
 };
 
 validateSessionToken();
+
+saveSilencedUsers(authSession.token, authSession.session);
 
 if (process.contextIsolated) {
   try {
@@ -148,8 +165,11 @@ if (process.contextIsolated) {
         getEmotes: (chatroomName) => getKickEmotes(chatroomName),
         getUserInfo: (chatroomName, username) => getUserChatroomInfo(chatroomName, username),
         getUserChatroomInfo: (chatroomName, username) =>
-          getUserChatroomInfo(chatroomName, username, authSession.token, authSession.session),
+        getUserChatroomInfo(chatroomName, username, authSession.token, authSession.session),
         getInitialChatroomMessages: (channelID) => getInitialChatroomMessages(channelID),
+        silenceUser: (userId) => silenceUser(userId, authSession.token, authSession.session),
+        unsilenceUser: (userId) => unsilenceUser(userId, authSession.token, authSession.session),
+        pinMessage: (data) => pinMessage(data, authSession.token, authSession.session),
       },
 
       // 7TV API

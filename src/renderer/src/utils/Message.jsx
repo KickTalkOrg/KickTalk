@@ -6,7 +6,7 @@ import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg?asset";
 import clsx from "clsx";
 
 const Message = memo(
-  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, username }) => {
+  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, username, chatroomName }) => {
     const messageRef = useRef(null);
 
     const handleOpenUserDialog = useCallback(
@@ -65,6 +65,7 @@ const Message = memo(
             sevenTVEmotes={sevenTVEmotes}
             sevenTVSettings={settings?.sevenTV}
             handleOpenUserDialog={handleOpenUserDialog}
+            chatroomName={chatroomName}
           />
         )}
         {message.type === "reply" && (

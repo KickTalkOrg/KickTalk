@@ -1,4 +1,5 @@
 import axios from "axios";
+import { create } from "zustand";
 const APIUrl = "https://kick.com";
 const KickTalkAPIUrl = "https://api.kicktalk.app";
 const rateLimitMap = new Map();
@@ -163,6 +164,22 @@ const getUserChatroomInfo = (chatroomName, username, sessionCookie, kickSession)
   });
 };
 
+const pinMessage = (data, sessionCookie, kickSession) => {
+  const currentTime = new Date().toISOString();
+  return axios.post(
+    `${APIUrl}/api/v2/channels/${data.chatroomName}/pinned-message`,
+    { duration: 1200, message:{
+       chatroom_id: data.chatroom_id, content: data.content, created_at: currentTime, id: data.id, sender: data.sender ,type: "message" 
+    }},  
+    {
+      headers: {
+        Authorization: `Bearer ${sessionCookie}`,
+      },
+      Cookie: `kick_session=${kickSession}, session_token=${sessionCookie}, x-xsrf-token=${sessionCookie}, XSRF-TOKEN=${kickSession}`,
+    }
+  );
+};
+
 const getKickEmotes = async (chatroomName) => {
   const transformedChannelName = chatroomName.replace("_", "-");
   const response = await axios.get(`${APIUrl}/emotes/${transformedChannelName}`);
@@ -208,6 +225,41 @@ const getSilencedUsers = (sessionCookie, kickSession) => {
   });
 };
 
+const silenceUser = (user_id, sessionCookie, kickSession) => {
+  return axios.post(`${APIUrl}/api/v2/silenced-users`,
+    { user_id: user_id },
+    {
+      headers: {
+        accept: "*/*",
+        authorization: `Bearer ${sessionCookie}`,
+        priority: "u=1, i",
+        "x-xsrf-token": kickSession,
+      },
+      referrer: "https://kick.com/",
+      referrerPolicy: "strict-origin-when-cross-origin",
+      method: "POST",
+      mode: "cors",
+      credentials: "include",
+    }
+  );
+};
+
+const unsilenceUser = (user_id, sessionCookie, kickSession) => {
+  return axios.delete(`${APIUrl}/api/v2/silenced-users/${user_id}`, {
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${sessionCookie}`,
+      priority: "u=1, i",
+      "x-xsrf-token": kickSession,
+    },
+    referrer: "https://kick.com/design",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "DELETE",
+    mode: "cors",
+    credentials: "include",
+  });
+};
+
 const sendUsernameToServer = (username) => {
   return axios.post(`${KickTalkAPIUrl}/t/internal/username`, { username });
 };
@@ -226,4 +278,7 @@ export {
   sendUsernameToServer,
   getUserKickId,
   getLinkThumbnail,
+  silenceUser,
+  unsilenceUser,
+  pinMessage,
 };

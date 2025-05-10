@@ -14,9 +14,12 @@ const User = () => {
   const [sevenTVEmotes, setSevenTVEmotes] = useState([]);
   const [isDialogPinned, setIsDialogPinned] = useState(false);
   const dialogLogsRef = useRef(null);
+  const scilencedUsers = JSON.parse(localStorage.getItem("silencedUsers")) || [];
+  const [isUserSilenced, setIsSilenced] = useState(false);
 
   useEffect(() => {
     const loadData = async (data) => {
+      console.log("User Dialog Data", data);
       setDialogData(data);
 
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
@@ -52,8 +55,28 @@ const User = () => {
 
   useEffect(() => {
     dialogLogsRef.current.scrollTop = dialogLogsRef.current.scrollHeight;
-  }, [userLogs]);
+    dialogData?.isSilenced
+  }, [userLogs, dialogData]);
 
+  const silenceUser = async () => {
+    console.log("Silencing user", dialogData?.sender?.username);
+    const userIndex = scilencedUsers.data.findIndex((user) => user.id === dialogData?.sender?.id);
+
+    if (userIndex === -1) {
+      scilencedUsers.data.push({
+        id: dialogData?.sender?.id,
+        username: dialogData?.sender?.username,
+      });
+      window.app.kick.silenceUser(dialogData?.sender?.id);
+      setIsSilenced(true);
+    } else {
+      scilencedUsers.data.splice(userIndex, 1);
+      window.app.kick.unsilenceUser(dialogData?.sender?.id);
+      setIsSilenced(false);
+    }
+
+    localStorage.setItem("silencedUsers", JSON.stringify(scilencedUsers));
+  };
   const handlePinToggle = async () => {
     await window.app.userDialog.pin(!isDialogPinned);
     setIsDialogPinned(!isDialogPinned);
@@ -96,10 +119,15 @@ const User = () => {
           </div>
         </div>
         <div className="dialogHeaderOptions">
-          <button className="dialogHeaderOptionsButton" disabled>
-            Mute User
-          </button>
           <button
+            className="dialogHeaderOptionsButton"
+            onClick={async () => {
+              await silenceUser();
+              window.app.userDialog.close();
+            }}>
+            {isUserSilenced ? "Unmute User" : "Mute User"}
+            </button>
+            <button
             className="dialogHeaderOptionsButton"
             onClick={() => {
               const transformedUsername = dialogData?.sender?.username.toLowerCase().replace("_", "-");

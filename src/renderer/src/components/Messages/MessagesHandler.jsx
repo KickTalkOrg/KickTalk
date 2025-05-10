@@ -5,10 +5,21 @@ import Message from "../../utils/Message";
 const MessagesHandler = memo(
   ({ chatroomId, slug, channel7TVEmotes, subscriberBadges, kickTalkBadges, settings, username }) => {
     const messages = useChatStore((state) => state.messages[chatroomId]);
-
+    const scilencedUsers = JSON.parse(localStorage.getItem("silencedUsers")) || [];
+    scilencedUsers?.data?.forEach((user) => {
+      messages?.forEach((message) => {
+        if (message.sender?.id === user.id) {
+          message.isSilenced = true;
+        }
+      });
+    }
+  );
     return (
       <div>
         {messages?.map((message) => {
+          if(message.isSilenced) {
+            return null;
+          }
           return (
             <Message
               key={message.id}
