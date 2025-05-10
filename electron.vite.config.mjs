@@ -16,6 +16,8 @@ export default defineConfig({
           index: resolve("src/renderer/index.html"),
           userDialog: resolve("src/renderer/user.html"),
           authDialog: resolve("src/renderer/auth.html"),
+          chattersDialog: resolve("src/renderer/chatters.html"),
+          settingsDialog: resolve("src/renderer/settings.html"),
         },
       },
     },

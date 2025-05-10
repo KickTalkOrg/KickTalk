@@ -1,9 +1,14 @@
 import { HexColorPicker } from "react-colorful";
-import { useRef, useState, useEffect } from "react";
+import { useRef, useState, useEffect, useCallback } from "react";
 import clsx from "clsx";
 import useClickOutside from "../../utils/useClickOutside";
+import { useDebounceCallback } from "../../utils/hooks";
+
 const ColorPicker = ({ initialColor, handleColorChange, isColorPickerOpen, setIsColorPickerOpen }) => {
   const [color, setColor] = useState(initialColor);
+
+  // Create a debounced version of handleColorChange
+  const debouncedHandleColorChange = useDebounceCallback(handleColorChange, 300);
 
   useEffect(() => {
     if (initialColor && initialColor !== color) {
@@ -11,10 +16,13 @@ const ColorPicker = ({ initialColor, handleColorChange, isColorPickerOpen, setIs
     }
   }, [initialColor]);
 
-  const handleChange = (newColor) => {
-    setColor(newColor);
-    handleColorChange(newColor);
-  };
+  const handleChange = useCallback(
+    (newColor) => {
+      setColor(newColor);
+      debouncedHandleColorChange(newColor);
+    },
+    [debouncedHandleColorChange],
+  );
 
   const colorPickerRef = useRef(null);
   useClickOutside(colorPickerRef, () => setIsColorPickerOpen(false));

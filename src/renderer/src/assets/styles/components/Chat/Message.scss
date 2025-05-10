@@ -11,7 +11,20 @@
 
   &.old,
   &.deleted {
-    opacity: 0.4;
+    .chatMessageReplyText,
+    .chatMessageUser .chatroomBadgeIcon,
+    .chatMessageUsername {
+      opacity: 0.25;
+    }
+
+    .chatMessageContent {
+      > div,
+      > span,
+      > a,
+      > .chatroomEmoteWrapper {
+        opacity: 0.25;
+      }
+    }
   }
 
   &.dialogChatMessageItem {
@@ -39,6 +52,7 @@
     display: inline-flex;
     gap: 4px;
     opacity: 0.35;
+    max-height: 24px;
 
     > .chatMessageReplyTextSender {
       flex: 1 0 auto;
@@ -107,6 +121,12 @@
   }
 }
 
+.chatMessageTimestamp {
+  font-size: var(--chat-message-font-size);
+  margin-right: 6px;
+  color: rgba(255, 255, 255, 0.3);
+}
+
 .chatMessageUser {
   display: inline-flex;
   word-break: break-all;
@@ -170,12 +190,14 @@
 }
 
 .chatroomEmoteWrapper {
+  opacity: 1;
   position: relative;
   display: inline-flex;
   vertical-align: middle;
   align-items: center;
   justify-content: center;
-  margin-right: 2px;
+  margin-left: 1px;
+  margin-right: 1px;
   flex-direction: row;
 }
 
@@ -186,7 +208,6 @@
   width: inherit;
   display: flex;
   align-items: center;
-  gap: 44px;
   justify-content: center;
   height: inherit;
   transform: translate(0, -50%) rotate(0) skewX(0) skewY(0) scaleX(1) scaleY(1);
@@ -295,6 +316,7 @@
   font-size: 18px;
   align-items: center;
   justify-content: center;
+  opacity: 1;
   padding: 16px;
   max-width: max-content !important;
 
@@ -376,7 +398,27 @@
   }
 
   > p {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
     font-size: 14px;
     color: rgba(255, 255, 255, 0.7);
+  }
+
+  .emoteTooltipPlatform {
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    background-color: rgba(255, 255, 255, 0.1);
+    margin-bottom: 4px;
+    width: 100%;
+    padding: 2px 8px;
+    height: 20px;
+    border-radius: 4px;
+    color: rgba(255, 255, 255, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
   }
 }

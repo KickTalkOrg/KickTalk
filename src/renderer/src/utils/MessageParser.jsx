@@ -9,8 +9,12 @@ const rules = [
   {
     // Kick Emote Rule
     regexPattern: kickEmoteRegex,
-    component: ({ match, index }) => {
+    component: ({ match, index, type }) => {
       const { id, name } = match.groups;
+
+      if (type === "reply") {
+        return name;
+      }
 
       return (
         <Emote
@@ -68,16 +72,19 @@ const getEmoteData = (emoteName, sevenTVEmotes, chatroomId) => {
     return roomEmotes.get(emoteName);
   }
 
-  const emote = sevenTVEmotes?.emote_set?.emotes.find((e) => e.name === emoteName);
+  // Flatten all emote sets and search through them
+  const allEmotes = sevenTVEmotes?.flatMap((set) => set?.emotes || []) || [];
+  const emote = allEmotes.find((e) => e.name === emoteName);
 
   if (emote) {
     const emoteData = {
       id: emote.id,
-      width: emote?.data?.host?.files[0].width || emote.file.width,
-      height: emote?.data?.host?.files[0].height || emote.file.height,
+      width: emote?.data?.host?.files[0]?.width || emote.file?.width,
+      height: emote?.data?.host?.files[0]?.height || emote.file?.height,
       name: emote.name,
       alias: emote.alias,
       owner: emote.owner,
+      platform: "7tv",
     };
 
     // Cache the emote data
@@ -117,7 +124,8 @@ export const MessageParser = ({ message, sevenTVEmotes, sevenTVSettings, type })
     }
 
     // Add the matched component
-    parts.push(rule.component({ match, index: start }));
+    parts.push(rule.component({ match, index: start, type }));
+
     lastIndex = end;
   }
 
@@ -126,36 +134,53 @@ export const MessageParser = ({ message, sevenTVEmotes, sevenTVSettings, type })
     parts.push(message.content.slice(lastIndex));
   }
 
-  if (!sevenTVSettings?.emotes && type !== "dialog") {
-    return parts;
-  }
-
   // 7TV emotes
   const finalParts = [];
+  let pendingTextParts = [];
 
   parts.forEach((part, i) => {
     if (typeof part !== "string") {
+      // if there's a text string combine and add it before the non text part
+      if (pendingTextParts.length) {
+        finalParts.push(<span key={`text-${i}`}>{pendingTextParts.join(" ")}</span>);
+        pendingTextParts = [];
+      }
+
       finalParts.push(part);
       return;
     }
 
     // Split where there is one or more whitespace
     const textParts = part.split(WHITESPACE_REGEX);
-    const lastIndex = textParts.length - 1;
-
     textParts.forEach((textPart, j) => {
-      const emoteData = getEmoteData(textPart, sevenTVEmotes, message?.chatroom_id);
+      if (sevenTVSettings?.emotes) {
+        const emoteData = getEmoteData(textPart, sevenTVEmotes, message?.chatroom_id);
 
-      if (emoteData) {
-        finalParts.push(<Emote key={`stvEmote-${emoteData.id}-${message.timestamp}-${i}-${j}`} emote={emoteData} type={"stv"} />);
+        if (emoteData) {
+          // if there's a text string combine and add it before the emote part
+          if (pendingTextParts.length) {
+            finalParts.push(<span key={`text-${i}-${j}`}>{pendingTextParts.join(" ")}</span>);
+            pendingTextParts = [];
+          }
+
+          finalParts.push(
+            " ",
+            <Emote key={`stvEmote-${emoteData.id}-${message.timestamp}-${i}-${j}`} emote={emoteData} type={"stv"} />,
+            " ",
+          );
+        } else {
+          pendingTextParts.push(textPart);
+        }
       } else {
-        finalParts.push(textPart);
+        pendingTextParts.push(textPart);
       }
-
-      // Add space between parts, but not after the last one
-      if (j < lastIndex) finalParts.push(" ");
     });
   });
+
+  // Add any remaining text
+  if (pendingTextParts.length > 0) {
+    finalParts.push(<span key="final-text">{pendingTextParts.join(" ")}</span>);
+  }
 
   return finalParts;
 };

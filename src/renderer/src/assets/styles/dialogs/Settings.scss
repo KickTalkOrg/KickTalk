@@ -1,0 +1,194 @@
+.settingsDialogWrapper {
+  display: flex;
+  height: 100%;
+  width: 100%;
+  flex-direction: column;
+}
+
+.settingsDialogHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 12px;
+  min-height: 48px;
+  app-region: drag;
+  border-bottom: 1px solid #ffffff21;
+
+  h2 {
+    font-size: 15px;
+    font-weight: 500;
+    color: #ffffff80;
+    app-region: no-drag;
+  }
+
+  .settingsDialogCloseBtn {
+    app-region: no-drag;
+    border: 1px solid #ffffff21;
+    background-color: transparent;
+    cursor: pointer;
+    border-radius: 4px;
+    padding: 4px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    transition:
+      background-color 0.2s ease-in-out,
+      border-color 0.2s ease-in-out;
+
+    &:hover {
+      background-color: #ffffff21;
+      border-color: #ffffff37;
+    }
+
+    img {
+      opacity: 0.5;
+      transition: opacity 0.2s ease-in-out;
+
+      &:hover {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.settingsDialogContainer {
+  display: flex;
+  flex: 1 1 100%;
+  width: 100%;
+  height: 100vh;
+}
+
+.settingsMenu {
+  display: flex;
+  flex: 1 1 450px;
+  flex-direction: column;
+  background-color: #04120a;
+  border-right: 1px solid rgba(255, 255, 255, 0.1294117647);
+  width: 100%;
+
+  .settingsMenuSection {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-bottom: 1px solid #ffffff21;
+
+    .settingsMenuSectionHeader {
+      padding-bottom: 12px;
+      padding-left: 8px;
+
+      h5 {
+        font-size: 12px;
+        font-weight: 600;
+        color: #ffffff67;
+        text-transform: uppercase;
+      }
+    }
+
+    .settingsMenuSectionItem {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      gap: 4px;
+    }
+
+    .settingsMenuSectionItemBtn {
+      display: flex;
+      flex-direction: column;
+      width: 100%;
+      padding: 12px;
+      color: #ffffff8d;
+      cursor: pointer;
+      border-radius: 6px;
+      border: 1px solid #ffffff21;
+      box-shadow: 0 2px 2px 0 #4a4a4a00;
+
+      background-color: transparent;
+      transition:
+        background-color 0.12s ease-in-out,
+        border-color 0.12s ease-in-out,
+        color 0.12s ease-in-out,
+        box-shadow 0.12s ease-in-out;
+
+      &:hover:not(:disabled) {
+        background-color: #ffffff21;
+        border-radius: 4px;
+        color: #ffffff;
+        border-color: #ffffff21;
+        box-shadow: 0 2px 2px 0 #4a4a4a1d;
+      }
+
+      &:disabled {
+        opacity: 0.5;
+        cursor: default;
+      }
+
+      &.active {
+        background-color: #ffffff21;
+        border-radius: 4px;
+        color: #ffffff;
+        border-color: #ffffff21;
+      }
+    }
+  }
+}
+
+.settingsContent {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+
+  .settingsContentSection {
+    display: flex;
+    flex-direction: column;
+    padding: 12px;
+    border-bottom: 1px solid #ffffff21;
+
+    .settingsSectionHeader {
+      padding-bottom: 12px;
+
+      h4 {
+        font-size: 16px;
+        font-weight: 600;
+        color: rgba(255, 255, 255, 0.7);
+      }
+
+      p {
+        font-size: 14px;
+        color: rgba(255, 255, 255, 0.5);
+      }
+    }
+
+    .settingsItem {
+      width: 100%;
+
+      .settingSwitchItem {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        width: 100%;
+        padding: 12px;
+        border-radius: 6px;
+        border: 1px solid #ffffff21;
+        box-shadow: 0 2px 2px 0 #4a4a4a00;
+
+        .checkBox {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          border: 1px solid #ffffff21;
+          box-shadow: 0 2px 2px 0 #4a4a4a00;
+          cursor: pointer;
+        }
+
+        span {
+          font-size: 14px;
+          color: rgba(255, 255, 255, 0.5);
+        }
+      }
+    }
+  }
+}

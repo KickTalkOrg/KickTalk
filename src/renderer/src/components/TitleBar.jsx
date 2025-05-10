@@ -4,6 +4,7 @@ import CaretDown from "../assets/icons/caret-down-bold.svg?asset";
 import Minus from "../assets/icons/minus-bold.svg?asset";
 import Square from "../assets/icons/square-bold.svg?asset";
 import X from "../assets/icons/x-bold.svg?asset";
+import GearIcon from "../assets/icons/gear-fill.svg?asset";
 
 import "../assets/styles/components/TitleBar.scss";
 import Settings from "./Settings";
@@ -70,6 +71,9 @@ const TitleBar = () => {
       <Updater />
 
       <div className="titleBarRight">
+        {/* <button className="titleBarSettingsBtn" onClick={() => window.app.settingsDialog.open()}>
+          <img src={GearIcon} width={16} height={16} alt="Settings" />
+        </button> */}
         <div className="titleBarControls">
           <button className="minimize" onClick={() => window.app.minimize()}>
             <img src={Minus} width={12} height={12} alt="Minimize" />

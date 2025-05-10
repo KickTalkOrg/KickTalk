@@ -12,36 +12,16 @@ const getChannelEmotes = async (channelId) => {
       throw new Error(`[7TV Emotes] Error while fetching Global Emotes. Status: ${globalResponse.status}`);
     }
 
-    const emoteGlobalData = globalResponse.data;
+    const emoteGlobalData = globalResponse?.data;
 
-    // Format global emotes as a fallback
     formattedGlobalEmotes = {
-      emote_set: {
-        emotes: emoteGlobalData.emotes.map((emote) => {
-          return {
-            id: emote.id,
-            actor_id: emote.actor_id,
-            name: emote.name,
-            alias: emote.data.name !== emote.name ? emote.data.name : null,
-            owner: emote.data.owner,
-            file: emote.data.host.files?.[0] || emote.data.host.files?.[1],
-            platform: "7tv",
-          };
-        }),
+      setInfo: {
+        id: emoteGlobalData.id,
+        name: emoteGlobalData.name,
+        emote_count: emoteGlobalData.emote_count,
+        capacity: emoteGlobalData.capacity,
       },
-    };
-
-    const channelResponse = await axios.get(`https://7tv.io/v3/users/kick/${channelId}`);
-
-    if (channelResponse.status === 200) {
-      const emoteChannelData = channelResponse.data;
-
-      // Combine channel and global emotes
-      const channelEmoteIds = new Set(emoteChannelData.emote_set.emotes.map((emote) => emote.id));
-      const filteredGlobalEmotes = emoteGlobalData.emotes.filter((emote) => !channelEmoteIds.has(emote.id));
-
-      // Format combined emotes
-      emoteChannelData.emote_set.emotes = [...emoteChannelData.emote_set.emotes, ...filteredGlobalEmotes].map((emote) => {
+      emotes: emoteGlobalData.emotes.map((emote) => {
         return {
           id: emote.id,
           actor_id: emote.actor_id,
@@ -50,11 +30,46 @@ const getChannelEmotes = async (channelId) => {
           owner: emote.data.owner,
           file: emote.data.host.files?.[0] || emote.data.host.files?.[1],
           platform: "7tv",
+          type: "global",
+        };
+      }),
+      type: "global",
+    };
+
+    const channelResponse = await axios.get(`https://7tv.io/v3/users/kick/${channelId}`);
+
+    if (channelResponse.status === 200) {
+      const emoteSet = channelResponse.data?.emote_set;
+      const emoteChannelData = emoteSet?.emotes?.map((emote) => {
+        return {
+          id: emote.id,
+          actor_id: emote.actor_id,
+          name: emote.name,
+          alias: emote.data.name !== emote.name ? emote.data.name : null,
+          owner: emote.data.owner,
+          file: emote.data.host.files?.[0] || emote.data.host.files?.[1],
+          platform: "7tv",
+          type: "channel",
         };
       });
 
       console.log("[7TV Emotes] Successfully fetched channel and global emotes");
-      return emoteChannelData;
+
+      const emoteSets = [
+        {
+          setInfo: {
+            id: emoteSet.id,
+            name: emoteSet.name,
+            owner: emoteSet.owner,
+            emote_count: emoteSet?.emote_count,
+            capacity: emoteSet?.capacity,
+          },
+          emotes: emoteChannelData,
+          type: "channel",
+        },
+        formattedGlobalEmotes,
+      ];
+      return emoteSets;
     }
   } catch (error) {
     console.error("[7TV Emotes] Error fetching channel emotes:", error.message);
@@ -62,7 +77,7 @@ const getChannelEmotes = async (channelId) => {
 
   // Return only global emotes if channel emotes are unavailable
   console.log("[7TV Emotes] Using global emotes only");
-  return formattedGlobalEmotes;
+  return [formattedGlobalEmotes];
 };
 
 const sendUserPresence = async (stvId, userId) => {

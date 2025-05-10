@@ -8,7 +8,6 @@ import {
   KEY_ARROW_DOWN_COMMAND,
   KEY_TAB_COMMAND,
   $createTextNode,
-  $createParagraphNode,
   $getSelection,
   $isRangeSelection,
   PASTE_COMMAND,
@@ -92,6 +91,8 @@ const EmoteSuggestions = memo(
                 <div className="emoteSuggestionInfo">
                   <span>{emote?.name}</span>
                   <div className="emoteTags">
+                    {emote?.subscribers_only && <span>SUB</span>}
+                    {emote?.type && <span>{emote?.type.toUpperCase()}</span>}
                     <span>{emote?.platform?.toUpperCase()}</span>
                   </div>
                 </div>
@@ -119,7 +120,7 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
   const [tabSuggestions, setTabSuggestions] = useState([]);
   const [selectedIndex, setSelectedIndex] = useState(0);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  const [position, setPosition] = useState(null);
+  const [showChatters, setShowChatters] = useState(false);
 
   const sevenTVEmotes = useChatStore(
     useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.channel7TVEmotes),
@@ -135,8 +136,10 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
 
       // Handle 7TV emotes
       const sevenTvResults =
-        sevenTVEmotes?.emote_set?.emotes?.filter((emote) => emote.name.toLowerCase().includes(transformedText))?.slice(0, 10) ||
-        [];
+        sevenTVEmotes
+          ?.flatMap((emoteSet) => emoteSet.emotes)
+          ?.filter((emote) => emote.name.toLowerCase().includes(transformedText))
+          ?.slice(0, 10) || [];
 
       // Handle Kick emotes from multiple sets
       const kickResults =
@@ -187,7 +190,6 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
       setSuggestions([]);
       setSearchText("");
       setSelectedIndex(null);
-      setPosition(null);
     },
     [editor],
   );
@@ -398,7 +400,7 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
         // const foundEmotes = [];
 
         // // Search 7TV Emotes for matches
-        // sevenTVEmotes?.emote_set?.emotes?.filter((emote) => {
+        // [...sevenTVEmotes[0]?.emotes, ...sevenTVEmotes[1]?.emotes]?.filter((emote) => {
         //   if (emote.name.toLowerCase().startsWith(currentWord.toLowerCase())) {
         //     foundEmotes.push(emote);
         //   }
@@ -417,7 +419,7 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
 
         //     const textContent = node.getTextContent();
         //     const startIndex = textContent.lastIndexOf(currentWord);
-        //     console.log(startIndex);
+
         //     const endIndex = startIndex + currentWord.length;
 
         //     const textBefore = textContent.slice(0, startIndex);
@@ -469,7 +471,6 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
           setSuggestions([]);
           setSearchText("");
           setSelectedIndex(null);
-          setPosition(null);
           return;
         }
 
@@ -483,15 +484,60 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
           setSearchText(searchTextWithoutColon);
           setSuggestions(results);
           setSelectedIndex(0);
-          setPosition([cursorOffset - searchTextWithoutColon.length, cursorOffset]);
         } else {
           setSearchText("");
           setSuggestions([]);
           setSelectedIndex(null);
-          setPosition(null);
         }
       });
     });
+
+    // Add effect to handle @ mentions
+    // const removeUpdateListener = editor.registerUpdateListener(({ editorState }) => {
+    //   editorState.read(() => {
+    //     const text = $rootTextContent();
+    //     const lastAtSymbol = text.lastIndexOf("@");
+
+    //     if (lastAtSymbol !== -1) {
+    //       const textAfterAt = text.slice(lastAtSymbol + 1);
+    //       if (!textAfterAt.includes(" ")) {
+    //         // Show chatters dialog when @ is typed
+    //         window.app.chattersDialog.open();
+    //         setShowChatters(true);
+    //       } else {
+    //         setShowChatters(false);
+    //       }
+    //     } else {
+    //       setShowChatters(false);
+    //     }
+    //   });
+    // });
+
+    // Add event listener for inserting mentions
+    // const handleInsertMention = (e) => {
+    //   const { text } = e.detail;
+    //   editor.update(() => {
+    //     const selection = $getSelection();
+    //     if (!$isRangeSelection(selection)) return;
+
+    //     // Find the last @ symbol
+    //     const rootText = $rootTextContent();
+    //     const lastAtSymbol = rootText.lastIndexOf("@");
+    //     if (lastAtSymbol === -1) return;
+
+    //     // Get the text node containing the @ symbol
+    //     const textNode = selection.anchor.getNode();
+    //     const textContent = textNode.getTextContent();
+    //     const atIndex = textContent.lastIndexOf("@");
+
+    //     if (atIndex !== -1) {
+    //       // Replace the @ and any text after it with the mention
+    //       textNode.setTextContent(textContent.slice(0, atIndex) + text);
+    //     }
+    //   });
+    // };
+
+    // window.addEventListener("insertMention", handleInsertMention);
 
     return () => {
       registerEnterCommand();
@@ -500,10 +546,12 @@ const KeyHandler = ({ chatroomId, onSendMessage }) => {
       registerArrowDownCommand();
       registerTabCommand();
       registerPasteCommand();
+      // removeUpdateListener();
+      // window.removeEventListener("insertMention", handleInsertMention);
     };
   }, [editor, searchEmotes, suggestions, selectedIndex, insertEmote]);
 
-  return <EmoteSuggestions suggestions={suggestions} position={position} selectedIndex={selectedIndex} onSelect={insertEmote} />;
+  return <EmoteSuggestions suggestions={suggestions} selectedIndex={selectedIndex} onSelect={insertEmote} />;
 };
 
 const processEmoteInput = ({ node, kickEmotes }) => {

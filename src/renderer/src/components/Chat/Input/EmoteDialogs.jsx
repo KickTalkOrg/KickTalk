@@ -1,4 +1,4 @@
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useMemo } from "react";
 import clsx from "clsx";
 import { useShallow } from "zustand/react/shallow";
 import KickLogoFull from "../../../assets/logos/kickLogoFull.svg?asset";
@@ -7,8 +7,10 @@ import useChatStore from "../../../providers/ChatProvider";
 import STVLogo from "../../../assets/logos/stvLogo.svg?asset";
 import CaretDown from "../../../assets/icons/caret-down-bold.svg?asset";
 import useClickOutside from "../../../utils/useClickOutside";
+import KickLogoIcon from "../../../assets/logos/kickLogoIcon.svg?asset";
+import GlobeIcon from "../../../assets/icons/globe-fill.svg?asset";
 
-const EmoteSection = ({ emotes, title, handleEmoteClick, type }) => {
+const EmoteSection = ({ emotes, title, handleEmoteClick, type, section }) => {
   const [isSectionOpen, setIsSectionOpen] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
   const loadMoreTriggerRef = useRef(null);
@@ -25,7 +27,7 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type }) => {
           loadMoreEmotes();
         }
       },
-      { threshold: 0.5, rootMargin: "100px" },
+      { threshold: 0.5, rootMargin: "150px" },
     );
 
     if (loadMoreTriggerRef.current) {
@@ -39,6 +41,7 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type }) => {
       }
     };
   }, [loadMoreEmotes]);
+
 
   return (
     <div className={clsx("dialogBodySection", isSectionOpen && "opened")}>
@@ -70,24 +73,53 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type }) => {
 
 const SevenTVEmoteDialog = memo(
   ({ isDialogOpen, sevenTVEmotes, handleEmoteClick }) => {
-    const emotes = sevenTVEmotes?.emote_set?.emotes;
+    const [searchTerm, setSearchTerm] = useState("");
+
+    const searchResults =
+      sevenTVEmotes
+        ?.map((emoteSection) => ({
+          ...emoteSection,
+          emotes: emoteSection.emotes.filter((emote) => emote.name.toLowerCase().includes(searchTerm.toLowerCase())),
+        }))
+        .filter((section) => section.emotes.length > 0) || [];
+
     return (
       <>
         {isDialogOpen && (
           <div className={clsx("emoteDialog", isDialogOpen && "show")}>
-            <div className={clsx("dialogHead", !emotes?.length && "dialogHeadEmpty")}>
-              <img src={STVLogo} height={20} alt="7TV Emotes" />
-              {/* <div className="dialogHeadSearch">
-              <input type="text" placeholder="Search" />
-        </div> */}
+            <div className={clsx("dialogHead", !searchResults?.length && "dialogHeadEmpty")}>
+              <div className="dialogHeadTitle">
+                <img src={STVLogo} height={20} alt="7TV Emotes" />
+              </div>
+              <div className="dialogHeadSearch">
+                <input
+                  type="text"
+                  placeholder="Search emotes..."
+                  onChange={(e) => setSearchTerm(e.target.value.trim())}
+                  value={searchTerm}
+                />
+              </div>
+              <div className="dialogHeadMenuItems"></div>
             </div>
             <div className="dialogBody">
-              {emotes?.length ? (
-                <EmoteSection emotes={emotes} title="7TV Emotes" type="7tv" handleEmoteClick={handleEmoteClick} />
-              ) : (
+              {!searchResults.length && searchTerm ? (
                 <div className="dialogBodyEmpty">
-                  <p>No 7TV Emotes</p>
+                  <p>No 7TV Emotes found</p>
                 </div>
+              ) : (
+                <>
+                  {searchResults?.map((emoteSection, index) => {
+                    return (
+                      <EmoteSection
+                        key={`${emoteSection?.setInfo?.name || "7tv_emotes"}-${index}`}
+                        emotes={emoteSection.emotes}
+                        title={`${emoteSection?.setInfo?.name || "7TV Emotes"} ${searchTerm ? `[${emoteSection.emotes.length} matches]` : ""}`}
+                        type={"7tv"}
+                        handleEmoteClick={handleEmoteClick}
+                      />
+                    );
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -100,25 +132,78 @@ const SevenTVEmoteDialog = memo(
 
 const KickEmoteDialog = memo(
   ({ isDialogOpen, kickEmotes, handleEmoteClick }) => {
+    const [searchTerm, setSearchTerm] = useState("");
+    const [currentSection, setCurrentSection] = useState(null);
+
+    const searchResults = useMemo(() => {
+      if (!kickEmotes) return [];
+
+      return kickEmotes
+        .map((emoteSection) => ({
+          ...emoteSection,
+          emotes: emoteSection.emotes.filter((emote) => emote.name.toLowerCase().includes(searchTerm.toLowerCase())),
+        }))
+        .filter((section) => section.emotes.length > 0);
+    }, [kickEmotes, searchTerm]);
+
+    const isChannelSet = kickEmotes?.find((emoteSection) => emoteSection?.name === "channel_set");
+
     return (
       <div className={clsx("emoteDialog", isDialogOpen && "show")}>
         <div className="dialogHead">
-          <img src={KickLogoFull} height={16} alt="Kick.com" />
-          {/* <div className="kickDialogHeadSearch">
-          <input type="text" placeholder="Search" />
-        </div> */}
+          <div className="dialogHeadTitle">
+            <img src={KickLogoFull} height={16} alt="Kick.com" />
+          </div>
+          <div className="dialogHeadSearch">
+            <input
+              type="text"
+              placeholder="Search..."
+              onChange={(e) => setSearchTerm(e.target.value.trim())}
+              value={searchTerm}
+            />
+          </div>
+          <div className="dialogHeadMenuItems">
+            {isChannelSet && (
+              <button
+                className={clsx("dialogHeadMenuItem", currentSection === "channel_set" && "active")}
+                onClick={() => setCurrentSection(currentSection === "channel_set" ? null : "channel_set")}>
+                <img src={isChannelSet?.user?.profile_pic} height={24} width={24} alt="Channel Emotes" />
+              </button>
+            )}
+            <button
+              className={clsx("dialogHeadMenuItem", currentSection === "Global" && "active")}
+              onClick={() => setCurrentSection(currentSection === "Global" ? null : "Global")}>
+              <img src={GlobeIcon} height={24} width={24} alt="Global Emotes" />
+            </button>
+            <button
+              className={clsx("dialogHeadMenuItem", currentSection === "Emojis" && "active")}
+              onClick={() => setCurrentSection(currentSection === "Emojis" ? null : "Emojis")}>
+              <img src={KickLogoIcon} height={16} width={16} alt="Emojis" />
+            </button>
+          </div>
         </div>
 
         <div className="dialogBody">
-          {kickEmotes?.map((emoteSection, index) => (
-            <EmoteSection
-              key={`${emoteSection.name || "sub_emojis"}-${index}`}
-              emotes={emoteSection.emotes}
-              title={emoteSection.name || "Subscriber Emojis"}
-              type={"kick"}
-              handleEmoteClick={handleEmoteClick}
-            />
-          ))}
+          {!searchResults.length && searchTerm ? (
+            <div className="dialogBodyEmpty">
+              <p>No Kick Emotes found</p>
+            </div>
+          ) : (
+            searchResults
+              ?.filter((emoteSection) => (currentSection ? emoteSection.name === currentSection : true))
+              ?.map((emoteSection, index) => (
+                <EmoteSection
+                  key={`${emoteSection.name || "sub_emojis"}-${index}`}
+                  emotes={emoteSection.emotes}
+                  section={currentSection}
+                  title={`${emoteSection.name === "channel_set" ? "Subscriber Emotes" : emoteSection.name} ${
+                    searchTerm ? `[${emoteSection.emotes.length} matches]` : ""
+                  }`}
+                  type={"kick"}
+                  handleEmoteClick={handleEmoteClick}
+                />
+              ))
+          )}
         </div>
       </div>
     );
@@ -163,6 +248,7 @@ const EmoteDialogs = memo(
 
       setCurrentHoverEmote(randomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
     }, [randomEmotes]);
+
 
     return (
       <>

@@ -1,36 +1,41 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useState, useMemo } from "react";
 import EmoteTooltip from "./EmoteTooltip";
 
-const Emote = memo(
-  ({ emote, type }) => {
-    const { id, name, width, height } = emote;
+const Emote = ({ emote, type }) => {
+  const { id, name, width, height } = emote;
 
-    const [showEmoteInfo, setShowEmoteInfo] = useState(false);
-    const [mousePos, setMousePos] = useState({ x: null, y: null });
+  const [showEmoteInfo, setShowEmoteInfo] = useState(false);
+  const [mousePos, setMousePos] = useState({ x: null, y: null });
 
-    const handleMouseEnter = useCallback((e) => {
-      setMousePos({ x: e.clientX, y: e.clientY });
-      setShowEmoteInfo(true);
-    }, []);
+  const emoteImageSrc = useMemo(() => {
+    return type === "stv" ? `https://cdn.7tv.app/emote/${id}/1x.webp` : `https://files.kick.com/emotes/${id}/fullsize`;
+  }, [type, id]);
 
-    const handleMouseLeave = useCallback(() => {
-      setShowEmoteInfo(false);
-    }, []);
+  // Optimize event handlers with useCallback
+  const handleMouseEnter = useCallback((e) => {
+    setMousePos({ x: e.clientX, y: e.clientY });
+    setShowEmoteInfo(true);
+  }, []);
 
-    const handleMouseMove = useCallback(
-      (e) => {
-        if (showEmoteInfo) {
-          setMousePos({ x: e.clientX, y: e.clientY });
-        }
-      },
-      [showEmoteInfo],
-    );
+  const handleMouseLeave = useCallback(() => {
+    setShowEmoteInfo(false);
+  }, []);
 
-    return (
-      <span
+  const handleMouseMove = useCallback(
+    (e) => {
+      if (showEmoteInfo) {
+        setMousePos({ x: e.clientX, y: e.clientY });
+      }
+    },
+    [showEmoteInfo],
+  );
+
+  return (
+    <>
+      <EmoteTooltip type={type} showEmoteInfo={showEmoteInfo} emoteSrc={emoteImageSrc} mousePos={mousePos} emoteInfo={emote} />
+      <div
         className="chatroomEmoteWrapper"
         style={{ width: type === "stv" ? width : "32px", height: type === "stv" ? height : "32px" }}>
-        {/* <EmoteTooltip type={type} showEmoteInfo={showEmoteInfo} mousePos={mousePos} emoteInfo={emote} /> */}
         <div
           className="chatroomEmote"
           onMouseEnter={handleMouseEnter}
@@ -38,7 +43,7 @@ const Emote = memo(
           onMouseMove={handleMouseMove}>
           <img
             className={type === "stv" ? "stvEmote emote" : "kickEmote emote"}
-            src={type === "stv" ? `https://cdn.7tv.app/emote/${id}/1x.webp` : `https://files.kick.com/emotes/${id}/fullsize`}
+            src={emoteImageSrc}
             alt={name}
             title={name}
             loading="lazy"
@@ -46,10 +51,9 @@ const Emote = memo(
             decoding="async"
           />
         </div>
-      </span>
-    );
-  },
-  (prev, next) => prev.emote === next.emote && prev.type === next.type,
-);
+      </div>
+    </>
+  );
+};
 
 export default Emote;

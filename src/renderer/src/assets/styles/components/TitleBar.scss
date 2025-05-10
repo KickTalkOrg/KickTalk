@@ -59,7 +59,22 @@
 .titleBarRight {
   height: 100%;
   flex: 1 1 25%;
+  align-items: center;
+  display: flex;
   app-region: drag;
+
+  .titleBarSettingsBtn {
+    app-region: no-drag;
+    display: flex;
+    align-items: center;
+    height: 100%;
+    background-color: #182f21;
+    border: none;
+    border-radius: 4px;
+    padding: 4px;
+    cursor: pointer;
+    transition: 0.2s ease-in-out background-color;
+  }
 }
 
 .titleBarControls {

@@ -14,10 +14,18 @@ const schema = {
       wrapChatroomsList: {
         type: "boolean",
       },
+      showTabImages: {
+        type: "boolean",
+      },
+      showTimestamps: {
+        type: "boolean",
+      },
     },
     default: {
       alwaysOnTop: false,
       wrapChatroomsList: false,
+      showTabImages: true,
+      showTimestamps: true,
     },
   },
   chatrooms: {

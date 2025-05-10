@@ -1,5 +1,4 @@
 import { autoUpdater } from "electron-updater";
-import { ipcMain } from "electron";
 
 console.log("AutoUpdater initialized");
 export const update = (mainWindow) => {

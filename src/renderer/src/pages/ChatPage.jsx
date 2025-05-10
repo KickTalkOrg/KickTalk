@@ -4,8 +4,9 @@ import Chat from "../components/Chat";
 import Navbar from "../components/Navbar";
 import TitleBar from "../components/TitleBar";
 
-function ChatPage() {
+const ChatPage = () => {
   const [activeChatroomId, setActiveChatroomId] = useState(null);
+  const kickUsername = localStorage.getItem("kickUsername");
 
   return (
     <div>
@@ -17,7 +18,7 @@ function ChatPage() {
         </div>
 
         {activeChatroomId ? (
-          <Chat chatroomId={activeChatroomId} />
+          <Chat chatroomId={activeChatroomId} kickUsername={kickUsername} />
         ) : (
           <div className="chatroomsEmptyState">
             <h1>No Chats</h1>
@@ -27,6 +28,6 @@ function ChatPage() {
       </div>
     </div>
   );
-}
+};
 
 export default ChatPage;

@@ -1,5 +1,5 @@
 import "../../assets/styles/components/Settings.scss";
-import { useState, useRef } from "react";
+import { useState, useRef, useCallback } from "react";
 import clsx from "clsx";
 import SignOut from "../../assets/icons/sign-out-bold.svg?asset";
 import Check from "../../assets/icons/check-bold.svg?asset";
@@ -22,6 +22,16 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
   const handleLogout = () => {
     window.app.logout();
   };
+
+  const handleColorChange = useCallback(
+    (color) => {
+      changeSetting("notifications", {
+        ...settings?.notifications,
+        backgroundColour: color,
+      });
+    },
+    [settings, changeSetting],
+  );
 
   const settingsModalRef = useRef(null);
   useClickOutside(settingsModalRef, () => setSettingsModalOpen(false));
@@ -106,9 +116,7 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
               initialColor={settings?.notifications?.backgroundColour || "#000000"}
               isColorPickerOpen={openColorPicker}
               setIsColorPickerOpen={setOpenColorPicker}
-              handleColorChange={(color) =>
-                changeSetting("notifications", { ...settings?.notifications, backgroundColour: color })
-              }
+              handleColorChange={handleColorChange}
             />
           </div>
         </div>
@@ -140,6 +148,30 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
               <img src={Check} width={14} height={14} alt="Check" />
             </div>
             <span>Wrap Chatrooms List</span>
+          </button>
+        </div>
+
+        <div className="settingItem">
+          <button
+            className={clsx("settingSwitchItem", settings?.general?.showTimestamps ? "checked" : "")}
+            onClick={() =>
+              changeSetting("general", { ...settings?.general, showTimestamps: !settings?.general?.showTimestamps })
+            }>
+            <div className="checkBox">
+              <img src={Check} width={14} height={14} alt="Check" />
+            </div>
+            <span>Show Timestamps</span>
+          </button>
+        </div>
+
+        <div className="settingItem">
+          <button
+            className={clsx("settingSwitchItem", settings?.general?.showTabImages ? "checked" : "")}
+            onClick={() => changeSetting("general", { ...settings?.general, showTabImages: !settings?.general?.showTabImages })}>
+            <div className="checkBox">
+              <img src={Check} width={14} height={14} alt="Check" />
+            </div>
+            <span>Show Tab Images</span>
           </button>
         </div>
       </div>

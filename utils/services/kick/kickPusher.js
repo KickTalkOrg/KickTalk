@@ -28,8 +28,9 @@ class KickPusher extends EventTarget {
       }),
     );
 
-    this.chat.addEventListener("open", () => {
+    this.chat.addEventListener("open", async () => {
       console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
+
       setTimeout(() => {
         if (this.chat && this.chat.readyState === WebSocket.OPEN) {
           const channelsToSubscribe = [
@@ -74,7 +75,7 @@ class KickPusher extends EventTarget {
       }
     });
 
-    this.chat.addEventListener("message", (event) => {
+    this.chat.addEventListener("message", async (event) => {
       try {
         const dataString = event.data;
         const jsonData = JSON.parse(dataString);
@@ -97,6 +98,7 @@ class KickPusher extends EventTarget {
 
         if (jsonData.event === "pusher:connection_established") {
           console.log(`Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
+
           this.reconnectDelay = 5000;
         }
 

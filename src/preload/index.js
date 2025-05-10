@@ -11,9 +11,12 @@ import {
   getSilencedUsers,
   getLinkThumbnail,
   getInitialChatroomMessages,
+  getBanUser,
+  getUnbanUser,
+  getTimeoutUser,
+  getSelfChatroomInfo,
 } from "../../utils/services/kick/kickAPI";
-import { getUserStvId } from "../../utils/services/seventv/stvAPI";
-import { getChannelEmotes } from "../../utils/services/seventv/stvAPI";
+import { getUserStvId, getChannelEmotes } from "../../utils/services/seventv/stvAPI";
 
 import Store from "electron-store";
 
@@ -75,7 +78,6 @@ if (process.contextIsolated) {
       bringToFront: () => ipcRenderer.invoke("bring-to-front"),
       logout: () => ipcRenderer.invoke("logout"),
       getAppInfo: () => ipcRenderer.invoke("get-app-info"),
-
       alwaysOnTop: () => ipcRenderer.invoke("alwaysOnTop"),
 
       authDialog: {
@@ -97,6 +99,13 @@ if (process.contextIsolated) {
         },
       },
 
+      modActions: {
+        getBanUser: (channelName, username) => getBanUser(channelName, username, authSession.token, authSession.session),
+        getUnbanUser: (channelName, username) => getUnbanUser(channelName, username, authSession.token, authSession.session),
+        getTimeoutUser: (channelName, username, banDuration) =>
+          getTimeoutUser(channelName, username, banDuration, authSession.token, authSession.session),
+      },
+
       chattersDialog: {
         open: (data) => ipcRenderer.invoke("chattersDialog:open", { data }),
         close: () => ipcRenderer.invoke("chattersDialog:close"),
@@ -105,6 +114,17 @@ if (process.contextIsolated) {
 
           ipcRenderer.on("chattersDialog:data", handler);
           return () => ipcRenderer.removeListener("chattersDialog:data", handler);
+        },
+      },
+
+      settingsDialog: {
+        open: (data) => ipcRenderer.invoke("settingsDialog:open", { data }),
+        close: () => ipcRenderer.invoke("settingsDialog:close"),
+        onData: (callback) => {
+          const handler = (_, data) => callback(data);
+
+          ipcRenderer.on("settingsDialog:data", handler);
+          return () => ipcRenderer.removeListener("settingsDialog:data", handler);
         },
       },
 
@@ -146,7 +166,7 @@ if (process.contextIsolated) {
           }
         },
         getEmotes: (chatroomName) => getKickEmotes(chatroomName),
-        getUserInfo: (chatroomName, username) => getUserChatroomInfo(chatroomName, username),
+        getSelfChatroomInfo: (chatroomName) => getSelfChatroomInfo(chatroomName, authSession.token, authSession.session),
         getUserChatroomInfo: (chatroomName, username) =>
           getUserChatroomInfo(chatroomName, username, authSession.token, authSession.session),
         getInitialChatroomMessages: (channelID) => getInitialChatroomMessages(channelID),

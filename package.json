@@ -52,6 +52,7 @@
     "clsx": "^2.1.1",
     "dayjs": "^1.11.13",
     "dotenv": "^16.4.7",
+    "electron-context-menu": "^4.0.5",
     "electron-store": "^10.0.1",
     "electron-updater": "^6.6.2",
     "electron-util": "^0.18.1",

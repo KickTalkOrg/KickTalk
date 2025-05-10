@@ -26,13 +26,23 @@
   max-height: 100vh;
 }
 
+#settingsRoot {
+  height: 100vh;
+}
+
 #main {
   background: linear-gradient(180deg, #020a05 0%, #06190e 100%), linear-gradient(180deg, #031209 0%, #06190e 100%);
 }
 
 #dialog {
-  background: linear-gradient(180deg, rgba(4, 15, 8, 0.9) 0%, #091810 60%);
+  background: linear-gradient(180deg, rgba(4, 15, 8, 0.95) 0%, #091810 80%);
   border: 1px solid #ffffff21;
+  height: 100vh;
+}
+
+#settingsDialog {
+  background: linear-gradient(180deg, #020a05, #020a05);
+  border: 1px solid rgb(27, 55, 40);
   height: 100vh;
 }
 

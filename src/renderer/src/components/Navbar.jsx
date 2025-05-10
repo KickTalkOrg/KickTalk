@@ -86,7 +86,6 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
 
   return (
     <>
-      {/* {settings?.general?.wrapChatroomsList ? ( */}
       <div className={clsx("navbarContainer", settings?.general?.wrapChatroomsList && "wrapChatroomList")} ref={chatroomListRef}>
         <div className="chatroomsList">
           {chatrooms.map((chatroom) => (
@@ -104,7 +103,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
                 chatroom?.isStreamerLive && "chatroomStreamerLive",
               )}>
               <div className="streamerInfo">
-                {chatroom.streamerData?.user?.profile_pic && (
+                {settings?.general?.showTabImages && chatroom.streamerData?.user?.profile_pic && (
                   <img
                     className="profileImage"
                     src={chatroom.streamerData.user.profile_pic}
@@ -170,9 +169,6 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
           </div>
         )}
       </div>
-      {/* ) : (
-        <div className="navbarContainer" />
-      )} */}
     </>
   );
 };

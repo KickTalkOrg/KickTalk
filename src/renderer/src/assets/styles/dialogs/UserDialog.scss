@@ -15,11 +15,11 @@
 }
 
 .dialogLogs {
-  height: calc(100vh - 174px);
+  height: calc(100vh - 182px);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  background-color: #0b160f;
+  background-color: #122017;
 }
 
 .dialogLogsHead {
@@ -31,6 +31,10 @@
   align-items: center;
   text-transform: uppercase;
   border-bottom: 1px solid #182f21;
+
+  > p {
+    opacity: 0.3;
+  }
 }
 
 .dialogOptions {
@@ -103,44 +107,116 @@
 .dialogHeaderOptions {
   width: 100%;
   display: flex;
+  flex-direction: column;
   padding: 0 16px;
-  gap: 4px;
+  gap: 12px;
 
-  > .dialogHeaderOptionsButton {
-    background-color: #192c1f;
-    border: none;
-    padding: 12px;
-    border-radius: 4px;
-    width: 100%;
-    font-size: 14px;
-    color: rgba(255, 255, 255, 0.7);
-    app-region: no-drag;
-    cursor: pointer;
+  .dialogHeaderOptionsTop {
+    flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: space-between;
-    transition:
-      background-color 0.2s ease-in-out,
-      color 0.2s ease-in-out;
+    gap: 4px;
 
-    &:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
+    .dialogHeaderOptionsButton {
+      background-color: #192c1f;
+      border: none;
+      padding: 12px;
+      color: rgba(255, 255, 255, 0.7);
+      border-radius: 4px;
+      app-region: no-drag;
+      cursor: pointer;
+      flex: 1;
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      justify-content: space-between;
+      transition:
+        background-color 0.2s ease-in-out,
+        color 0.2s ease-in-out;
 
-    &:hover:not(:disabled) {
-      background-color: #2d4b38;
-      color: #fff;
+      &:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      &:hover:not(:disabled) {
+        background-color: #2d4b38;
+        color: #fff;
+
+        > img {
+          opacity: 1;
+        }
+      }
 
       > img {
-        opacity: 1;
+        filter: invert(1);
+        opacity: 0.7;
+        transition: opacity 0.2s ease-in-out;
+      }
+    }
+  }
+
+  .dialogHeaderModActions {
+    display: flex;
+    gap: 4px;
+    justify-content: space-between;
+    app-region: no-drag;
+    padding-top: 12px;
+    border-top: 1px solid #182f21;
+
+    .dialogHeaderModActionsTimeout {
+      display: flex;
+      background: rgba(255, 255, 255, 0.1803921569);
+      border: 1px solid rgba(255, 255, 255, 0.1607843137);
+      border-radius: 3px;
+
+      button {
+        background-color: transparent;
+        color: rgba(255, 255, 255, 0.4);
+        border-right: 1px solid #ffffff29;
+        padding: 4px 12px;
+        cursor: pointer;
+        transition:
+          background-color 0.15s ease-in-out,
+          color 0.15s ease-in-out;
+
+        &:hover {
+          background-color: rgba(255, 255, 255, 0.1);
+          color: rgba(255, 255, 255, 0.9);
+        }
+
+        &:last-child {
+          border-right: none;
+        }
       }
     }
 
-    > img {
-      filter: invert(1);
-      opacity: 0.7;
-      transition: opacity 0.2s ease-in-out;
+    .dialogHeaderModActionsBtn {
+      background-color: #ffffff1d;
+      border: none;
+      cursor: pointer;
+      padding: 0;
+      border-radius: 4px;
+      border: 1px solid #ffffff1d;
+      height: 32px;
+      width: 80px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      app-region: no-drag;
+      transition: background-color 0.2s ease-in-out;
+
+      &:hover {
+        background-color: #ffffff33;
+
+        > img {
+          opacity: 1;
+        }
+      }
+
+      > img {
+        opacity: 0.7;
+        transition: opacity 0.2s ease-in-out;
+      }
     }
   }
 }

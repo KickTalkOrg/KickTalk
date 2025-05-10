@@ -4,21 +4,47 @@ import ModActionMessage from "../components/Messages/ModActionMessage";
 import RegularMessage from "../components/Messages/RegularMessage";
 import ArrowReplyLineIcon from "../assets/app/arrow_reply_line.svg?asset";
 import clsx from "clsx";
+import { useShallow } from "zustand/shallow";
+import useCosmeticsStore from "../providers/CosmeticsProvider";
+import { MessageParser } from "./MessageParser";
 
 const Message = memo(
-  ({ message, chatroomId, subscriberBadges, sevenTVEmotes, kickTalkBadges, settings, type, username }) => {
+  ({
+    message,
+    userChatroomInfo,
+    chatroomId,
+    subscriberBadges,
+    sevenTVEmotes,
+    kickTalkBadges,
+    settings,
+    dialogUserStyle,
+    type,
+    username,
+  }) => {
     const messageRef = useRef(null);
+
+    let userStyle;
+    if (message?.sender) {
+      if (type === "dialog") {
+        userStyle = dialogUserStyle;
+      } else {
+        userStyle = useCosmeticsStore(useShallow((state) => state.getUserStyle(message?.sender?.username)));
+      }
+    }
 
     const handleOpenUserDialog = useCallback(
       (e) => {
         e.preventDefault();
+
         window.app.userDialog.open({
           sender: message.sender,
+          userChatroomInfo,
           chatroomId,
           cords: [e.clientX, e.clientY],
+          userStyle,
         });
       },
-      [message?.sender, chatroomId],
+      [message?.sender, chatroomId, userChatroomInfo],
     );
 
     const filteredKickTalkBadges = kickTalkBadges?.find(
@@ -63,6 +89,7 @@ const Message = memo(
             filteredKickTalkBadges={filteredKickTalkBadges}
             subscriberBadges={subscriberBadges}
             sevenTVEmotes={sevenTVEmotes}
+            userStyle={userStyle}
             sevenTVSettings={settings?.sevenTV}
             handleOpenUserDialog={handleOpenUserDialog}
           />
@@ -73,7 +100,7 @@ const Message = memo(
               <img className="chatMessageReplySymbol" src={ArrowReplyLineIcon} />
               <span className="chatMessageReplyTextSender">{message?.metadata?.original_sender?.username}:</span>
               <span className="chatMessageReplyTextContent" title={message?.metadata?.original_message?.content}>
-                {message?.metadata?.original_message?.content}
+                <MessageParser message={message?.metadata?.original_message} type="reply" sevenTVEmotes={sevenTVEmotes} />
               </span>
             </span>
 
@@ -105,7 +132,8 @@ const Message = memo(
       prevProps.message.id === nextProps.message.id &&
       prevProps.message.deleted === nextProps.message.deleted &&
       prevProps.settings === nextProps.settings &&
-      prevProps.sevenTVEmotes === nextProps.sevenTVEmotes
+      prevProps.sevenTVEmotes === nextProps.sevenTVEmotes &&
+      prevProps.userChatroomInfo === nextProps.userChatroomInfo
     );
   },
 );

@@ -245,18 +245,34 @@ const useChatStore = create((set, get) => ({
       const channel7TVEmotes = await window.app.stv.getChannelEmotes(chatroom.streamerData.user_id);
 
       if (channel7TVEmotes) {
-        localStorage.setItem("channel7TVEmotes", JSON.stringify(channel7TVEmotes));
+        const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+        const updatedChatrooms = savedChatrooms.map((room) => (room.id === chatroom.id ? { ...room, channel7TVEmotes } : room));
+
+        localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
       }
+
+      set((state) => ({
+        chatrooms: state.chatrooms.map((room) => (room.id === chatroom.id ? { ...room, channel7TVEmotes } : room)),
+      }));
+    }
+
+    const fetchInitialUserChatroomInfo = async () => {
+      const { data } = await window.app.kick.getSelfChatroomInfo(chatroom?.slug);
 
       set((state) => ({
         chatrooms: state.chatrooms.map((room) => {
           if (room.id === chatroom.id) {
-            return { ...room, channel7TVEmotes };
+            return {
+              ...room,
+              userChatroomInfo: data,
+            };
           }
           return room;
         }),
       }));
-    }
+    };
+
+    fetchInitialUserChatroomInfo();
 
     const fetchEmotes = async () => {
       const data = await window.app.kick.getEmotes(chatroom.slug);
@@ -292,23 +308,6 @@ const useChatStore = create((set, get) => ({
     };
 
     fetchInitialChatroomInfo();
-
-    // const fetchInitialUserChatroomInfo = async () => {
-    //   const { data } = await window.app.kick.getUserChatroomInfo(chatroom?.slug);
-    //   set((state) => ({
-    //     chatrooms: state.chatrooms.map((room) => {
-    //       if (room.id === chatroom.id) {
-    //         return {
-    //           ...room,
-    //           userChatroomInfo: data,
-    //         };
-    //       }
-    //       return room;
-    //     }),
-    //   }));
-    // };
-
-    // fetchInitialUserChatroomInfo();
 
     // Fetch initial messages
     // TODO: Finish adding initial messages
@@ -358,7 +357,7 @@ const useChatStore = create((set, get) => ({
     set((state) => ({
       messages: {
         ...state.messages,
-        [chatroomId]: [...(state.messages[chatroomId] || []), { ...message, deleted: false }].slice(-250), // Keep last 300 messages
+        [chatroomId]: [...(state.messages[chatroomId] || []), { ...message, deleted: false }].slice(-200), // Keep last 200 messages
       },
     }));
   },
@@ -707,19 +706,25 @@ const initializePresenceUpdates = () => {
       } else {
         console.log("[7TV Presence]: No STV ID found after delay");
       }
-    }, 10000);
+    }, 10 * 10000); // 10 seconds delay
 
     return;
   }
 
   // Send presence updates every 1 minute
   console.log("[7TV Presence]: Initializing presence update checks");
-  presenceUpdatesInterval = setInterval(() => {
-    useChatStore.getState().chatrooms.forEach((chatroom) => {
-      console.log("[7TV Presence]: Sending presence update for chatroom:", chatroom.streamerData.user_id);
-      useChatStore.getState().sendPresenceUpdate(storeStvId, chatroom.streamerData.user_id);
-    });
-  }, 15 * 1000);
+  presenceUpdatesInterval = setInterval(
+    () => {
+      const chatrooms = useChatStore.getState()?.chatrooms;
+      if (chatrooms?.length === 0) return;
+
+      chatrooms.forEach((chatroom) => {
+        console.log("[7TV Presence]: Sending presence check for chatroom:", chatroom.streamerData.user_id);
+        useChatStore.getState().sendPresenceUpdate(storeStvId, chatroom.streamerData.user_id);
+      });
+    },
+    2 * 60 * 1000,
+  );
 
   return () => {
     if (presenceUpdatesInterval) {

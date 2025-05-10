@@ -16,7 +16,7 @@ dayjs.extend(relativeTime);
 
 // TODO: Separate chatroom inputs / history, each chatroom has its own input
 const Chat = memo(
-  ({ chatroomId }) => {
+  ({ chatroomId, kickUsername }) => {
     const chatBodyRef = useRef();
     const { settings } = useSettings();
     const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
@@ -37,7 +37,7 @@ const Chat = memo(
     const handleScroll = useCallback(() => {
       if (!chatBodyRef.current) return;
       const { scrollHeight, clientHeight, scrollTop } = chatBodyRef.current;
-      const nearBottom = scrollHeight - clientHeight - scrollTop < 100;
+      const nearBottom = scrollHeight - clientHeight - scrollTop < 150;
 
       setShouldAutoScroll(nearBottom);
       setShowScrollToBottom(!nearBottom);
@@ -58,7 +58,7 @@ const Chat = memo(
       }
     }, [chatroomId]);
 
-    const kickUsername = localStorage.getItem("kickUsername");
+    console.log("chatroom", chatroom);
 
     return (
       <div className="chatContainer">
@@ -76,6 +76,7 @@ const Chat = memo(
             channel7TVEmotes={chatroom?.channel7TVEmotes}
             subscriberBadges={subscriberBadges}
             kickTalkBadges={userKickTalkBadges}
+            userChatroomInfo={chatroom?.userChatroomInfo}
             username={kickUsername}
             settings={settings}
           />
@@ -92,7 +93,7 @@ const Chat = memo(
             Scroll To Bottom
             <img src={MouseScroll} width={24} height={24} alt="Scroll To Bottom" />
           </button>
-          <ChatInput chatroomId={chatroomId} setShouldAutoScroll={setShouldAutoScroll} />
+          <ChatInput chatroomId={chatroomId} />
         </div>
       </div>
     );
@@ -101,7 +102,8 @@ const Chat = memo(
     return (
       prevProps.chatroomId === nextProps.chatroomId &&
       prevProps.settings === nextProps.settings &&
-      prevProps.channel7TVEmotes === nextProps.channel7TVEmotes
+      prevProps.channel7TVEmotes === nextProps.channel7TVEmotes &&
+      prevProps.kickUsername === nextProps.kickUsername
     );
   },
 );

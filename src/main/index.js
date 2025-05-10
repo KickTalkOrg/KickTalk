@@ -4,8 +4,6 @@ import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { update } from "./update";
 import Store from "electron-store";
 import store from "../../utils/config";
-import fs from "fs";
-import path from "path";
 
 import dotenv from "dotenv";
 dotenv.config();
@@ -66,6 +64,7 @@ let mainWindow = null;
 let userDialog = null;
 let authDialog = null;
 let chattersDialog = null;
+let settingsDialog = null;
 
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
@@ -182,6 +181,7 @@ const createWindow = () => {
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
+      backgroundThrottling: false,
     },
   });
 
@@ -202,6 +202,7 @@ const createWindow = () => {
     update(mainWindow);
 
     if (isDev) {
+      console.log("Opening DevTools");
       mainWindow.webContents.openDevTools();
     }
   });
@@ -415,7 +416,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
 
   if (userDialog) {
     userDialog.setPosition(newX, newY);
-    userDialog.webContents.send("userDialog:data", data);
+    userDialog.webContents.send("userDialog:data", { ...data, pinned: userDialog.isAlwaysOnTop() });
     return;
   }
 
@@ -430,7 +431,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
     transparent: true,
     parent: mainWindow,
     webPreferences: {
-      devTools: true,
+      devtools: true,
       nodeIntegration: false,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
@@ -459,7 +460,6 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   userDialog.on("blur", () => {
     if (userDialog && !userDialog.isAlwaysOnTop()) {
       userDialog.close();
-      mainWindow.setAlwaysOnTop(store.get("general.alwaysOnTop"));
     }
   });
 
@@ -472,6 +472,10 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
 ipcMain.handle("userDialog:pin", async (e, forcePinState) => {
   if (userDialog) {
     const newPinState = forcePinState !== undefined ? forcePinState : !userDialog.isAlwaysOnTop();
+
+    if (newPinState) {
+      userDialog.webContents.openDevTools();
+    }
 
     await userDialog.setAlwaysOnTop(newPinState, "screen-saver");
     await userDialog.setVisibleOnAllWorkspaces(newPinState);
@@ -506,7 +510,7 @@ ipcMain.handle("authDialog:open", (e) => {
     parent: mainWindow,
     icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
     webPreferences: {
-      devTools: true,
+      devtools: true,
       nodeIntegration: false,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
@@ -553,22 +557,6 @@ ipcMain.handle("authDialog:close", () => {
 ipcMain.handle("alwaysOnTop", () => {
   if (mainWindow) {
     mainWindow.setAlwaysOnTop(!mainWindow.isAlwaysOnTop());
-  }
-});
-
-// Function to move the user dialog window
-ipcMain.on("move-window", (e, { x, y }) => {
-  if (dialog) {
-    dialog.setPosition(x, y);
-  }
-});
-
-// Function to close the user dialog window
-ipcMain.on("close-extra-window", () => {
-  dialogInfo = null;
-  if (dialog) {
-    userDialog.close();
-    userDialog = null;
   }
 });
 
@@ -648,7 +636,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
     parent: mainWindow,
     icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
     webPreferences: {
-      devTools: true,
+      devtools: true,
       nodeIntegration: false,
       contextIsolation: true,
       preload: join(__dirname, "../preload/index.js"),
@@ -686,6 +674,73 @@ ipcMain.handle("chattersDialog:close", () => {
   } catch (error) {
     console.error("[Chatters Dialog]: Error closing dialog:", error);
     chattersDialog = null;
+  }
+});
+
+// Settings Dialog Handler
+ipcMain.handle("settingsDialog:open", (e, { data }) => {
+  if (settingsDialog) {
+    settingsDialog.focus();
+    return;
+  }
+
+  const mainWindowPos = mainWindow.getPosition();
+  const newX = mainWindowPos[0] + 100;
+  const newY = mainWindowPos[1] + 100;
+
+  settingsDialog = new BrowserWindow({
+    width: 1000,
+    minWidth: 1000,
+    height: 600,
+    minHeight: 600,
+    x: newX,
+    y: newY,
+    show: false,
+    resizable: true,
+    frame: false,
+    transparent: true,
+    roundedCorners: true,
+    parent: mainWindow,
+    icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
+    webPreferences: {
+      devtools: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+    },
+  });
+
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+    settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
+  } else {
+    settingsDialog.loadFile(join(__dirname, "../renderer/settings.html"));
+  }
+
+  settingsDialog.once("ready-to-show", () => {
+    settingsDialog.show();
+    if (data) {
+      settingsDialog.webContents.send("settingsDialog:data", data);
+    }
+    if (isDev) {
+      settingsDialog.webContents.openDevTools();
+    }
+  });
+
+  settingsDialog.on("closed", () => {
+    settingsDialog = null;
+  });
+});
+
+ipcMain.handle("settingsDialog:close", () => {
+  try {
+    if (settingsDialog) {
+      settingsDialog.close();
+      settingsDialog = null;
+    }
+  } catch (error) {
+    console.error("[Settings Dialog]: Error closing dialog:", error);
+    settingsDialog = null;
   }
 });
 
