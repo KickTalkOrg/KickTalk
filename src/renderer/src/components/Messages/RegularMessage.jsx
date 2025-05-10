@@ -2,6 +2,7 @@ import { memo } from "react";
 import { MessageParser } from "../../utils/MessageParser";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import CopyIcon from "../../assets/icons/copy-simple-fill.svg";
+import PinIcon from "../../assets/icons/pin-filled.svg";
 import clsx from "clsx";
 import dayjs from "dayjs";
 import { useSettings } from "../../providers/SettingsProvider";
@@ -15,7 +16,9 @@ const RegularMessage = memo(
     handleOpenUserDialog,
     sevenTVSettings,
     type,
+    chatroomName,
   }) => {
+
     const { settings } = useSettings();
 
     return (
@@ -49,8 +52,22 @@ const RegularMessage = memo(
         <div className="chatMessageContent">
           <MessageParser type={type} message={message} sevenTVEmotes={sevenTVEmotes} sevenTVSettings={sevenTVSettings} />
         </div>
-
         <div className="chatMessageActions">
+              <button
+            onClick={() => {
+              console.log("message", message);
+              const data ={
+                chatroom_id: message.chatroom_id,
+                content: message.content,
+                id: message.id,
+                sender: message.sender,
+                chatroomName: chatroomName,
+              }
+              window.app.kick.pinMessage(data);
+            }}
+            className="chatMessageActionButton">
+            <img src={PinIcon} alt="Pin Message" width={16} height={16} />
+          </button>
           <button
             onClick={() => {
               navigator.clipboard.writeText(message.content);

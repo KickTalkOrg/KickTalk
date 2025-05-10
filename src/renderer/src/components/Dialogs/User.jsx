@@ -18,27 +18,13 @@ const User = () => {
   const [isDialogPinned, setIsDialogPinned] = useState(false);
   const [dialogUserStyle, setDialogUserStyle] = useState(null);
   const dialogLogsRef = useRef(null);
-  //   {
-  //     "subscription": null,
-  //     "is_super_admin": false,
-  //     "is_following": false,
-  //     "following_since": null,
-  //     "is_broadcaster": true,
-  //     "is_moderator": true,
-  //     "leaderboards": {
-  //         "gifts": {
-  //             "quantity": 0,
-  //             "weekly": 0,
-  //             "monthly": 0
-  //         }
-  //     },
-  //     "banned": null,
-  //     "celebrations": [],
-  //     "has_notifications": true
-  // }
+  const scilencedUsers = JSON.parse(localStorage.getItem("silencedUsers")) || [];
+  const [isUserSilenced, setIsSilenced] = useState(false);
 
   useEffect(() => {
     const loadData = async (data) => {
+      console.log("User Dialog Data", data);
+      setDialogData(data);
       const chatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
       const currentChatroom = chatrooms.find((chatroom) => chatroom.id === data.chatroomId);
       console.log(data);
@@ -76,8 +62,28 @@ const User = () => {
 
   useEffect(() => {
     dialogLogsRef.current.scrollTop = dialogLogsRef.current.scrollHeight;
-  }, [userLogs]);
+    dialogData?.isSilenced
+  }, [userLogs, dialogData]);
 
+  const silenceUser = async () => {
+    console.log("Silencing user", dialogData?.sender?.username);
+    const userIndex = scilencedUsers.data.findIndex((user) => user.id === dialogData?.sender?.id);
+
+    if (userIndex === -1) {
+      scilencedUsers.data.push({
+        id: dialogData?.sender?.id,
+        username: dialogData?.sender?.username,
+      });
+      window.app.kick.silenceUser(dialogData?.sender?.id);
+      setIsSilenced(true);
+    } else {
+      scilencedUsers.data.splice(userIndex, 1);
+      window.app.kick.unsilenceUser(dialogData?.sender?.id);
+      setIsSilenced(false);
+    }
+
+    localStorage.setItem("silencedUsers", JSON.stringify(scilencedUsers));
+  };
   const handlePinToggle = async () => {
     await window.app.userDialog.pin(!isDialogPinned);
     setIsDialogPinned(!isDialogPinned);
@@ -131,8 +137,13 @@ const User = () => {
 
         <div className="dialogHeaderOptions">
           <div className="dialogHeaderOptionsTop">
-            <button className="dialogHeaderOptionsButton" disabled>
-              Mute User
+            <button
+            className="dialogHeaderOptionsButton"
+            onClick={async () => {
+              await silenceUser();
+              window.app.userDialog.close();
+            }}>
+            {isUserSilenced ? "Unmute User" : "Mute User"}
             </button>
             <button
               className="dialogHeaderOptionsButton"

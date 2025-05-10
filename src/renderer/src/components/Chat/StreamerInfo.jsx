@@ -1,16 +1,22 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import clsx from "clsx";
 import PinnedMessage from "./PinnedMessage";
 import useChatStore from "../../providers/ChatProvider";
 import { useShallow } from "zustand/shallow";
 import PushPin from "../../assets/icons/push-pin-fill.svg?asset";
 import UserIcon from "../../assets/icons/user-fill.svg?asset";
+import PollMessage from "./PollMessage";
 
 const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId }) => {
-  const [showPinnedMessage, setShowPinnedMessage] = useState(false);
+  const [showPinnedMessage, setShowPinnedMessage] = useState(true);
+  const [showPollMessage, setShowPollMessage] = useState(false);
 
   const pinnedMessage = useChatStore(
     useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pinnedMessage),
+  );
+
+  const pollMessage = useChatStore(
+    useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pollDetails),
   );
 
   const chatters = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatters));
@@ -23,6 +29,15 @@ const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId }
 
     window.app.chattersDialog.open(chattersData);
   };
+
+  useEffect(() => {
+    if (pinnedMessage) {
+      setShowPinnedMessage(true);
+    }
+    if (pollMessage) {
+      setShowPollMessage(true);
+    }
+  }, [pinnedMessage, pollMessage]);
 
   return (
     <div className="chatStreamerInfo">
@@ -49,6 +64,13 @@ const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId }
             <img src={PushPin} width={20} height={20} alt="Pin Message" />
           </button>
         )}
+        {/* {pollMessage && (
+          <button
+            className={clsx("pollMessageBtn", pollMessage && "show", showPollMessage && "open")}
+            onClick={() => setShowPollMessage(!showPollMessage)}>
+            <img src={PushPin} width={20} height={20} alt="Pin Message" />
+          </button>
+        )} */}
       </div>
 
       {pinnedMessage && (
@@ -59,6 +81,14 @@ const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId }
           chatroomId={chatroomId}
         />
       )}
+       {/* {pollMessage && (
+        <PollMessage
+          showPollMessage={showPollMessage}
+          setShowPollMessage={setShowPollMessage}
+          pollData={pollMessage.poll}
+          chatroomId={chatroomId}
+        />
+      )} */}
     </div>
   );
 };

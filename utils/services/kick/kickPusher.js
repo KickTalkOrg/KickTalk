@@ -116,7 +116,8 @@ class KickPusher extends EventTarget {
           jsonData.event === `App\\Events\\StopStreamBroadcast` ||
           jsonData.event === `App\\Events\\PinnedMessageCreatedEvent` ||
           jsonData.event === `App\\Events\\PinnedMessageDeletedEvent` ||
-          jsonData.event === `App\\Events\\ChatroomUpdatedEvent`
+          jsonData.event === `App\\Events\\ChatroomUpdatedEvent` ||
+          jsonData.event === `App\\Events\\PollUpdateEvent`
         ) {
           this.dispatchEvent(new CustomEvent("channel", { detail: jsonData }));
         }

@@ -184,6 +184,9 @@ const useChatStore = create((set, get) => ({
         case "App\\Events\\PinnedMessageDeletedEvent":
           get().handlePinnedMessageDeleted(chatroom.id);
           break;
+        case "App\\Events\\PollUpdateEvent":
+          get().handlePollCreate(chatroom.id, parsedEvent);
+          break;
       }
     });
 
@@ -539,6 +542,18 @@ const useChatStore = create((set, get) => ({
       chatrooms: state.chatrooms.map((room) => {
         if (room.id === chatroomId) {
           return { ...room, pinnedMessage: event };
+        }
+        return room;
+      }),
+    }));
+  },
+
+  handlePollCreate: (chatroomId, event) => {
+    console.log("Poll event:", event);
+    set((state) => ({
+      chatrooms: state.chatrooms.map((room) => {
+        if (room.id === chatroomId) {
+          return { ...room, pollDetails: event };
         }
         return room;
       }),
