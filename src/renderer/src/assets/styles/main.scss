@@ -34,10 +34,12 @@
   background: linear-gradient(180deg, #020a05 0%, #06190e 100%), linear-gradient(180deg, #031209 0%, #06190e 100%);
 }
 
+#contextMenuMain {
+  background: rgba(4, 15, 8, 1);
+}
+
 #dialog,
 #replyThreadDialog {
-  background: linear-gradient(180deg, rgba(4, 15, 8, 0.95) 0%, #091810 80%);
-  border: 1px solid #ffffff21;
   height: 100vh;
 }
 
@@ -142,17 +144,17 @@ video {
 button {
   border: none;
   background: none;
+  padding: 0;
+  margin: 0;
   outline: none;
 }
 
 * {
-  font-family: "Inter";
+  font-family: "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
-  margin: 0px;
-  padding: 0px;
   box-sizing: border-box;
 }
 
@@ -162,7 +164,7 @@ body {
   overflow-x: hidden;
   margin: 0;
   padding: 0;
-  height: 100vh;
+  // height: 100vh;
   display: flex;
   flex-direction: column;
 }

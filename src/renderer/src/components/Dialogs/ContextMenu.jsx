@@ -1,28 +1,38 @@
 import { useEffect, useState } from "react";
-import { ipcRenderer } from "electron";
 import "../../assets/styles/dialogs/UserDialog.scss";
+import ArrowUpRightIcon from "../../assets/icons/arrow-up-right-bold.svg";
 
-const ContextMenu = () => {
+const ContextMenu = (data) => {
   const [dialogData, setDialogData] = useState(null);
 
   useEffect(() => {
-    const handleContextMenuData = (event, data) => {
+    const handleContextMenuData = (data) => {
       setDialogData(data);
     };
 
-    ipcRenderer.on("contextMenu:data", handleContextMenuData);
-
-    return () => {
-      ipcRenderer.removeListener("contextMenu:data", handleContextMenuData);
-    };
+    const contextMenuDataCleanup = window.app.contextMenu.onData(handleContextMenuData);
+    return () => contextMenuDataCleanup();
   }, []);
 
   return (
-    <div className="dialogWrapper">
-      <>
-        <p>asdasd</p>
-      </>
-    </div>
+    <>
+      {dialogData?.type === "message" && (
+        <div className="contextMenuWrapper">
+          <div className="contextMenuItem">
+            <p>asdasd</p>
+          </div>
+        </div>
+      )}
+
+      {dialogData?.type === "streamer" && (
+        <div className="contextMenuWrapper">
+          <button className="contextMenuItem" onClick={() => window.app.utils.openExternal(dialogData?.data?.url)}>
+            <span>Open Stream in Browser</span>
+            <img src={ArrowUpRightIcon} width={16} height={16} />
+          </button>
+        </div>
+      )}
+    </>
   );
 };
 

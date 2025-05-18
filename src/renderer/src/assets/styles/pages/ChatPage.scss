@@ -190,6 +190,224 @@
   }
 }
 
+/** [Poll] **/
+
+.pollMessageBtn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+
+  img {
+    opacity: 0.4;
+    transition: opacity 0.2s ease;
+  }
+
+  &.open {
+    img {
+      opacity: 1;
+    }
+  }
+}
+
+.poll {
+  background: linear-gradient(to bottom, #1d2621, #1f2d25);
+  border: 1px solid rgba(255, 255, 255, 0.1019607843);
+  position: absolute;
+  margin: 0 auto;
+  left: 0;
+  right: 0;
+  width: calc(100% - 16px);
+  box-shadow: 0px 2px 4px #07150a;
+  top: 56px;
+  border-radius: 6px;
+  display: none;
+  gap: 16px;
+  flex-direction: column;
+  overflow: hidden;
+  padding: 16px;
+  z-index: 9;
+  max-height: 80px;
+  transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &.expanded {
+    max-height: 100%;
+    transition: max-height 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    .pollOptions,
+    .pollFooter {
+      opacity: 1;
+    }
+
+    .pollHeader > .pollHeaderInfo > span {
+      white-space: wrap;
+    }
+  }
+
+  &.open {
+    display: flex;
+    flex-direction: column;
+    animation: fadeIn 0.15s ease-in-out;
+    animation-fill-mode: forwards;
+  }
+
+  .pollHeader {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    > .pollHeaderInfo {
+      display: flex;
+      gap: 8px;
+      flex-direction: column;
+      flex-grow: 0;
+      flex-basis: auto;
+      min-width: 0;
+
+      h4 {
+        color: #5f7b6b;
+      }
+
+      span {
+        color: #ccedda;
+        font-size: 20px;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        transition: max-width 0.15s ease-in-out;
+      }
+    }
+
+    > .pollActions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex: 0 1 80px;
+      justify-content: end;
+      min-width: 0;
+
+      button {
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 4px;
+        border-radius: 4px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+
+        img {
+          opacity: 0.4;
+          transition:
+            opacity 0.2s ease-in-out,
+            transform 0.2s ease-in-out;
+
+          &:hover {
+            opacity: 1;
+          }
+        }
+      }
+    }
+  }
+
+  .pollOptions {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+
+    .pollOption {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background-color: #2e3933;
+      border-radius: 4px;
+      padding: 12px;
+      position: relative;
+      gap: 8px;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+
+      &:hover {
+        background-color: #39453f;
+
+        .pollOptionBtn {
+          border-color: #7d9186;
+        }
+      }
+
+      &.selected {
+        background-color: #102c1a;
+      }
+
+      .pollOptionBtn {
+        background: none;
+        border: 1.5px solid #516058;
+        cursor: pointer;
+        padding: 4px;
+        width: 20px;
+        height: 20px;
+        border-radius: 100px;
+        display: flex;
+        align-items: center;
+        transition: border-color 0.2s ease;
+
+        &.voted {
+          background-color: #102c1a;
+        }
+      }
+
+      .pollOptionLabel {
+        z-index: 2;
+        display: flex;
+        justify-content: space-between;
+        flex: 1;
+        font-weight: 500;
+      }
+
+      .pollOptionBar {
+        position: absolute;
+        background: #6b8074;
+        height: 100%;
+        width: 0;
+        border-radius: 4px;
+        z-index: 1;
+        left: 0;
+        right: 0;
+      }
+    }
+  }
+
+  .pollFooter {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.15s ease-in-out;
+
+    .pollTimer {
+      background-color: #2e3933;
+      border-radius: 4px;
+      width: 100%;
+      position: relative;
+      height: 12px;
+
+      span {
+        background-color: #6b8074;
+        height: 100%;
+        width: 40px;
+        border-radius: 4px;
+        z-index: 1;
+        position: absolute;
+        left: 0;
+        right: 0;
+      }
+    }
+  }
+}
+
 /** [Pinned Message] **/
 
 .pinnedMessage {
@@ -197,10 +415,11 @@
   margin: 0 auto;
   left: 0;
   right: 0;
-  background: #102c1a;
-  border: 1px solid #314d3c;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: #0e2617ed;
+  backdrop-filter: blur(5px);
+  box-shadow: 0px 9px 10.1px 0px #020d06;
   width: calc(100% - 24px);
-  box-shadow: 0px 2px 4px #07150a;
   top: 56px;
   border-radius: 6px;
   display: none;

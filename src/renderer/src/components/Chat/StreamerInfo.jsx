@@ -1,20 +1,21 @@
 import { useState, useEffect } from "react";
-import clsx from "clsx";
-import PinnedMessage from "./PinnedMessage";
-import useChatStore from "../../providers/ChatProvider";
 import { useShallow } from "zustand/shallow";
+import clsx from "clsx";
+import useChatStore from "../../providers/ChatProvider";
 import PushPin from "../../assets/icons/push-pin-fill.svg?asset";
+import PollIcon from "../../assets/icons/poll-fill.svg?asset";
 import UserIcon from "../../assets/icons/user-fill.svg?asset";
-import PollMessage from "./PollMessage";
+import Pin from "./Pin";
+import Poll from "./Poll";
 
 const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId, userChatroomInfo }) => {
   const [showPinnedMessage, setShowPinnedMessage] = useState(true);
   const [showPollMessage, setShowPollMessage] = useState(false);
 
-  const pinnedMessage = useChatStore(
-    useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pinnedMessage),
-  );
-  const pollMessage = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pollDetails));
+  const pinDetails = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pinDetails));
+  // const predictions = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.predictions));
+  const pollDetails = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pollDetails));
+  const handlePollDelete = useChatStore(useShallow((state) => state.handlePollDelete));
   const chatters = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatters));
 
   const handleChattersBtn = (e) => {
@@ -27,13 +28,14 @@ const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId, 
   };
 
   useEffect(() => {
-    if (pinnedMessage) {
+    if (pinDetails) {
       setShowPinnedMessage(true);
     }
-    if (pollMessage) {
+
+    if (pollDetails) {
       setShowPollMessage(true);
     }
-  }, [pinnedMessage, pollMessage]);
+  }, [pinDetails, pollDetails]);
 
   const handleContextMenu = () => {
     window.app.contextMenu.streamerInfo(streamerData);
@@ -65,41 +67,44 @@ const StreamerInfo = ({ streamerData, streamStatus, isStreamerLive, chatroomId, 
         <button onClick={handleChattersBtn} className="chattersBtn">
           <img src={UserIcon} width={20} height={20} alt="Pin Message" />
         </button>
-        {pinnedMessage && (
+        {pinDetails && (
           <button
-            className={clsx("pinnedMessageBtn", pinnedMessage && "show", showPinnedMessage && "open")}
+            className={clsx("pinnedMessageBtn", pinDetails && "show", showPinnedMessage && "open")}
             onClick={() => setShowPinnedMessage(!showPinnedMessage)}>
             <img src={PushPin} width={20} height={20} alt="Pin Message" />
           </button>
         )}
-        {/* {pollMessage && (
+        {pollDetails && (
           <button
-            className={clsx("pollMessageBtn", pollMessage && "show", showPollMessage && "open")}
+            className={clsx("pollMessageBtn", showPollMessage && "open")}
             onClick={() => setShowPollMessage(!showPollMessage)}>
-            <img src={PushPin} width={20} height={20} alt="Pin Message" />
+            <img src={PollIcon} width={24} height={24} alt="Active Poll" />
           </button>
-        )} */}
+        )}
       </div>
 
-      {pinnedMessage && (
-        <PinnedMessage
+      {pinDetails && (
+        <Pin
+          pinDetails={pinDetails}
           chatroomName={streamerData?.user?.username}
           showPinnedMessage={showPinnedMessage}
           setShowPinnedMessage={setShowPinnedMessage}
-          pinnedMessage={pinnedMessage}
           chatroomId={chatroomId}
           canModerate={canModerate}
           userChatroomInfo={userChatroomInfo}
         />
       )}
-      {/* {pollMessage && (
-        <PollMessage
-          showPollMessage={showPollMessage}
-          setShowPollMessage={setShowPollMessage}
-          pollData={pollMessage.poll}
-          chatroomId={chatroomId}
-        />
-      )} */}
+
+      {/* {pollDetails && ( */}
+      <Poll
+        pollDetails={pollDetails}
+        chatroomId={chatroomId}
+        showPollMessage={showPollMessage}
+        setShowPollMessage={setShowPollMessage}
+        handlePollDelete={handlePollDelete}
+        canModerate={canModerate}
+      />
+      {/* )} */}
     </div>
   );
 };

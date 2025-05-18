@@ -216,7 +216,10 @@ const useChatStore = create((set, get) => ({
           get().handlePinnedMessageDeleted(chatroom.id);
           break;
         case "App\\Events\\PollUpdateEvent":
-          get().handlePollCreate(chatroom.id, parsedEvent);
+          get().handlePollCreate(chatroom.id, parsedEvent?.poll);
+          break;
+        case "App\\Events\\PollDeleteEvent":
+          get().handlePollDelete(chatroom.id);
           break;
       }
     });
@@ -352,25 +355,35 @@ const useChatStore = create((set, get) => ({
 
     // Fetch initial messages
     // TODO: Finish adding initial messages
-    const fetchInitialMessages = async () => {
-      const {
-        data: { data },
-      } = await window.app.kick.getInitialChatroomMessages(chatroom.streamerData.id);
+    // const fetchInitialMessages = async () => {
+    //   const {
+    //     data: { data },
+    //   } = await window.app.kick.getInitialChatroomMessages(chatroom.streamerData.id);
 
-      if (!data) return;
+    //   if (!data) return;
 
-      // Handle initial pinned message
-      if (data?.pinned_message) {
-        get().handlePinnedMessageCreated(chatroom.id, data.pinned_message);
-      }
+    //   // Handle initial pinned message
+    //   if (data?.pinned_message) {
+    //     get().handlePinnedMessageCreated(chatroom.id, data.pinned_message);
+    //   }
 
-      // Add initial messages to the chatroom
-      if (data?.messages) {
-        get().addInitialChatroomMessages(chatroom.id, data.messages.reverse());
+    //   // Add initial messages to the chatroom
+    //   if (data?.messages) {
+    //     get().addInitialChatroomMessages(chatroom.id, data.messages.reverse());
+    //   }
+    // };
+
+    // fetchInitialMessages();
+
+    const fetchInitialPollInfo = async () => {
+      const { data } = await window.app.kick.getInitialPollInfo(chatroom.slug);
+
+      if (data?.status?.code === 200) {
+        get().handlePollCreate(chatroom.id, data?.data?.poll);
       }
     };
 
-    fetchInitialMessages();
+    fetchInitialPollInfo();
 
     set((state) => ({
       connections: {
@@ -398,7 +411,7 @@ const useChatStore = create((set, get) => ({
     set((state) => ({
       messages: {
         ...state.messages,
-        [chatroomId]: [...(state.messages[chatroomId] || []), { ...message, deleted: false }].slice(-200), // Keep last 200 messages
+        [chatroomId]: [...(state.messages[chatroomId] || []), { ...message, deleted: false }].slice(-150), // Keep last 200 messages
       },
     }));
   },
@@ -583,19 +596,20 @@ const useChatStore = create((set, get) => ({
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => {
         if (room.id === chatroomId) {
-          return { ...room, pinnedMessage: event };
+          return { ...room, pinDetails: event };
         }
         return room;
       }),
     }));
   },
 
-  handlePollCreate: (chatroomId, event) => {
-    console.log("Poll event:", event);
+  handlePollCreate: (chatroomId, poll) => {
+    console.log("Poll event:", poll);
+
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => {
         if (room.id === chatroomId) {
-          return { ...room, pollDetails: event };
+          return { ...room, pollDetails: poll };
         }
         return room;
       }),
@@ -606,7 +620,18 @@ const useChatStore = create((set, get) => ({
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => {
         if (room.id === chatroomId) {
-          return { ...room, pinnedMessage: null };
+          return { ...room, pinDetails: null };
+        }
+        return room;
+      }),
+    }));
+  },
+
+  handlePollDelete: (chatroomId) => {
+    set((state) => ({
+      chatrooms: state.chatrooms.map((room) => {
+        if (room.id === chatroomId) {
+          return { ...room, pollDetails: null };
         }
         return room;
       }),

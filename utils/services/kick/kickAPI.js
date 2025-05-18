@@ -261,6 +261,30 @@ const getChannelChatroomInfo = async (channelName) => {
   }
 };
 
+const getInitialPollInfo = async (channelName) => {
+  try {
+    const response = await axios.get(`${APIUrl}/api/v2/channels/${channelName}/polls`, {
+      referrer: `https://kick.com/`,
+      referrerPolicy: "strict-origin-when-cross-origin",
+      method: "GET",
+      mode: "cors",
+      credentials: "include",
+    });
+
+    return response;
+  } catch (error) {
+    if (channelName.includes("_")) {
+      const transformedChannelName = channelName.replaceAll("_", "-");
+
+      if (transformedChannelName !== channelName) {
+        return await getChannelChatroomInfo(transformedChannelName);
+      }
+    }
+
+    throw error;
+  }
+};
+
 const getUserKickId = async (sessionCookie, kickSession) => {
   const response = await axios.get(`${APIUrl}/api/v1/user`, {
     headers: {
@@ -621,24 +645,31 @@ const getUnsilenceUser = (user_id, sessionCookie, kickSession) => {
 };
 
 export {
-  getChannelInfo,
-  getChannelChatroomInfo,
-  sendMessageToChannel,
-  sendReplyToChannel,
   getSelfInfo,
-  getKickEmotes,
   getKickTalkBadges,
-  getUserChatroomInfo,
-  getSelfChatroomInfo,
-  getSilencedUsers,
-  getInitialChatroomMessages,
-  getUserChatroomStatus,
   getUserKickId,
   getLinkThumbnail,
+  getKickEmotes,
+
+  // Chatroom Actions
+  sendMessageToChannel,
+  sendReplyToChannel,
+
+  // Silenced Users
+  getSilencedUsers,
   getSilenceUser,
   getUnsilenceUser,
+
+  // Chatroom Data
+  getChannelInfo,
+  getChannelChatroomInfo,
+  getUserChatroomInfo,
+  getSelfChatroomInfo,
+  getInitialChatroomMessages,
+  getUserChatroomStatus,
   getPinMessage,
   getUnpinMessage,
+  getInitialPollInfo,
 
   // Mod Actions
   getBanUser,

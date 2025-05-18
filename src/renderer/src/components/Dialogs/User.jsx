@@ -8,7 +8,7 @@ import ArrowUpRight from "../../assets/icons/arrow-up-right-bold.svg?asset";
 import Copy from "../../assets/icons/copy-simple-fill.svg?asset";
 import BanIcon from "../../assets/icons/gavel-fill.svg?asset";
 import UnbanIcon from "../../assets/icons/circle-slash.svg?asset";
-
+import Check from "../../assets/icons/check-bold.svg?asset";
 const User = () => {
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -161,10 +161,13 @@ const User = () => {
         <div className="dialogHeaderOptions">
           <div className="dialogHeaderOptionsTop">
             <button
-              className="dialogHeaderOptionsButton"
+              className={clsx("dialogHeaderOptionsButton", isUserSilenced && "muted")}
               disabled={kickUsername?.replaceAll("-", "_").toLowerCase() === dialogData?.sender?.username?.toLowerCase()}
               onClick={silenceUser}>
               <span>{isUserSilenced ? "Unmute User" : "Mute User"}</span>
+              <div className="checkBox">
+                <img src={Check} width={14} height={14} alt="Check" />
+              </div>
             </button>
             <button
               className="dialogHeaderOptionsButton"

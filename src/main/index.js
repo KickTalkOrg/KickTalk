@@ -1,16 +1,4 @@
-import {
-  app,
-  shell,
-  BrowserWindow,
-  ipcMain,
-  screen,
-  globalShortcut,
-  session,
-  Menu,
-  Tray,
-  clipboard,
-  ipcRenderer,
-} from "electron";
+import { app, shell, BrowserWindow, ipcMain, screen, session, Menu, Tray, clipboard } from "electron";
 import { join } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { update } from "./utils/update";
@@ -321,22 +309,32 @@ const createWindow = () => {
 
 // Create the context menu window
 // const createContextMenuWindow = (data) => {
+//   const mainWindowPos = mainWindow.getPosition();
+
+//   const newX = Math.round(mainWindowPos[0] + data.x);
+//   const newY = Math.round(mainWindowPos[1] + data.y);
+
 //   if (contextMenuWindow) {
+//     contextMenuWindow.setPosition(newX, newY);
+//     contextMenuWindow.show();
 //     contextMenuWindow.focus();
-//     return;
+//     contextMenuWindow.webContents.send("contextMenu:data", data);
+//     return contextMenuWindow;
 //   }
 
 //   contextMenuWindow = new BrowserWindow({
-//     width: data.width,
-//     height: data.height,
-//     x: data.x,
-//     y: data.y,
+//     width: 200,
+//     height: 1,
+//     x: newX,
+//     y: newY,
 //     show: true,
 //     frame: false,
+//     resizable: false,
 //     transparent: false,
 //     alwaysOnTop: true,
 //     parent: mainWindow,
 //     skipTaskbar: true,
+//     useContentSize: true,
 //     webPreferences: {
 //       nodeIntegration: false,
 //       contextIsolation: true,
@@ -358,11 +356,100 @@ const createWindow = () => {
 //   }
 // };
 
-// ipcMain.handle("contextMenu:hide", () => {
+// ipcMain.handle("contextMenu:show", (e, data) => {
+//   const mainWindowPos = mainWindow.getPosition();
+
+//   const newX = Math.round(mainWindowPos[0] + data.x);
+//   const newY = Math.round(mainWindowPos[1] + data.y);
+
+//   if (contextMenuWindow) {
+//     contextMenuWindow.setPosition(newX, newY);
+//     contextMenuWindow.webContents.send("contextMenu:data", data);
+//     contextMenuWindow.show();
+//     contextMenuWindow.focus();
+//     return;
+//   }
+
+//   contextMenuWindow = new BrowserWindow({
+//     width: 200,
+//     height: data?.type === "message" ? 50 : data?.type === "streamer" ? 100 : 100,
+//     x: newX,
+//     y: newY,
+//     show: true,
+//     frame: false,
+//     transparent: true,
+//     alwaysOnTop: true,
+//     parent: mainWindow,
+//     skipTaskbar: true,
+//     webPreferences: {
+//       nodeIntegration: false,
+//       contextIsolation: true,
+//       preload: join(__dirname, "../preload/index.js"),
+//       sandbox: false,
+//     },
+//   });
+
+//   // Load the same URL as main window but with dialog hash
+//   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+//     contextMenuWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/contextMenu.html`);
+//   } else {
+//     contextMenuWindow.loadFile(join(__dirname, "../renderer/contextMenu.html"));
+//   }
+
+//   contextMenuWindow.once("ready-to-show", () => {
+//     contextMenuWindow.show();
+//     contextMenuWindow.focus();
+//     contextMenuWindow.webContents.send("contextMenu:data", data);
+//   });
+
+// contextMenuWindow.on("blur", () => {
 //   if (contextMenuWindow) {
 //     contextMenuWindow.hide();
 //   }
 // });
+
+//   contextMenuWindow.on("closed", () => {
+//     contextMenuWindow = null;
+//   });
+// });
+
+// ipcMain.handle("contextMenu:show", (e, { data }) => {
+//   if (!contextMenuWindow) {
+//     createContextMenuWindow(data);
+//   }
+
+//   contextMenuWindow.webContents.send("contextMenu:data", data);
+//   contextMenuWindow.show();
+//   contextMenuWindow.focus();
+// });
+
+// ipcMain.handle("contextMenu:data", (e, data) => {
+//   if (!contextMenuWindow) return;
+//   contextMenuWindow.webContents.send("contextMenu:data", data);
+// });
+
+// ipcMain.handle("contextMenu:show", (e, data) => {
+//   console.log("contextMenu:show", data);
+
+//   if (!contextMenuWindow) {
+//     const mainWindowPos = mainWindow.getPosition();
+//     menuWindow = createContextMenuWindow();
+//     menuWindow.setPosition(Math.round(mainWindowPos[0] + data.x), Math.round(mainWindowPos[1] + data.y));
+//   } else {
+//     menuWindow = contextMenuWindow;
+//   }
+
+//   menuWindow.webContents.send("contextMenu:data", data);
+
+//   menuWindow.show();
+//   menuWindow.focus();
+// });
+
+ipcMain.handle("contextMenu:hide", () => {
+  if (contextMenuWindow) {
+    contextMenuWindow.hide();
+  }
+});
 
 ipcMain.handle("contextMenu:messages", (e, { data }) => {
   const template = [
@@ -396,16 +483,6 @@ ipcMain.handle("contextMenu:streamerInfo", (e, { data }) => {
 
   const menu = Menu.buildFromTemplate(template);
   menu.popup({ window: mainWindow });
-});
-
-ipcMain.handle("contextMenu:show", (e, { data }) => {
-  if (!contextMenuWindow) {
-    createContextMenuWindow(data);
-  }
-
-  //contextMenuWindow.webContents.send("contextMenu:data", data);
-  contextMenuWindow.show();
-  contextMenuWindow.focus();
 });
 
 const loginToKick = async (method) => {
@@ -588,10 +665,10 @@ const setupLocalShortcuts = () => {
     }
 
     // Open search dialog
-    if (input.control && input.key === "f") {
-      event.preventDefault();
-      createSearchDialog();
-    }
+    // if (input.control && input.key === "f") {
+    //   event.preventDefault();
+    //   createSearchDialog();
+    // }
   });
 };
 

@@ -12,6 +12,7 @@ import {
   getSilencedUsers,
   getLinkThumbnail,
   getInitialChatroomMessages,
+  getInitialPollInfo,
   getBanUser,
   getUnbanUser,
   getTimeoutUser,
@@ -101,11 +102,17 @@ if (process.contextIsolated) {
       logout: () => ipcRenderer.invoke("logout"),
       getAppInfo: () => ipcRenderer.invoke("get-app-info"),
       alwaysOnTop: () => ipcRenderer.invoke("alwaysOnTop"),
-      // showContextMenu: (message) => ipcRenderer.invoke("contextMenu:show", {
-      //   data: message,
-      // }),
 
       contextMenu: {
+        // show: (data) => ipcRenderer.invoke("contextMenu:show", data),
+        // onData: (callback) => {
+        //   const handler = (_, data) => callback(data);
+
+        //   console.log("data");
+
+        //   ipcRenderer.on("contextMenu:data", handler);
+        //   return () => ipcRenderer.removeListener("contextMenu:data", handler);
+        // },
         messages: (data) => ipcRenderer.invoke("contextMenu:messages", { data }),
         streamerInfo: (data) => ipcRenderer.invoke("contextMenu:streamerInfo", { data }),
       },
@@ -216,6 +223,7 @@ if (process.contextIsolated) {
       kick: {
         getChannelInfo,
         getChannelChatroomInfo,
+        getInitialPollInfo,
         sendMessage: (channelId, message) => sendMessageToChannel(channelId, message, authSession.token, authSession.session),
         sendReply: (channelId, message, metadata = {}) =>
           sendReplyToChannel(channelId, message, metadata, authSession.token, authSession.session),

@@ -236,11 +236,12 @@
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  background: #082413;
+  border: 1px solid #274231;
+  background: linear-gradient(180deg, rgba(14, 34, 22, 0.63) 0%, rgba(5, 16, 9, 0.63) 100%);
+  backdrop-filter: blur(5px);
   padding: 0;
-  border-radius: 4px;
-  box-shadow: inset 0 0px 2px rgba(255, 255, 255, 0.15);
-  // animation: AddChatroomDialogSlideIn 0.2s ease-in-out forwards;
+  border-radius: 6px;
+  box-shadow: 0px 9px 10.1px 0px #020d06;
 }
 
 .navbarAddForm {
@@ -255,9 +256,9 @@
     min-height: 48px;
     width: 100%;
     padding: 0 12px;
-    border: 1.5px solid #ffffff1c;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    background: rgba(255, 255, 255, 0.08);
     border-radius: 5px;
-    background: rgb(27 55 40);
     color: white;
     font-size: 16px;
     outline: none;
@@ -280,16 +281,15 @@
   }
 
   button {
-    background: rgb(47, 155, 11);
+    background: #17f640;
     border: 1px solid rgba(255, 255, 255, 0.257);
-    color: rgba(255, 255, 255, 0.8);
+    color: #18221a;
     margin: 16px;
     height: 48px;
     min-width: 140px;
     width: 100%;
     font-weight: 600;
     padding: 0 24px;
-    letter-spacing: -0.15px;
     border-radius: 5px;
     cursor: pointer;
     font-size: 16px;
@@ -298,8 +298,9 @@
       color 0.2s ease-in-out;
 
     &:hover {
-      background: rgba(66, 202, 19, 0.8);
-      color: rgba(255, 255, 255, 1);
+      background: #0cd231;
+      border: 1px solid rgba(255, 255, 255, 0.257);
+      color: #18221a;
     }
 
     &:disabled {
@@ -362,7 +363,7 @@
 }
 
 .dialogBackgroundOverlay {
-  background-color: rgba(5, 16, 6, 0.8);
+  background-color: rgba(5, 16, 6, 0.9);
   z-index: 999;
   height: 100%;
   width: 100%;

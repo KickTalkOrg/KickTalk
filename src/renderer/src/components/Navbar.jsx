@@ -148,7 +148,7 @@ const Navbar = ({ currentChatroomId, onSelectChatroom }) => {
             </div>
             <form onSubmit={handleSubmit} className="navbarAddForm">
               <div>
-                <input ref={inputRef} placeholder="Enter username" disabled={isConnecting} />
+                <input ref={inputRef} placeholder="Enter streamer name..." disabled={isConnecting} />
               </div>
               <button className="navbarAddChatroom" type="submit" disabled={isConnecting}>
                 {isConnecting ? "Connecting..." : "Add Chatroom"}

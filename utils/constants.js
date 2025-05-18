@@ -10,7 +10,7 @@ export const kickBadgeMap = {
   subscriber: (badge, subscriberBadges) => {
     if (!subscriberBadges?.length) {
       return {
-        src: `${kickTalkCDN}/kickBadges/subscriber.svg`,
+        src: `${kickTalkCDN}/subscriber.svg`,
         title: `${badge.text}-${badge.count}`,
         info: `${badge.count} Month Subscriber`,
       };
