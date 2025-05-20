@@ -6,6 +6,7 @@ class KickPusher extends EventTarget {
     this.chatroomNumber = chatroomNumber;
     this.streamerId = streamerId;
     this.shouldReconnect = true;
+    this.socket_id = null;
   }
 
   connect() {
@@ -98,6 +99,49 @@ class KickPusher extends EventTarget {
 
         if (jsonData.event === "pusher:connection_established") {
           console.log(`Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
+          this.socket_id = JSON.parse(jsonData.data).socket_id;
+          const chatrooms = JSON.parse(localStorage.getItem("chatrooms"));
+          let livestreamId = null;
+          let eventsToSubscribe = [];
+          if (livestreamId === null) {
+            chatrooms?.forEach((room) => {
+              if (room.streamerData.chatroom.id === this.chatroomNumber) {
+                if (room.streamerData.livestream != null) {
+                  livestreamId = room.streamerData.livestream.id;
+                  let user_id = localStorage.getItem("kickId");
+                  if (user_id) {
+                    eventsToSubscribe = [
+                      `private-userfeed.${user_id}`,
+                      `private-channelpoints-${user_id}`,
+                      `private-livestream.${livestreamId}`,
+                    ]
+                    console.log("eventsToSubscribe", eventsToSubscribe);
+                    eventsToSubscribe.forEach(async (event) => {
+                      try {
+                        console.log(`Subscribing to event: ${event} with socket ID: ${this.socket_id} and id: ${livestreamId}`);
+                        if (!livestreamId) {
+                          return;
+                        }
+                        const AuthToken = await window.app.kick.getAuthForEvents(event, this.socket_id);
+                        this.chat.send(
+                          JSON.stringify({
+                            event: "pusher:subscribe",
+                            data: { auth: AuthToken.auth, channel: event },
+                          }),
+                        );
+                        console.log(`Subscribed to event: ${event}`);
+                      } catch (error) {
+                        console.error(`Error subscribing to event ${event}:`, error);
+                      }
+
+                    });
+                    return;
+                  }
+                }
+              }
+            }
+            );
+          }
 
           this.reconnectDelay = 5000;
         }

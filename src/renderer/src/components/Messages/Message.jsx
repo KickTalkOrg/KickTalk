@@ -5,6 +5,7 @@ import RegularMessage from "./RegularMessage";
 import clsx from "clsx";
 import { useShallow } from "zustand/shallow";
 import useCosmeticsStore from "../../providers/CosmeticsProvider";
+import useChatStore from "../../providers/ChatProvider";
 import ReplyMessage from "./ReplyMessage";
 
 const Message = memo(
@@ -22,6 +23,8 @@ const Message = memo(
     chatroomName,
   }) => {
     const messageRef = useRef(null);
+
+    const updateSoundPlayed = useChatStore((state) => state.updateSoundPlayed);
 
     let userStyle;
 
@@ -62,14 +65,21 @@ const Message = memo(
 
     const shouldHighlight = checkForPhrases();
 
-    // if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true && !message?.is_old) {
-    //   const audio = new Audio(settings?.notifications?.soundFile);
-    //   audio.volume = settings?.notifications?.soundVolume || 0.1;
-    //   audio.play().catch((error) => {
-    //     console.error("Error playing sound:", error);
-    //   });
-    //   updateSoundPlayed(chatroomId, message.id);
-    // }
+    if (shouldHighlight && settings.notifications.sound && message.soundPlayed !== true && !message?.is_old) {
+      window.app.utils.getSoundUrl(settings?.notifications?.soundFile)
+        .then((soundUrl) => {
+          const audio = new Audio(soundUrl);
+          audio.volume = settings?.notifications?.soundVolume || 0.1;
+          console.log("Playing sound:", soundUrl);
+          audio.play().catch((error) => {
+            console.error("Error playing sound:", error);
+          });
+        })
+        .catch((error) => {
+          console.error("Error loading sound file:", error);
+        });
+      updateSoundPlayed(chatroomId, message.id);
+    }
 
     const handleContextMenu = () => {
       window.app.contextMenu.messages(message);

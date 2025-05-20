@@ -99,7 +99,7 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
               <span>Enable Notifications</span>
             </button>
           </div>
-          {/* <div className="settingItem notificationSetting">
+          <div className="settingItem notificationSetting">
             <button
               className={clsx("settingSwitchItem", settings?.notifications?.sound ? "checked" : "")}
               onClick={() =>
@@ -110,7 +110,7 @@ const Settings = ({ settingsModalOpen, setSettingsModalOpen, appInfo }) => {
               </div>
               <span>Notification Sound</span>
             </button>
-          </div> */}
+          </div>
           <div className="settingItem notificationSetting">
             <button
               className={clsx("settingSwitchItem", settings?.notifications?.background ? "checked" : "")}

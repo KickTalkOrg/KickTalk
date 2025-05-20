@@ -18,6 +18,7 @@ import Store from "electron-store";
 import store from "../../utils/config";
 
 import dotenv from "dotenv";
+const sounds = require("fs")
 dotenv.config();
 
 const authStore = new Store({
@@ -38,7 +39,7 @@ const isDev = process.env.NODE_ENV === "development";
 
 const userLogsStore = new Map(); // User logs by chatroom
 const replyLogsStore = new Map(); // Reply threads by chatroom
-
+let notificationAvailableSounds = [];
 const logLimits = {
   user: 80,
   reply: 50,
@@ -1162,4 +1163,41 @@ ipcMain.handle("replyThreadDialog:close", () => {
     console.error("[Reply Thread Dialog]: Error closing dialog:", error);
     replyThreadDialog = null;
   }
+});
+
+// Get all sounds in ../utils/sounds and save them in an array with its name and value being the path
+
+const getNotificationSounds = () => {
+  // Determine the correct sounds directory based on packaging
+  console.log(process.resourcesPath)
+  const basePath = app.isPackaged
+    ? join(process.resourcesPath, "app.asar.unpacked/resources/sounds")
+    : join(__dirname, "../../resources/sounds");
+
+  notificationAvailableSounds = sounds.readdirSync(basePath)
+    .filter((file) => file.endsWith(".mp3") || file.endsWith(".wav"))
+    .map((file) => ({
+      name: file.replace(/\.(mp3|wav)$/, ""),
+      value: join(basePath, file),
+    }));
+    console.log("Notification Sounds:", notificationAvailableSounds);
+  return notificationAvailableSounds;
+}
+getNotificationSounds(); // Load initially
+
+ipcMain.handle("getNotiSounds", () => {
+  getNotificationSounds();
+  return notificationAvailableSounds;
+});
+ipcMain.handle("getSoundUrl", (event, { soundFile }) => {
+  if (!soundFile) return null;
+  // Only allow files from the notificationAvailableSounds list
+  console.log("Sound File:", soundFile);
+  const found = notificationAvailableSounds.find(s => s.name === soundFile || s.value.endsWith(soundFile));
+  console.log("Found Sound File:", found);
+  console.log(notificationAvailableSounds);
+  if (!found) return null;
+  // Return a file:// URL for the sound file
+  console.log("Found Sound File:", found);
+  return `file://${found.value}`;
 });

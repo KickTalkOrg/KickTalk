@@ -98,19 +98,19 @@ const useChatStore = create((set, get) => ({
     }
   },
 
-  // updateSoundPlayed: (chatroomId, messageId) => {
-  //   set((state) => ({
-  //     messages: {
-  //       ...state.messages,
-  //       [chatroomId]: state.messages[chatroomId].map((message) => {
-  //         if (message.id === messageId) {
-  //           return { ...message, soundPlayed: true };
-  //         }
-  //         return message;
-  //       }),
-  //     },
-  //   }));
-  // },
+  updateSoundPlayed: (chatroomId, messageId) => {
+    set((state) => ({
+      messages: {
+        ...state.messages,
+        [chatroomId]: state.messages[chatroomId].map((message) => {
+          if (message.id === messageId) {
+            return { ...message, soundPlayed: true };
+          }
+          return message;
+        }),
+      },
+    }));
+  },
 
   connectToStvWebSocket: (chatroom) => {
     const stvId = chatroom?.channel7TVEmotes?.user?.id;

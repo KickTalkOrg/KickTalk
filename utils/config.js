@@ -59,6 +59,10 @@ const schema = {
         type: "string",
         default: "../resources/sounds/default.wav",
       },
+      soundVolume: {
+        type: "number",
+        default: 0.5,
+      },
       background: {
         type: "boolean",
         default: true,

@@ -15,6 +15,7 @@ import {
   getBanUser,
   getUnbanUser,
   getTimeoutUser,
+  getAuthForEvents,
 
   // User Actions
   getSilenceUser,
@@ -101,6 +102,7 @@ if (process.contextIsolated) {
       logout: () => ipcRenderer.invoke("logout"),
       getAppInfo: () => ipcRenderer.invoke("get-app-info"),
       alwaysOnTop: () => ipcRenderer.invoke("alwaysOnTop"),
+      getNotiSounds: () => ipcRenderer.invoke("getNotiSounds"),
       // showContextMenu: (message) => ipcRenderer.invoke("contextMenu:show", {
       //   data: message,
       // }),
@@ -238,6 +240,7 @@ if (process.contextIsolated) {
         getUnsilenceUser: (userId) => getUnsilenceUser(userId, authSession.token, authSession.session),
         getPinMessage: (data) => getPinMessage(data, authSession.token, authSession.session),
         getUnpinMessage: (chatroomName) => getUnpinMessage(chatroomName, authSession.token, authSession.session),
+        getAuthForEvents: (eventName, socketId) => getAuthForEvents(eventName, socketId, authSession.token, authSession.session),
       },
 
       // 7TV API
@@ -248,6 +251,7 @@ if (process.contextIsolated) {
       // Utility functions
       utils: {
         openExternal: (url) => shell.openExternal(url),
+        getSoundUrl: (soundFile) => ipcRenderer.invoke("getSoundUrl", { soundFile }),
       },
 
       store: {

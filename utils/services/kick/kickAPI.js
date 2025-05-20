@@ -391,6 +391,28 @@ const sendReplyToChannel = async (channelID, message, metadata = {}, sessionCook
   );
 };
 
+const getAuthForEvents = (eventName, socketId, sessionCookie, kickSession, referrer = "https://kick.com/gmhikaru") => {
+  return axios.post(
+    `${APIUrl}/broadcasting/auth`,
+    { socket_id: socketId, channel_name: eventName },
+    {
+      headers: {
+        accept: "application/json, text/plain, */*",
+        "accept-language": "en- US",
+        authorization: `Bearer ${sessionCookie}`,
+        "content-type": "application/json",
+        priority: "u=1, i",
+      },
+      Cookie: `kick_session=${kickSession}; session_token=${sessionCookie}; x-xsrf-token=${sessionCookie}; XSRF-TOKEN=${kickSession}`,
+      referrer: referrer,
+      referrerPolicy: "strict-origin-when-cross-origin",
+      method: "POST",
+      mode: "cors",
+      credentials: "include",
+    },
+  );
+};
+
 const getSelfInfo = (sessionCookie, kickSession) => {
   return axios.get(`${APIUrl}/api/v1/user`, {
     headers: {
@@ -639,6 +661,7 @@ export {
   getUnsilenceUser,
   getPinMessage,
   getUnpinMessage,
+  getAuthForEvents,
 
   // Mod Actions
   getBanUser,
