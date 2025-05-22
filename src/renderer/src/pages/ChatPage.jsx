@@ -22,7 +22,7 @@ const ChatPage = () => {
         ) : (
           <div className="chatroomsEmptyState">
             <h1>No Chats</h1>
-            <p>Add a chatroom by using "CTRL"+" or clicking Add top right</p>
+            <p>Add a chatroom by using "CTRL + J" or clicking Add top right</p>
           </div>
         )}
       </div>

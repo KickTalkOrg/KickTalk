@@ -87,6 +87,7 @@
   border-width: 1px 1px 3px 1px;
   border-style: solid;
   gap: 24px;
+  user-select: none;
   border-color: transparent;
   cursor: pointer;
   display: flex;
@@ -375,6 +376,20 @@
   color: white;
   background: rgba(255, 255, 255, 0.3);
 }
+
+.navbarAddChatroomDialog,
+          .navbarAddChatroomDialog.open,
+          .dialogBackgroundOverlay,
+          .chatroomStreamer,
+          .chatroomStreamerActive,
+          .chatroomStreamerLive,
+          .chatroomsList,
+          .navbarAddChatroomButton,
+          .navbarAddChatroom,
+          .navbarAddChatroomDialogClose {
+            transition-duration: 0.01s !important;
+            transition-timing-function: cubic-bezier(0.4,0,0.2,1) !important;
+          }
 
 @keyframes AddChatroomDialogSlideIn {
   0% {
