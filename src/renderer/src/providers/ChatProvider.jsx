@@ -284,14 +284,22 @@ const useChatStore = create((set, get) => ({
 
     if (pusher.chat.OPEN) {
       const channel7TVEmotes = await window.app.stv.getChannelEmotes(chatroom.streamerData.user_id);
-
+      const seenEmoteNames = new Set();
+      channel7TVEmotes.forEach((set) => {
+        set.emotes = set.emotes.filter((emote) => {
+          if (seenEmoteNames.has(emote.name)) {
+            return false;
+          }
+          seenEmoteNames.add(emote.name);
+          return true;
+        });
+      });
+      seenEmoteNames.delete();
       if (channel7TVEmotes) {
         const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
         const updatedChatrooms = savedChatrooms.map((room) => (room.id === chatroom.id ? { ...room, channel7TVEmotes } : room));
-
         localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
       }
-
       set((state) => ({
         chatrooms: state.chatrooms.map((room) => (room.id === chatroom.id ? { ...room, channel7TVEmotes } : room)),
       }));
@@ -316,7 +324,25 @@ const useChatStore = create((set, get) => ({
     fetchInitialUserChatroomInfo();
 
     const fetchEmotes = async () => {
-      const data = await window.app.kick.getEmotes(chatroom.slug);
+      let data = await window.app.kick.getEmotes(chatroom.slug);
+      let sevenTVEmoteNames = new Set();
+      chatroom.channel7TVEmotes.forEach((set) => {
+        set.emotes.forEach((emote) => {
+          if (emote.name) sevenTVEmoteNames.add(emote.name);
+        });
+      });
+      let removedEmotes = [];
+      if (Array.isArray(data)) {
+        data.forEach((set) => {
+          set.emotes = set.emotes.filter((emote) => {
+            if (sevenTVEmoteNames.has(emote.name)) {
+              removedEmotes.push(emote.name);
+              return false;
+            }
+            return true;
+          });
+        });
+      }
       set((state) => ({
         chatrooms: state.chatrooms.map((room) => {
           if (room.id === chatroom.id) {
@@ -325,6 +351,7 @@ const useChatStore = create((set, get) => ({
           return room;
         }),
       }));
+      sevenTVEmoteNames.delete();
     };
 
     fetchEmotes();
