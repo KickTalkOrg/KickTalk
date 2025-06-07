@@ -106,8 +106,7 @@ const Message = ({
     if (
       settings?.notifications?.enabled &&
       (settings?.notifications?.background || settings?.notifications?.sound) &&
-      settings?.notifications?.phrases?.length &&
-      message?.sender?.slug !== username
+      settings?.notifications?.phrases?.length
     ) {
       return settings?.notifications?.phrases?.some((phrase) => {
         return message.content?.toLowerCase().includes(phrase.toLowerCase());

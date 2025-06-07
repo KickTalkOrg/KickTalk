@@ -97,6 +97,22 @@ const getNotificationSounds = () => {
   return availableNotificationSounds;
 };
 
+const openNotificationFolder = () => {
+  const basePath = app.isPackaged
+    ? join(process.resourcesPath, "app.asar.unpacked/resources/sounds")
+    : join(__dirname, "../../resources/sounds");
+
+  if (fs.existsSync(basePath)) {
+    shell.openPath(basePath).then((result) => {
+      if (result) {
+        console.error("[Notification Sounds]: Error opening folder:", result);
+      } else {
+        console.log("[Notification Sounds]: Folder opened successfully.");
+      }
+    });
+  }
+}
+
 getNotificationSounds(); // Load initially
 
 const handleNotificationSound = (soundFile) => {
@@ -126,6 +142,10 @@ const getSoundUrl = (soundObject) => {
 ipcMain.handle("notificationSounds:getAvailable", () => {
   getNotificationSounds();
   return availableNotificationSounds;
+});
+
+ipcMain.handle("notificationSounds:openFolder", () => {
+  openNotificationFolder();
 });
 
 ipcMain.handle("notificationSounds:getSoundUrl", (e, { soundFile }) => {

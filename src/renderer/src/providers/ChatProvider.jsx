@@ -136,7 +136,8 @@ const useChatStore = create((set, get) => ({
 
   connectToStvWebSocket: (chatroom) => {
     const stvId = chatroom?.channel7TVEmotes?.user?.id;
-    const stvEmoteSets = chatroom?.channel7TVEmotes?.emote_set?.id || [];
+    const stvEmoteSets = chatroom?.channel7TVEmotes?.find((set) => set.type === "channel")?.setInfo.id;
+    console.log("[DEBUGGING]", stvEmoteSets);
 
     const existingConnection = get().connections[chatroom.id]?.stvSocket;
     if (existingConnection) {
@@ -168,9 +169,9 @@ const useChatStore = create((set, get) => ({
       switch (type) {
         case "connection_established":
           break;
-        // case "emote_set.update":
-        //   get().handleEmoteSetUpdate(chatroom.id, body);
-        //   break;
+        case "emote_set.update":
+          get().handleEmoteSetUpdate(chatroom.id, body);
+          break;
         case "cosmetic.create":
           console.log("Cosmetic create event:", body);
           useCosmeticsStore?.getState()?.addCosmetics(body);
@@ -276,7 +277,7 @@ const useChatStore = create((set, get) => ({
             };
           }
           // batching setting from settings
-          const batchingInterval = window.__chatMessageBatchInterval ?? 1000; // 0 = instant
+          const batchingInterval = window.__chatMessageBatchInterval ?? 200; // 0 = instant
           get().addChatter(chatroom.id, parsedEvent?.sender);
           // queue batch
           window.__chatMessageBatch[chatroom.id].queue.push({
@@ -954,94 +955,98 @@ const useChatStore = create((set, get) => ({
     }));
   },
 
-  // handleEmoteSetUpdate: (chatroomId, body) => {
-  //   if (!body) return;
+  handleEmoteSetUpdate: (chatroomId, body) => {
+    if (!body) return;
 
-  //   const { pulled, pushed, updated } = body;
+    const { pulled = [], pushed = [], updated = [] } = body;
 
-  //   const chatroom7TVEmoteSet = get().chatrooms?.filter((room) => room.id === chatroomId)[0]?.channel7TVEmotes;
-  //   let updatedEmoteSet = [...chatroom7TVEmoteSet?.emote_set?.emotes];
+    const chatroom = get().chatrooms.find((room) => room.id === chatroomId);
+    if (!chatroom) return;
+    const channelEmoteSet = Array.isArray(chatroom.channel7TVEmotes)
+      ? chatroom.channel7TVEmotes.find((set) => set.type === "channel")
+      : null;
+    if (!channelEmoteSet?.emotes) return;
 
-  //   switch (true) {
-  //     case pulled?.length > 0:
-  //       pulled?.forEach((emote) => {
-  //         console.log("[7TV] Emote Pulled from chatroom:", chatroomId, emote, chatroom7TVEmoteSet);
-  //         console.log(updatedEmoteSet.filter((emote) => emote.id !== emote));
-  //         // updatedEmoteSet = updatedEmoteSet.filter((emote) => emote.id !== emote);
-  //       });
-  //       break;
-  //     case pushed?.length > 0:
-  //       pushed?.forEach((emote) => {
-  //         const { value } = emote;
-  //         if (!value?.id) return;
+    let emotes = channelEmoteSet.emotes || [];
 
-  //         if (updatedEmoteSet.find((emote) => emote.id === value.id)) {
-  //           return;
-  //         }
+    if (pulled.length > 0) {
+      pulled.forEach((pulledItem) => {
+        let emoteId = null;
+        if (typeof pulledItem === "string") {
+          emoteId = pulledItem;
+        } else if (pulledItem && typeof pulledItem === "object" && pulledItem.old_value && pulledItem.old_value.id) {
+          emoteId = pulledItem.old_value.id;
+        }
+        if (emoteId) {
+          emotes = emotes.filter((emote) => emote.id !== emoteId);
+        }
+      });
+    }
 
-  //         const newEmote = {
-  //           id: value.id,
-  //           actor_id: value.actor_id,
-  //           name: value.name,
-  //           alias: value.data?.name !== value.name ? value.data?.name : null,
-  //           owner: value.data?.owner,
-  //           file: value.data?.host.files?.[0] || value.data?.host.files?.[1],
-  //           platform: "7tv",
-  //         };
+    if (pushed.length > 0) {
+      pushed.forEach((emote) => {
+        const value = emote.value;
+        if (!value?.id || emotes.some((e) => e.id === value.id)) return;
+        emotes.push({
+          id: value.id,
+          actor_id: value.actor_id,
+          name: value.name,
+          alias: value.data?.name !== value.name ? value.data?.name : null,
+          owner: value.data?.owner,
+          file: value.data?.host.files?.[0] || value.data?.host.files?.[1],
+          platform: "7tv",
+        });
+      });
+    }
 
-  //         console.log("new emote:", newEmote);
+    if (updated.length > 0) {
+      updated.forEach((emote) => {
+        const { old_value, value } = emote;
+        if (!old_value?.id || !value?.id) return;
+        emotes = emotes.filter((e) => e.id !== old_value.id);
+        emotes.push({
+          id: value.id,
+          actor_id: value.actor_id,
+          name: value.name,
+          alias: value.data?.name !== value.name ? value.data?.name : null,
+          owner: value.data?.owner,
+          file: value.data?.host.files?.[0] || value.data?.host.files?.[1],
+          platform: "7tv",
+        });
+      });
+    }
 
-  //         updatedEmoteSet.push(newEmote);
-  //       });
-  //       break;
-  //     case updated?.length > 0:
-  //       updated?.forEach((emote) => {
-  //         console.log("[7TV] Emote Updated in chatroom:", chatroomId, emote, chatroom7TVEmoteSet);
+    emotes.sort((a, b) => a.name.localeCompare(b.name));
 
-  //         const { old_value, value } = emote;
-  //         if (!old_value?.id || !value?.id) return;
+    let updatedChannel7TVEmotes;
+    if (Array.isArray(chatroom.channel7TVEmotes)) {
+      updatedChannel7TVEmotes = chatroom.channel7TVEmotes.map((set) => (set.type === "channel" ? { ...set, emotes } : set));
+    } else if (chatroom.channel7TVEmotes && chatroom.channel7TVEmotes.emote_set) {
+      updatedChannel7TVEmotes = {
+        ...chatroom.channel7TVEmotes,
+        emote_set: {
+          ...chatroom.channel7TVEmotes.emote_set,
+          emotes,
+        },
+      };
+    } else {
+      updatedChannel7TVEmotes = chatroom.channel7TVEmotes;
+    }
 
-  //         updatedEmoteSet = updatedEmoteSet.filter((emote) => emote.id !== old_value.id);
+    set((state) => ({
+      chatrooms: state.chatrooms.map((room) =>
+        room.id === chatroomId ? { ...room, channel7TVEmotes: updatedChannel7TVEmotes } : room,
+      ),
+    }));
 
-  //         const newEmote = {
-  //           id: value.id,
-  //           actor_id: value.actor_id,
-  //           name: value.name,
-  //           alias: value.data?.name !== value.name ? value.data?.name : null,
-  //           owner: value.data?.owner,
-  //           file: value.data?.host.files?.[0] || value.data?.host.files?.[1],
-  //           platform: "7tv",
-  //         };
-
-  //         updatedEmoteSet.push(newEmote);
-
-  //         console.log(emote);
-  //       });
-  //       // updatedEmoteSet = chatroom7TVEmotes.map((emote) => {
-  //       //   if (body?.updated?.includes(emote.id)) {
-  //       //     return { ...emote, ...body?.updated };
-  //       //   }
-  //       //   return emote;
-  //       // });
-  //       break;
-  //   }
-
-  //   console.log("updated emote set:", updatedEmoteSet);
-  //   const updatedChannel7TVEmotes = { ...chatroom7TVEmoteSet, emote_set: { emotes: updatedEmoteSet } };
-
-  //   localStorage.setItem("channel7TVEmotes", JSON.stringify(updatedChannel7TVEmotes));
-
-  //   console.log("updated channel 7tv emotes:", updatedChannel7TVEmotes);
-
-  //   set((state) => ({
-  //     chatrooms: state.chatrooms.map((room) => {
-  //       if (room.id === chatroomId) {
-  //         return { ...room, channel7TVEmotes: updatedChannel7TVEmotes };
-  //       }
-  //       return room;
-  //     }),
-  //   }));
-  // },
+    const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+    localStorage.setItem(
+      "chatrooms",
+      JSON.stringify(
+        savedChatrooms.map((room) => (room.id === chatroomId ? { ...room, channel7TVEmotes: updatedChannel7TVEmotes } : room)),
+      ),
+    );
+  },
 
   refresh7TVEmotes: async (chatroomId) => {
     try {

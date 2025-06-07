@@ -186,6 +186,7 @@ if (process.contextIsolated) {
       notificationSounds: {
         getAvailable: () => ipcRenderer.invoke("notificationSounds:getAvailable"),
         getSoundUrl: (soundFile) => ipcRenderer.invoke("notificationSounds:getSoundUrl", { soundFile }),
+        openFolder: () => ipcRenderer.invoke("notificationSounds:openFolder"),
       },
 
       authDialog: {

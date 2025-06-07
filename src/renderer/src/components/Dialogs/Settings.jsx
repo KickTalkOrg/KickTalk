@@ -14,6 +14,9 @@ import darkProfilePic from "../../assets/app/darkProfilePic.jpg";
 import ftkProfilePic from "../../assets/app/ftk789ProfilePic.jpg";
 import XLogo from "../../assets/logos/XLogo.svg?asset";
 import kickLogoIcon from "../../assets/logos/kickLogoIcon.svg?asset";
+import NotificationFilePicker from "../Shared/NotificationFilePicker";
+import foldeOpenIcon from "../../assets/icons/folder-open-fill.svg?asset";
+import playIcon from "../../assets/icons/play-fill.svg?asset";
 
 const Settings = () => {
   const { updateSettings, settings } = useSettings();
@@ -54,6 +57,26 @@ const Settings = () => {
       console.error("[Settings]: Failed to save setting:", error);
     }
   };
+
+  const [notiFiles, setNotiFiles] = useState([]);
+
+  const getNotiFiles = useCallback(async () => {
+    const files = await window.app.notificationSounds.getAvailable();
+    setNotiFiles(
+      files.map((file) => ({
+        value: file.value,
+        label: file.name,
+      })),
+    );
+    return files.map((file) => ({
+      value: file.value,
+      label: file.name,
+    }));
+  }, []);
+
+  useEffect(() => {
+    getNotiFiles();
+  }, [getNotiFiles]);
 
   const handleAddPhrase = useCallback(
     (e) => {
@@ -642,6 +665,53 @@ const Settings = () => {
                     </div>
 
                     <div className="settingsItem extended">
+                      <div
+                        className={clsx("settingSwitchItem", {
+                          active: settingsData?.notifications?.background,
+                        })}>
+                        <div className="settingsItemTitleWithInfo">
+                          <span className="settingsItemTitle">Notification Sound File</span>
+                          <Tooltip delayDuration={100}>
+                            <TooltipTrigger asChild>
+                              <button className="settingsInfoIcon">
+                                <img src={InfoIcon} width={14} height={14} alt="Info" />
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent>
+                              <p>Select a custom audio file to play for notifications</p>
+                              <p>You can add new files by pressing the folder icon and dragging your audio file there</p>
+                            </TooltipContent>
+                          </Tooltip>
+                        </div>
+                        <div>
+                          <button
+                            style={{ top: "0.5rem", right: "10px", position: "relative" }}
+                            onClick={() => {
+                              window.app.notificationSounds.openFolder();
+                            }}>
+                            <img src={foldeOpenIcon}></img>
+                          </button>
+                          <button
+                            style={{ top: "0.5rem", right: "10px", position: "relative" }}
+                            onClick={() => {
+                              window.app.notificationSounds
+                                .getSoundUrl(settings?.notifications?.soundFile)
+                                .then((soundUrl) => {
+                                  const audio = new Audio(soundUrl);
+                                  audio.volume = settings?.notifications?.volume || 0.1;
+                                  audio.play().catch((error) => {
+                                    console.error("Error playing sound:", error);
+                                  });
+                                })
+                                .catch((error) => {
+                                  console.error("Error loading sound file:", error);
+                                });
+                            }}>
+                            <img src={playIcon}></img>
+                          </button>
+                          <NotificationFilePicker getOptions={getNotiFiles} change={changeSetting} settingsData={settingsData} />
+                        </div>
+                      </div>
                       <div
                         className={clsx("settingSwitchItem", {
                           active: settingsData?.notifications?.background,
