@@ -15,7 +15,9 @@ if (isTelemetryEnabled()) {
 }
 
 const isDev = process.env.NODE_ENV === "development";
-const iconPath = join(__dirname, "../../resources/icons/win/KickTalk_v1.ico");
+const iconPath = process.platform === "win32" 
+  ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
+  : join(__dirname, "../../resources/icons/KickTalk_v1.png");
 const { metrics } = require("../telemetry");
 
 const authStore = new Store({
@@ -458,7 +460,7 @@ const createWindow = () => {
 
   mainWindow.setThumbarButtons([
     {
-      icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
+      icon: iconPath,
       click: () => {
         mainWindow.show();
       },
@@ -664,7 +666,7 @@ const setupLocalShortcuts = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  tray = new Tray(join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"));
+  tray = new Tray(iconPath);
   tray.setToolTip("KickTalk");
 
   // Set the icon for the app
