@@ -97,7 +97,11 @@ const RegularMessage = memo(
     }, [canModerate, settings?.moderation?.quickModTools, message?.deleted, message?.sender?.username, chatroomName, username]);
 
     return (
-      <span className={`chatMessageContainer ${message.deleted ? "deleted" : ""}`}>
+      <span className={clsx("chatMessageContainer", {
+        deleted: message.deleted,
+        optimistic: message.isOptimistic && message.state === "optimistic",
+        failed: message.isOptimistic && message.state === "failed"
+      })}>
         <div className="chatMessageUser">
           {settings?.general?.timestampFormat !== "disabled" && <span className="chatMessageTimestamp">{timestamp}</span>}
           {shouldShowModActions && <ModActions chatroomName={chatroomName} message={message} />}

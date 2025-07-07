@@ -82,6 +82,56 @@
     }
   }
 
+  // Optimistic message states
+  &.optimistic {
+    .chatMessageReplyText,
+    .chatMessageUser .chatroomBadgeIcon,
+    .chatMessageUsername,
+    .chatMessageTimestamp {
+      opacity: 0.6;
+    }
+
+    .chatMessageContent {
+      > div,
+      > span,
+      > a,
+      > .chatroomEmoteWrapper {
+        opacity: 0.6;
+      }
+    }
+  }
+
+  &.failed {
+    .chatMessageReplyText,
+    .chatMessageUser .chatroomBadgeIcon,
+    .chatMessageUsername,
+    .chatMessageTimestamp {
+      opacity: 0.4;
+      color: var(--color-red-500);
+    }
+
+    .chatMessageContent {
+      > div,
+      > span,
+      > a,
+      > .chatroomEmoteWrapper {
+        opacity: 0.4;
+        color: var(--color-red-500);
+      }
+    }
+
+    // Optional: Add a retry indicator
+    &::after {
+      content: "⚠️";
+      position: absolute;
+      right: 8px;
+      top: 50%;
+      transform: translateY(-50%);
+      font-size: 12px;
+      opacity: 0.7;
+    }
+  }
+
   &.dialogChatMessageItem {
     padding: 4px 16px;
   }

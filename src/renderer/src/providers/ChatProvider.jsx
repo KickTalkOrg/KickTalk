@@ -9,9 +9,31 @@ import { sendUserPresence } from "../../../../utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "../../../../utils/services/kick/kickAPI";
 import dayjs from "dayjs";
 
+// Message states for optimistic sending
+const MESSAGE_STATES = {
+  OPTIMISTIC: 'optimistic',  // Sent, waiting for confirmation
+  CONFIRMED: 'confirmed',    // Received back from server
+  FAILED: 'failed'          // Send failed, needs retry
+};
+
 let stvPresenceUpdates = new Map();
 let storeStvId = null;
 const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
+
+// Helper functions for optimistic messaging
+const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+const createOptimisticMessage = (chatroomId, content, sender) => ({
+  id: generateTempId(),
+  tempId: generateTempId(), // Separate temp ID for tracking
+  content: content.trim(),
+  type: "message",
+  chatroom_id: chatroomId,
+  sender,
+  created_at: new Date().toISOString(),
+  state: MESSAGE_STATES.OPTIMISTIC,
+  isOptimistic: true,
+});
 
 // Load initial state from local storage
 const getInitialState = () => {
@@ -90,22 +112,48 @@ const useChatStore = create((set, get) => ({
       const message = content.trim();
       console.info("Sending message to chatroom:", chatroomId);
 
-      const response = await window.app.kick.sendMessage(chatroomId, message);
-
-      if (response?.data?.status?.code === 401) {
+      // Get current user info for optimistic message
+      const currentUser = await window.app.kick.getSelfInfo();
+      if (!currentUser) {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
           type: "system",
           content: "You must login to chat.",
           timestamp: new Date().toISOString(),
         });
-
         return false;
       }
 
+      // Create and immediately add optimistic message
+      const optimisticMessage = createOptimisticMessage(chatroomId, message, currentUser);
+      get().addMessage(chatroomId, optimisticMessage);
+
+      // Send message to server
+      const response = await window.app.kick.sendMessage(chatroomId, message);
+
+      if (response?.data?.status?.code === 401) {
+        // Mark optimistic message as failed and show error
+        get().updateMessageState(chatroomId, optimisticMessage.tempId, MESSAGE_STATES.FAILED);
+        get().addMessage(chatroomId, {
+          id: crypto.randomUUID(),
+          type: "system",
+          content: "You must login to chat.",
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+
+      // Message sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       const errMsg = chatroomErrorHandler(error);
+
+      // Find and mark the optimistic message as failed
+      const messages = get().messages[chatroomId] || [];
+      const optimisticMsg = messages.find(msg => msg.isOptimistic && msg.content === content.trim());
+      if (optimisticMsg) {
+        get().updateMessageState(chatroomId, optimisticMsg.tempId, MESSAGE_STATES.FAILED);
+      }
 
       get().addMessage(chatroomId, {
         id: crypto.randomUUID(),
@@ -702,6 +750,34 @@ const useChatStore = create((set, get) => ({
         isRead: isRead,
       };
 
+      // Check if this is a confirmation of an optimistic message
+      if (!newMessage.isOptimistic && newMessage.type === "message") {
+        const optimisticIndex = messages.findIndex(msg => 
+          msg.isOptimistic && 
+          msg.content === newMessage.content &&
+          msg.sender?.id === newMessage.sender?.id &&
+          msg.state === MESSAGE_STATES.OPTIMISTIC
+        );
+
+        if (optimisticIndex !== -1) {
+          // Replace optimistic message with confirmed message
+          const updatedMessages = [...messages];
+          updatedMessages[optimisticIndex] = {
+            ...newMessage,
+            state: MESSAGE_STATES.CONFIRMED,
+            isOptimistic: false
+          };
+
+          return {
+            ...state,
+            messages: {
+              ...state.messages,
+              [chatroomId]: updatedMessages,
+            },
+          };
+        }
+      }
+
       if (messages.some((msg) => msg.id === newMessage.id)) {
         return state;
       }
@@ -790,6 +866,62 @@ const useChatStore = create((set, get) => ({
     } catch (error) {
       console.error("[Chatroom Store]: Error adding chatroom:", error);
     }
+  },
+
+  // Update message state (optimistic -> confirmed/failed)
+  updateMessageState: (chatroomId, tempId, newState) => {
+    set((state) => {
+      const messages = state.messages[chatroomId] || [];
+      const updatedMessages = messages.map(msg => 
+        msg.tempId === tempId 
+          ? { ...msg, state: newState }
+          : msg
+      );
+
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages
+        }
+      };
+    });
+  },
+
+  // Remove optimistic message and replace with confirmed message
+  confirmMessage: (chatroomId, tempId, confirmedMessage) => {
+    set((state) => {
+      const messages = state.messages[chatroomId] || [];
+      const updatedMessages = messages.map(msg => 
+        msg.tempId === tempId 
+          ? { ...confirmedMessage, state: MESSAGE_STATES.CONFIRMED, isOptimistic: false }
+          : msg
+      );
+
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages
+        }
+      };
+    });
+  },
+
+  // Remove failed optimistic messages
+  removeOptimisticMessage: (chatroomId, tempId) => {
+    set((state) => {
+      const messages = state.messages[chatroomId] || [];
+      const updatedMessages = messages.filter(msg => msg.tempId !== tempId);
+
+      return {
+        ...state,
+        messages: {
+          ...state.messages,
+          [chatroomId]: updatedMessages
+        }
+      };
+    });
   },
 
   removeChatroom: (chatroomId) => {
