@@ -23,30 +23,64 @@ const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
 // Helper functions for optimistic messaging
 const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-const createOptimisticMessage = (chatroomId, content, sender) => ({
-  id: generateTempId(),
-  tempId: generateTempId(), // Separate temp ID for tracking
-  content: content.trim(),
-  type: "message",
-  chatroom_id: chatroomId,
-  sender,
-  created_at: new Date().toISOString(),
-  state: MESSAGE_STATES.OPTIMISTIC,
-  isOptimistic: true,
-});
+const createOptimisticMessage = (chatroomId, content, sender) => {
+  // Try to find user's identity color from existing messages
+  const store = useChatStore.getState();
+  const existingMessages = store.messages[chatroomId] || [];
+  const userMessage = existingMessages.find(msg => 
+    msg.sender?.id === sender?.id && 
+    msg.sender?.identity?.color
+  );
+  
+  const enhancedSender = {
+    ...sender,
+    identity: userMessage?.sender?.identity || sender?.identity || {
+      color: null // Will use CSS default text color for theme compatibility
+    }
+  };
 
-const createOptimisticReply = (chatroomId, content, sender, metadata) => ({
-  id: generateTempId(),
-  tempId: generateTempId(), // Separate temp ID for tracking
-  content: content.trim(),
-  type: "reply",
-  chatroom_id: chatroomId,
-  sender,
-  created_at: new Date().toISOString(),
-  metadata,
-  state: MESSAGE_STATES.OPTIMISTIC,
-  isOptimistic: true,
-});
+  return {
+    id: generateTempId(),
+    tempId: generateTempId(), // Separate temp ID for tracking
+    content: content.trim(),
+    type: "message",
+    chatroom_id: chatroomId,
+    sender: enhancedSender,
+    created_at: new Date().toISOString(),
+    state: MESSAGE_STATES.OPTIMISTIC,
+    isOptimistic: true,
+  };
+};
+
+const createOptimisticReply = (chatroomId, content, sender, metadata) => {
+  // Try to find user's identity color from existing messages
+  const store = useChatStore.getState();
+  const existingMessages = store.messages[chatroomId] || [];
+  const userMessage = existingMessages.find(msg => 
+    msg.sender?.id === sender?.id && 
+    msg.sender?.identity?.color
+  );
+  
+  const enhancedSender = {
+    ...sender,
+    identity: userMessage?.sender?.identity || sender?.identity || {
+      color: null // Will use CSS default text color for theme compatibility
+    }
+  };
+
+  return {
+    id: generateTempId(),
+    tempId: generateTempId(), // Separate temp ID for tracking
+    content: content.trim(),
+    type: "reply",
+    chatroom_id: chatroomId,
+    sender: enhancedSender,
+    created_at: new Date().toISOString(),
+    metadata,
+    state: MESSAGE_STATES.OPTIMISTIC,
+    isOptimistic: true,
+  };
+};
 
 // Load initial state from local storage
 const getInitialState = () => {
@@ -70,6 +104,7 @@ const getInitialState = () => {
     mentions: {}, // Store for all Mentions
     currentChatroomId: null, // Track the currently active chatroom
     hasMentionsTab: savedMentionsTab, // Track if mentions tab is enabled
+    currentUser: null, // Cache current user info for optimistic messages
   };
 };
 
@@ -120,13 +155,29 @@ const useChatStore = create((set, get) => ({
     sendUserPresence(stvId, userId);
   },
 
+  // Cache current user info for optimistic messages
+  cacheCurrentUser: async () => {
+    try {
+      const currentUser = await window.app.kick.getSelfInfo();
+      set((state) => ({ ...state, currentUser }));
+      return currentUser;
+    } catch (error) {
+      console.error("[Chat Store]: Failed to cache user info:", error);
+      return null;
+    }
+  },
+
   sendMessage: async (chatroomId, content) => {
     try {
       const message = content.trim();
       console.info("Sending message to chatroom:", chatroomId);
 
-      // Get current user info for optimistic message
-      const currentUser = await window.app.kick.getSelfInfo();
+      // Use cached user info for instant optimistic message, fallback to API call
+      let currentUser = get().currentUser;
+      if (!currentUser) {
+        currentUser = await get().cacheCurrentUser();
+      }
+      
       if (!currentUser) {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
@@ -137,12 +188,28 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
-      // Create and immediately add optimistic message
+      // Create and immediately add optimistic message (should be instant now!)
       const optimisticMessage = createOptimisticMessage(chatroomId, message, currentUser);
       get().addMessage(chatroomId, optimisticMessage);
 
+      // Set timeout to mark message as failed if not confirmed within 30 seconds
+      const timeoutId = setTimeout(() => {
+        const messages = get().messages[chatroomId] || [];
+        const stillOptimistic = messages.find(msg => 
+          msg.tempId === optimisticMessage.tempId && 
+          msg.state === MESSAGE_STATES.OPTIMISTIC
+        );
+        if (stillOptimistic) {
+          console.warn('[Optimistic]: Message timeout, marking as failed:', optimisticMessage.tempId);
+          get().updateMessageState(chatroomId, optimisticMessage.tempId, MESSAGE_STATES.FAILED);
+        }
+      }, 30000);
+
       // Send message to server
       const response = await window.app.kick.sendMessage(chatroomId, message);
+
+      // Clear timeout if request completes (success or known failure)
+      clearTimeout(timeoutId);
 
       if (response?.data?.status?.code === 401) {
         // Mark optimistic message as failed and show error
@@ -185,8 +252,11 @@ const useChatStore = create((set, get) => ({
       const message = content.trim();
       console.info("Sending reply to chatroom:", chatroomId);
 
-      // Get current user info for optimistic reply
-      const currentUser = await window.app.kick.getSelfInfo();
+      // Use cached user info for instant optimistic reply, fallback to API call
+      let currentUser = get().currentUser;
+      if (!currentUser) {
+        currentUser = await get().cacheCurrentUser();
+      }
       if (!currentUser) {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
@@ -197,12 +267,28 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
-      // Create and immediately add optimistic reply
+      // Create and immediately add optimistic reply (should be instant now!)
       const optimisticReply = createOptimisticReply(chatroomId, message, currentUser, metadata);
       get().addMessage(chatroomId, optimisticReply);
 
+      // Set timeout to mark reply as failed if not confirmed within 30 seconds
+      const timeoutId = setTimeout(() => {
+        const messages = get().messages[chatroomId] || [];
+        const stillOptimistic = messages.find(msg => 
+          msg.tempId === optimisticReply.tempId && 
+          msg.state === MESSAGE_STATES.OPTIMISTIC
+        );
+        if (stillOptimistic) {
+          console.warn('[Optimistic]: Reply timeout, marking as failed:', optimisticReply.tempId);
+          get().updateMessageState(chatroomId, optimisticReply.tempId, MESSAGE_STATES.FAILED);
+        }
+      }, 30000);
+
       // Send reply to server
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
+
+      // Clear timeout if request completes (success or known failure)
+      clearTimeout(timeoutId);
 
       if (response?.data?.status?.code === 401) {
         // Mark optimistic reply as failed and show error
@@ -501,6 +587,11 @@ const useChatStore = create((set, get) => ({
 
     // connect to Pusher after getting initial data
     pusher.connect();
+
+    // Pre-cache current user info for instant optimistic messaging
+    if (!get().currentUser) {
+      get().cacheCurrentUser().catch(console.error);
+    }
 
     if (pusher.chat.OPEN) {
       const channel7TVEmotes = await window.app.stv.getChannelEmotes(chatroom.streamerData.user_id);
@@ -824,6 +915,19 @@ const useChatStore = create((set, get) => ({
 
       let updatedMessages = message?.is_old ? [newMessage, ...messages] : [...messages, newMessage];
 
+      // Sort messages by timestamp to handle edge cases where messages arrive out of order
+      // Only sort if we have a mix of optimistic and confirmed messages to avoid unnecessary work
+      const hasOptimistic = updatedMessages.some(msg => msg.isOptimistic);
+      const hasConfirmed = updatedMessages.some(msg => !msg.isOptimistic);
+      
+      if (hasOptimistic && hasConfirmed) {
+        updatedMessages.sort((a, b) => {
+          const timeA = new Date(a.created_at || a.timestamp).getTime();
+          const timeB = new Date(b.created_at || b.timestamp).getTime();
+          return timeA - timeB;
+        });
+      }
+
       // Keep a fixed window of messages based on pause state
       if (state.isChatroomPaused?.[chatroomId] && updatedMessages.length > 600) {
         updatedMessages = updatedMessages.slice(-300);
@@ -962,6 +1066,24 @@ const useChatStore = create((set, get) => ({
         }
       };
     });
+  },
+
+  // Retry failed optimistic message
+  retryFailedMessage: async (chatroomId, tempId) => {
+    const messages = get().messages[chatroomId] || [];
+    const failedMessage = messages.find(msg => msg.tempId === tempId && msg.state === MESSAGE_STATES.FAILED);
+    
+    if (!failedMessage) return false;
+
+    // Remove the failed message
+    get().removeOptimisticMessage(chatroomId, tempId);
+
+    // Resend based on message type
+    if (failedMessage.type === "reply") {
+      return await get().sendReply(chatroomId, failedMessage.content, failedMessage.metadata);
+    } else {
+      return await get().sendMessage(chatroomId, failedMessage.content);
+    }
   },
 
   removeChatroom: (chatroomId) => {

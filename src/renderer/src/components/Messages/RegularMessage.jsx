@@ -66,7 +66,9 @@ const RegularMessage = memo(
           filter: userStyle.paint.shadows,
         };
       }
-      return { color: message.sender.identity?.color };
+      return { 
+        color: message.sender.identity?.color || 'var(--text-primary)'
+      };
     }, [userStyle?.paint, message.sender.identity?.color]);
 
     const messageContent = useMemo(
