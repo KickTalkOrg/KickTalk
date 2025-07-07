@@ -98,9 +98,7 @@ const RegularMessage = memo(
 
     return (
       <span className={clsx("chatMessageContainer", {
-        deleted: message.deleted,
-        optimistic: message.isOptimistic && message.state === "optimistic",
-        failed: message.isOptimistic && message.state === "failed"
+        deleted: message.deleted
       })}>
         <div className="chatMessageUser">
           {settings?.general?.timestampFormat !== "disabled" && <span className="chatMessageTimestamp">{timestamp}</span>}

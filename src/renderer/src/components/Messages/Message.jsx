@@ -297,6 +297,8 @@ const Message = ({
         message.type === "stvEmoteSetUpdate" && "emoteSetUpdate",
         type === "dialog" && "dialogChatMessageItem",
         shouldHighlightMessage && "highlighted",
+        message.isOptimistic && message.state === "optimistic" && "optimistic",
+        message.isOptimistic && message.state === "failed" && "failed",
       )}
       style={{
         backgroundColor: shouldHighlightMessage ? rgbaObjectToString(settings?.notifications?.backgroundRgba) : "transparent",
