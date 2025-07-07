@@ -226,7 +226,7 @@ const useChatStore = create((set, get) => ({
       // Message sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
-      const errMsg = chatroomErrorHandler(error);
+      console.error('[Send Message]: Error sending message:', error);
 
       // Find and mark the optimistic message as failed
       const messages = get().messages[chatroomId] || [];
@@ -235,13 +235,7 @@ const useChatStore = create((set, get) => ({
         get().updateMessageState(chatroomId, optimisticMsg.tempId, MESSAGE_STATES.FAILED);
       }
 
-      get().addMessage(chatroomId, {
-        id: crypto.randomUUID(),
-        type: "system",
-        chatroom_id: chatroomId,
-        content: errMsg,
-        timestamp: new Date().toISOString(),
-      });
+      // No system message needed - failed state and retry button provide clear feedback
 
       return false;
     }
@@ -305,7 +299,7 @@ const useChatStore = create((set, get) => ({
       // Reply sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
-      const errMsg = chatroomErrorHandler(error);
+      console.error('[Send Reply]: Error sending reply:', error);
 
       // Find and mark the optimistic reply as failed
       const messages = get().messages[chatroomId] || [];
@@ -314,12 +308,7 @@ const useChatStore = create((set, get) => ({
         get().updateMessageState(chatroomId, optimisticMsg.tempId, MESSAGE_STATES.FAILED);
       }
 
-      get().addMessage(chatroomId, {
-        id: crypto.randomUUID(),
-        type: "system",
-        content: errMsg,
-        timestamp: new Date().toISOString(),
-      });
+      // No system message needed - failed state and retry button provide clear feedback
 
       return false;
     }
