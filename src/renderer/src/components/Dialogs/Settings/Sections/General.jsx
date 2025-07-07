@@ -54,6 +54,36 @@ const GeneralSection = ({ settingsData, onChange }) => {
           <div className="settingsItem">
             <div
               className={clsx("settingSwitchItem", {
+                active: settingsData?.general?.autoUpdate !== false,
+              })}>
+              <div className="settingsItemTitleWithInfo">
+                <span className="settingsItemTitle">Auto Update</span>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button className="settingsInfoIcon">
+                      <img src={InfoIcon} width={14} height={14} alt="Info" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Automatically check for and download KickTalk updates on startup</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Switch
+                checked={settingsData?.general?.autoUpdate !== false}
+                onCheckedChange={(checked) =>
+                  onChange("general", {
+                    ...settingsData?.general,
+                    autoUpdate: checked,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="settingsItem">
+            <div
+              className={clsx("settingSwitchItem", {
                 active: settingsData?.general?.wrapChatroomsList,
               })}>
               <div className="settingsItemTitleWithInfo">
