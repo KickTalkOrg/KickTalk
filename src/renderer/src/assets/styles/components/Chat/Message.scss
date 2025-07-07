@@ -84,43 +84,24 @@
 
   // Optimistic message states
   &.optimistic {
-    .chatMessageReplyText,
-    .chatMessageUser .chatroomBadgeIcon,
-    .chatMessageUsername,
-    .chatMessageTimestamp {
-      opacity: 0.6;
-    }
-
-    .chatMessageContent {
-      > div,
-      > span,
-      > a,
-      > .chatroomEmoteWrapper {
-        opacity: 0.6;
-      }
+    opacity: 0.6;
+    
+    // Ensure all child elements inherit the opacity
+    * {
+      opacity: inherit !important;
     }
   }
 
   &.failed {
-    .chatMessageReplyText,
-    .chatMessageUser .chatroomBadgeIcon,
-    .chatMessageUsername,
-    .chatMessageTimestamp {
-      opacity: 0.4;
-      color: var(--color-red-500);
+    opacity: 0.4;
+    filter: sepia(100%) hue-rotate(320deg) saturate(2);
+    
+    // Ensure all child elements inherit the styling
+    * {
+      opacity: inherit !important;
     }
 
-    .chatMessageContent {
-      > div,
-      > span,
-      > a,
-      > .chatroomEmoteWrapper {
-        opacity: 0.4;
-        color: var(--color-red-500);
-      }
-    }
-
-    // Optional: Add a retry indicator
+    // Add a retry indicator
     &::after {
       content: "⚠️";
       position: absolute;
@@ -129,6 +110,7 @@
       transform: translateY(-50%);
       font-size: 12px;
       opacity: 0.7;
+      filter: none; // Don't apply red filter to emoji
     }
   }
 
