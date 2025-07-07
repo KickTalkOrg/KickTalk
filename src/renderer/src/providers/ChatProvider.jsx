@@ -35,6 +35,19 @@ const createOptimisticMessage = (chatroomId, content, sender) => ({
   isOptimistic: true,
 });
 
+const createOptimisticReply = (chatroomId, content, sender, metadata) => ({
+  id: generateTempId(),
+  tempId: generateTempId(), // Separate temp ID for tracking
+  content: content.trim(),
+  type: "reply",
+  chatroom_id: chatroomId,
+  sender,
+  created_at: new Date().toISOString(),
+  metadata,
+  state: MESSAGE_STATES.OPTIMISTIC,
+  isOptimistic: true,
+});
+
 // Load initial state from local storage
 const getInitialState = () => {
   const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
@@ -172,22 +185,48 @@ const useChatStore = create((set, get) => ({
       const message = content.trim();
       console.info("Sending reply to chatroom:", chatroomId);
 
-      const response = await window.app.kick.sendReply(chatroomId, message, metadata);
-
-      if (response?.data?.status?.code === 401) {
+      // Get current user info for optimistic reply
+      const currentUser = await window.app.kick.getSelfInfo();
+      if (!currentUser) {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
           type: "system",
           content: "You must login to chat.",
           timestamp: new Date().toISOString(),
         });
-
         return false;
       }
 
+      // Create and immediately add optimistic reply
+      const optimisticReply = createOptimisticReply(chatroomId, message, currentUser, metadata);
+      get().addMessage(chatroomId, optimisticReply);
+
+      // Send reply to server
+      const response = await window.app.kick.sendReply(chatroomId, message, metadata);
+
+      if (response?.data?.status?.code === 401) {
+        // Mark optimistic reply as failed and show error
+        get().updateMessageState(chatroomId, optimisticReply.tempId, MESSAGE_STATES.FAILED);
+        get().addMessage(chatroomId, {
+          id: crypto.randomUUID(),
+          type: "system",
+          content: "You must login to chat.",
+          timestamp: new Date().toISOString(),
+        });
+        return false;
+      }
+
+      // Reply sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       const errMsg = chatroomErrorHandler(error);
+
+      // Find and mark the optimistic reply as failed
+      const messages = get().messages[chatroomId] || [];
+      const optimisticMsg = messages.find(msg => msg.isOptimistic && msg.content === content.trim() && msg.type === "reply");
+      if (optimisticMsg) {
+        get().updateMessageState(chatroomId, optimisticMsg.tempId, MESSAGE_STATES.FAILED);
+      }
 
       get().addMessage(chatroomId, {
         id: crypto.randomUUID(),
@@ -750,12 +789,13 @@ const useChatStore = create((set, get) => ({
         isRead: isRead,
       };
 
-      // Check if this is a confirmation of an optimistic message
-      if (!newMessage.isOptimistic && newMessage.type === "message") {
+      // Check if this is a confirmation of an optimistic message (regular or reply)
+      if (!newMessage.isOptimistic && (newMessage.type === "message" || newMessage.type === "reply")) {
         const optimisticIndex = messages.findIndex(msg => 
           msg.isOptimistic && 
           msg.content === newMessage.content &&
           msg.sender?.id === newMessage.sender?.id &&
+          msg.type === newMessage.type &&
           msg.state === MESSAGE_STATES.OPTIMISTIC
         );
 
