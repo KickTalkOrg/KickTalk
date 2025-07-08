@@ -125,25 +125,12 @@
 
     &:hover {
       opacity: 0.9;
-      transform: translateX(2px);
       background: rgba(255, 68, 68, 0.15) !important;
     }
 
-    // Add a retry indicator
-    &::after {
-      content: "⚠️ Click to retry";
-      position: absolute;
-      right: 8px;
-      top: 50%;
-      transform: translateY(-50%);
-      font-size: 11px;
-      opacity: 0.9;
-      background: rgba(255, 68, 68, 0.9);
-      padding: 2px 8px;
-      border-radius: 12px;
-      color: white;
-      font-weight: 600;
-      white-space: nowrap;
+    // Show retry button in action area for failed messages
+    .chatMessageActions {
+      opacity: 1; // Always show for failed messages
     }
   }
 

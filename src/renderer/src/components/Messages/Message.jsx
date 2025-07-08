@@ -136,11 +136,6 @@ const Message = ({
     }
   };
 
-  const handleRetryMessage = () => {
-    if (message.isOptimistic && message.state === "failed" && message.tempId) {
-      useChatStore.getState().retryFailedMessage(chatroomId, message.tempId);
-    }
-  };
 
   const handleOpenEmoteLink = () => {
     if (rightClickedEmote) {
@@ -309,8 +304,6 @@ const Message = ({
       style={{
         backgroundColor: shouldHighlightMessage ? rgbaObjectToString(settings?.notifications?.backgroundRgba) : "transparent",
       }}
-      onClick={message.isOptimistic && message.state === "failed" ? handleRetryMessage : undefined}
-      title={message.isOptimistic && message.state === "failed" ? "Click to retry sending this message" : undefined}
       ref={messageRef}>
       {(message.type === "message" || type === "replyThread") && (
         <RegularMessage
