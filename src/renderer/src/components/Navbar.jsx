@@ -199,7 +199,14 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
 
   return (
     <>
-      <div className={clsx("navbarContainer", settings?.general?.wrapChatroomsList && "wrapChatroomList")} ref={chatroomListRef}>
+      <div
+        className={clsx(
+          "navbarContainer",
+          settings?.general?.wrapChatroomsList && "wrapChatroomList",
+          settings?.general?.compactChatroomsList && "compactChatroomList",
+        )}
+        ref={chatroomListRef}
+      >
         <DragDropContext onDragEnd={handleDragEnd}>
           <Droppable droppableId="chatrooms" direction="horizontal">
             {(provided) => (

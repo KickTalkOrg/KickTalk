@@ -31,7 +31,7 @@ const createOptimisticMessage = (chatroomId, content, sender) => {
     msg.sender?.id === sender?.id && 
     msg.sender?.identity?.color
   );
-  
+
   const enhancedSender = {
     ...sender,
     identity: userMessage?.sender?.identity || sender?.identity || {
@@ -60,7 +60,7 @@ const createOptimisticReply = (chatroomId, content, sender, metadata) => {
     msg.sender?.id === sender?.id && 
     msg.sender?.identity?.color
   );
-  
+
   const enhancedSender = {
     ...sender,
     identity: userMessage?.sender?.identity || sender?.identity || {
@@ -177,7 +177,7 @@ const useChatStore = create((set, get) => ({
       if (!currentUser) {
         currentUser = await get().cacheCurrentUser();
       }
-      
+
       if (!currentUser) {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
@@ -196,7 +196,7 @@ const useChatStore = create((set, get) => ({
       const timeoutId = setTimeout(() => {
         const messages = get().messages[chatroomId] || [];
         const stillOptimistic = messages.find(msg => 
-          msg.tempId === optimisticMessage.tempId && 
+            msg.tempId === optimisticMessage.tempId &&
           msg.state === MESSAGE_STATES.OPTIMISTIC
         );
         if (stillOptimistic) {
@@ -269,7 +269,7 @@ const useChatStore = create((set, get) => ({
       const timeoutId = setTimeout(() => {
         const messages = get().messages[chatroomId] || [];
         const stillOptimistic = messages.find(msg => 
-          msg.tempId === optimisticReply.tempId && 
+            msg.tempId === optimisticReply.tempId &&
           msg.state === MESSAGE_STATES.OPTIMISTIC
         );
         if (stillOptimistic) {
@@ -872,10 +872,10 @@ const useChatStore = create((set, get) => ({
       // Check if this is a confirmation of an optimistic message (regular or reply)
       if (!newMessage.isOptimistic && (newMessage.type === "message" || newMessage.type === "reply")) {
         const optimisticIndex = messages.findIndex(msg => 
-          msg.isOptimistic && 
-          msg.content === newMessage.content &&
-          msg.sender?.id === newMessage.sender?.id &&
-          msg.type === newMessage.type &&
+            msg.isOptimistic &&
+            msg.content === newMessage.content &&
+            msg.sender?.id === newMessage.sender?.id &&
+            msg.type === newMessage.type &&
           msg.state === MESSAGE_STATES.OPTIMISTIC
         );
 
@@ -908,7 +908,7 @@ const useChatStore = create((set, get) => ({
       // Only sort if we have a mix of optimistic and confirmed messages to avoid unnecessary work
       const hasOptimistic = updatedMessages.some(msg => msg.isOptimistic);
       const hasConfirmed = updatedMessages.some(msg => !msg.isOptimistic);
-      
+
       if (hasOptimistic && hasConfirmed) {
         updatedMessages.sort((a, b) => {
           const timeA = new Date(a.created_at || a.timestamp).getTime();
@@ -964,7 +964,7 @@ const useChatStore = create((set, get) => ({
             chatroom.username.toLowerCase() === username.toLowerCase() ||
             chatroom.username.toLowerCase() === username.replaceAll("-", "_"),
         ) ||
-        savedChatrooms.length >= 5
+        savedChatrooms.length >= 25
       ) {
         return;
       }
@@ -1026,7 +1026,7 @@ const useChatStore = create((set, get) => ({
     set((state) => {
       const messages = state.messages[chatroomId] || [];
       const updatedMessages = messages.map(msg => 
-        msg.tempId === tempId 
+        msg.tempId === tempId
           ? { ...confirmedMessage, state: MESSAGE_STATES.CONFIRMED, isOptimistic: false }
           : msg
       );
@@ -1061,7 +1061,7 @@ const useChatStore = create((set, get) => ({
   retryFailedMessage: async (chatroomId, tempId) => {
     const messages = get().messages[chatroomId] || [];
     const failedMessage = messages.find(msg => msg.tempId === tempId && msg.state === MESSAGE_STATES.FAILED);
-    
+
     if (!failedMessage) return false;
 
     // Remove the failed message
