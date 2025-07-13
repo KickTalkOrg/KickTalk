@@ -8,7 +8,10 @@ class ConnectionManager {
     this.initializationInProgress = false;
     this.emoteCache = new Map(); // Cache for global/common emotes
     this.globalStvEmotesCache = null; // Cache for global 7TV emotes
-    
+
+    // Callbacks to avoid circular imports
+    this.storeCallbacks = null;
+
     // Connection configuration
     this.config = {
       staggerDelay: 200, // ms between batches
@@ -17,13 +20,14 @@ class ConnectionManager {
     };
   }
 
-  async initializeConnections(chatrooms, eventHandlers = {}) {
+  async initializeConnections(chatrooms, eventHandlers = {}, storeCallbacks = {}) {
     if (this.initializationInProgress) {
       console.log("[ConnectionManager] Initialization already in progress");
       return;
     }
 
     this.initializationInProgress = true;
+    this.storeCallbacks = storeCallbacks;
     console.log(`[ConnectionManager] Starting optimized initialization for ${chatrooms.length} chatrooms`);
 
     try {
@@ -77,7 +81,7 @@ class ConnectionManager {
 
   async startSharedConnections() {
     console.log("[ConnectionManager] Starting shared connections...");
-    
+
     // Start both connections in parallel
     const kickPromise = new Promise((resolve) => {
       const onConnection = (event) => {
@@ -104,7 +108,7 @@ class ConnectionManager {
     // Wait for both connections with timeout
     await Promise.race([
       Promise.all([kickPromise, stvPromise]),
-      new Promise((_, reject) => 
+      new Promise((_, reject) =>
         setTimeout(() => reject(new Error("Connection timeout")), 10000)
       )
     ]);
@@ -150,7 +154,7 @@ class ConnectionManager {
       // Add to 7TV WebSocket
       const stvId = chatroom.streamerData?.user_id || "0";
       const stvEmoteSetId = chatroom.channel7TVEmotes?.[0]?.id || "0";
-      
+
       this.stvWebSocket.addChatroom(
         chatroom.id,
         stvId,
@@ -160,6 +164,9 @@ class ConnectionManager {
 
       // Fetch initial messages for this chatroom
       await this.fetchInitialMessages(chatroom);
+
+      // Fetch initial chatroom info (including livestream status)
+      await this.fetchInitialChatroomInfo(chatroom);
 
       console.log(`[ConnectionManager] Added chatroom ${chatroom.id} (${chatroom.streamerData?.user?.username})`);
     } catch (error) {
@@ -180,7 +187,7 @@ class ConnectionManager {
     await this.fetchGlobalStvEmotes();
 
     // Batch fetch channel-specific emotes
-    const emoteFetchPromises = chatrooms.map(chatroom => 
+    const emoteFetchPromises = chatrooms.map(chatroom =>
       this.fetchChatroomEmotes(chatroom)
     );
 
@@ -215,7 +222,7 @@ class ConnectionManager {
 
   async fetchChatroomEmotes(chatroom) {
     const cacheKey = `${chatroom.streamerData?.slug}`;
-    
+
     if (this.emoteCache.has(cacheKey)) {
       console.log(`[ConnectionManager] Using cached emotes for ${chatroom.streamerData?.user?.username}`);
       return this.emoteCache.get(cacheKey);
@@ -223,13 +230,13 @@ class ConnectionManager {
 
     try {
       console.log(`[ConnectionManager] Fetching emotes for ${chatroom.streamerData?.user?.username}`);
-      
+
       // Fetch Kick emotes
       const kickEmotes = await window.app.kick.getEmotes(chatroom.streamerData?.slug);
-      
+
       // Cache the result
       this.emoteCache.set(cacheKey, kickEmotes);
-      
+
       return kickEmotes;
     } catch (error) {
       console.error(`[ConnectionManager] Error fetching emotes for ${chatroom.streamerData?.user?.username}:`, error);
@@ -243,7 +250,7 @@ class ConnectionManager {
       // Prioritize live streamers
       if (a.isStreamerLive && !b.isStreamerLive) return -1;
       if (!a.isStreamerLive && b.isStreamerLive) return 1;
-      
+
       // Then by last activity or other criteria
       return 0;
     });
@@ -293,24 +300,42 @@ class ConnectionManager {
 
       const data = response.data.data;
 
-      // Get the store instance to call the methods
-      const { default: useChatStore } = await import("../../src/renderer/src/providers/ChatProvider.jsx");
-      const store = useChatStore.getState();
+      // Use callbacks to avoid circular imports
+      if (this.storeCallbacks) {
+        // Handle initial pinned message
+        if (data?.pinned_message) {
+          this.storeCallbacks.handlePinnedMessageCreated?.(chatroom.id, data.pinned_message);
+        } else {
+          this.storeCallbacks.handlePinnedMessageDeleted?.(chatroom.id);
+        }
 
-      // Handle initial pinned message
-      if (data?.pinned_message) {
-        store.handlePinnedMessageCreated(chatroom.id, data.pinned_message);
-      } else {
-        store.handlePinnedMessageDeleted(chatroom.id);
-      }
-
-      // Add initial messages to the chatroom
-      if (data?.messages) {
-        store.addInitialChatroomMessages(chatroom.id, data.messages.reverse());
-        console.log(`[ConnectionManager] Loaded ${data.messages.length} initial messages for chatroom ${chatroom.id}`);
+        // Add initial messages to the chatroom
+        if (data?.messages) {
+          this.storeCallbacks.addInitialChatroomMessages?.(chatroom.id, data.messages.reverse());
+          console.log(`[ConnectionManager] Loaded ${data.messages.length} initial messages for chatroom ${chatroom.id}`);
+        }
       }
     } catch (error) {
       console.error(`[ConnectionManager] Error fetching initial messages for chatroom ${chatroom.id}:`, error);
+    }
+  }
+
+  // Fetch initial chatroom info (including livestream status)
+  async fetchInitialChatroomInfo(chatroom) {
+    try {
+      const response = await window.app.kick.getChannelChatroomInfo(chatroom.streamerData.slug);
+
+      if (!response?.data) {
+        return;
+      }
+
+      // Use callbacks to avoid circular imports
+      if (this.storeCallbacks) {
+        const isLive = response.data?.livestream?.is_live || false;
+        this.storeCallbacks.handleStreamStatus?.(chatroom.id, response.data, isLive);
+      }
+    } catch (error) {
+      console.error(`[ConnectionManager] Error fetching initial chatroom info for chatroom ${chatroom.id}:`, error);
     }
   }
 

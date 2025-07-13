@@ -66,19 +66,19 @@ const useChatStore = create((set, get) => ({
   // Clean up connection manager
   cleanupConnections: () => {
     console.log("[ChatProvider] Cleaning up connections...");
-    
+
     // Reset initialization flag
     initializationInProgress = false;
-    
+
     // Clean up batching
     get().cleanupBatching();
-    
+
     // Clean up connection manager
     if (connectionManager) {
       connectionManager.cleanup();
       connectionManager = null;
     }
-    
+
     // Clean up individual connections (fallback)
     const connections = get().connections;
     Object.keys(connections).forEach(chatroomId => {
@@ -90,10 +90,10 @@ const useChatStore = create((set, get) => ({
         connection.stvSocket.close();
       }
     });
-    
+
     // Clear connections state
     set({ connections: {} });
-    
+
     console.log("[ChatProvider] Connections cleaned up");
   },
 
@@ -106,6 +106,20 @@ const useChatStore = create((set, get) => ({
       manager: "not initialized",
       individual_connections: Object.keys(get().connections).length,
     };
+  },
+
+  // Debug function to toggle livestream status for testing
+  debugToggleStreamStatus: (chatroomId, isLive) => {
+    console.log(`[DEBUG] Toggling stream status for chatroom ${chatroomId}: ${isLive ? 'LIVE' : 'OFFLINE'}`);
+    const mockEvent = {
+      livestream: {
+        id: Math.random().toString(),
+        is_live: isLive,
+        session_title: "Mock Stream Title",
+        created_at: new Date().toISOString(),
+      }
+    };
+    get().handleStreamStatus(chatroomId, mockEvent, isLive);
   },
 
 
@@ -678,7 +692,7 @@ const useChatStore = create((set, get) => ({
 
     initializationInProgress = true;
     console.log("[ChatProvider] Starting OPTIMIZED connection initialization...");
-    
+
     try {
       // Fetch donators list once on initialization
       get().fetchDonators();
@@ -787,18 +801,26 @@ const useChatStore = create((set, get) => ({
 
       try {
         console.log(`[ChatProvider] Initializing ${chatrooms.length} chatrooms with optimized connections...`);
-        
+
+        // Prepare store callbacks to avoid circular imports
+        const storeCallbacks = {
+          handlePinnedMessageCreated: get().handlePinnedMessageCreated,
+          handlePinnedMessageDeleted: get().handlePinnedMessageDeleted,
+          addInitialChatroomMessages: get().addInitialChatroomMessages,
+          handleStreamStatus: get().handleStreamStatus,
+        };
+
         // Initialize connections with the new manager
-        await connectionManager.initializeConnections(chatrooms, eventHandlers);
-        
+        await connectionManager.initializeConnections(chatrooms, eventHandlers, storeCallbacks);
+
         console.log("[ChatProvider] ✅ Optimized connection initialization completed!");
         console.log("[ChatProvider] 📊 Connection status:", connectionManager.getConnectionStatus());
-        
+
         // Show performance comparison in console
         console.log("[ChatProvider] 🚀 Performance improvement:");
         console.log(`  - WebSocket connections: ${chatrooms.length * 2} → 2 (${((chatrooms.length * 2 - 2) / (chatrooms.length * 2) * 100).toFixed(1)}% reduction)`);
         console.log(`  - Expected startup time improvement: ~75% faster`);
-        
+
       } catch (error) {
         console.error("[ChatProvider] ❌ Error during optimized initialization:", error);
         // Fallback to individual connections if shared connections fail
@@ -813,7 +835,7 @@ const useChatStore = create((set, get) => ({
   // Fallback method for individual connections (existing behavior)
   initializeIndividualConnections: () => {
     console.log("[ChatProvider] Initializing individual connections (fallback)...");
-    
+
     get()?.chatrooms?.forEach((chatroom) => {
       if (!get().connections[chatroom.id]) {
         // Connect to chatroom
@@ -850,7 +872,7 @@ const useChatStore = create((set, get) => ({
           };
           console.log(`[ChatProvider] Adding message to chatroom ${chatroomId}:`, messageWithTimestamp);
           get().addMessage(chatroomId, messageWithTimestamp);
-          
+
           // Verify the message was added
           const currentMessages = get().messages[chatroomId] || [];
           console.log(`[ChatProvider] Chatroom ${chatroomId} now has ${currentMessages.length} messages`);
@@ -939,7 +961,7 @@ const useChatStore = create((set, get) => ({
 
   handleKickChannel: (chatroomId, eventDetail) => {
     const parsedEvent = JSON.parse(eventDetail.data);
-    
+
     switch (eventDetail.event) {
       case "App\\Events\\LivestreamUpdated":
         get().handleStreamStatus(chatroomId, parsedEvent, true);
@@ -1063,11 +1085,9 @@ const useChatStore = create((set, get) => ({
   },
 
   addMessage: (chatroomId, message) => {
-    console.log(`[addMessage] Called for chatroom ${chatroomId} with message:`, message);
-    
+
     set((state) => {
       const messages = state.messages[chatroomId] || [];
-      console.log(`[addMessage] Current messages count for ${chatroomId}: ${messages.length}`);
 
       const currentChatroomId = get().currentChatroomId;
       const isRead = message?.is_old || chatroomId === currentChatroomId;
@@ -1093,8 +1113,7 @@ const useChatStore = create((set, get) => ({
         updatedMessages = updatedMessages.slice(-200);
       }
 
-      console.log(`[addMessage] Adding message to ${chatroomId}, new count: ${updatedMessages.length}`);
-      
+
       return {
         messages: {
           ...state.messages,
@@ -1129,15 +1148,19 @@ const useChatStore = create((set, get) => ({
     try {
       const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
 
-      if (
-        savedChatrooms.some(
-          (chatroom) =>
-            chatroom.username.toLowerCase() === username.toLowerCase() ||
-            chatroom.username.toLowerCase() === username.replaceAll("-", "_"),
-        ) ||
-        savedChatrooms.length >= 5
-      ) {
-        return;
+      // Check for duplicate chatroom
+      const isDuplicate = savedChatrooms.some(
+        (chatroom) =>
+          chatroom.username.toLowerCase() === username.toLowerCase() ||
+          chatroom.username.toLowerCase() === username.replaceAll("-", "_")
+      );
+
+      if (isDuplicate) {
+        return { error: "DUPLICATE", message: `Chatroom "${username}" is already added` };
+      }
+
+      if (savedChatrooms.length >= 5) {
+        return { error: "LIMIT_REACHED", message: "Maximum of 5 chatrooms allowed" };
       }
 
       const response = await queueChannelFetch(username);
@@ -2117,6 +2140,25 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
       clearInterval(donationBadgesInterval);
     }
   });
+}
+
+// Expose debug functions globally in development
+if (process.env.NODE_ENV === 'development') {
+  window.debugKickTalk = {
+    toggleStreamStatus: (chatroomId, isLive) => {
+      useChatStore.getState().debugToggleStreamStatus(chatroomId, isLive);
+    },
+    getChatrooms: () => {
+      return useChatStore.getState().chatrooms.map(room => ({
+        id: room.id,
+        username: room.username,
+        isLive: room.isStreamerLive
+      }));
+    },
+    getConnectionStatus: () => {
+      return useChatStore.getState().getConnectionStatus();
+    }
+  };
 }
 
 // Cleanup component to handle unmounting
