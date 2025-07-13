@@ -15,7 +15,8 @@ const Chat = ({ chatroomId, kickUsername, kickId, settings, updateSettings }) =>
 
   const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
   const personalEmoteSets = useChatStore((state) => state.personalEmoteSets);
-  const messages = useChatStore((state) => state.messages[chatroomId]);
+  const messages = useChatStore(useShallow((state) => state.messages[chatroomId] || []));
+  
   const markChatroomMessagesAsRead = useChatStore((state) => state.markChatroomMessagesAsRead);
   const donators = useChatStore(useShallow((state) => state.donators));
 

@@ -1,4 +1,4 @@
-import { memo } from "react";
+import { memo, useMemo } from "react";
 import { Draggable } from "@hello-pangea/dnd";
 import {
   ContextMenu,
@@ -9,6 +9,7 @@ import {
 } from "../Shared/ContextMenu";
 import clsx from "clsx";
 import useChatStore from "../../providers/ChatProvider";
+import { useShallow } from "zustand/react/shallow";
 import X from "../../assets/icons/x-bold.svg?asset";
 
 const ChatroomTab = memo(
@@ -27,8 +28,14 @@ const ChatroomTab = memo(
     renameInputRef,
     settings,
   }) => {
-    const chatroomMessages = useChatStore((state) => state.messages[chatroom.id] || []);
-    const unreadCount = chatroomMessages.filter((message) => !message.isRead && message.type !== "system").length;
+    // Use useShallow to prevent unnecessary re-renders and memoize the unread count calculation
+    const chatroomMessages = useChatStore(
+      useShallow((state) => state.messages[chatroom.id] || [])
+    );
+    
+    const unreadCount = useMemo(() => {
+      return chatroomMessages.filter((message) => !message.isRead && message.type !== "system").length;
+    }, [chatroomMessages]);
 
     return (
       <Draggable key={chatroom.id} draggableId={`item-${chatroom.id}`} index={index}>
