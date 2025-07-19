@@ -21,11 +21,10 @@ let stvPresenceUpdates = new Map();
 let storeStvId = null;
 const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
 
-<<<<<<< HEAD
 // Global connection manager instance
 let connectionManager = null;
 let initializationInProgress = false;
-=======
+
 // Helper functions for optimistic messaging
 const generateTempId = () => `temp_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
@@ -87,7 +86,6 @@ const createOptimisticReply = (chatroomId, content, sender, metadata) => {
     isOptimistic: true,
   };
 };
->>>>>>> optimistic-messaging
 
 // Load initial state from local storage
 const getInitialState = () => {
