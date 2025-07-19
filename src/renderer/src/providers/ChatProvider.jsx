@@ -1159,8 +1159,8 @@ const useChatStore = create((set, get) => ({
         return { error: "DUPLICATE", message: `Chatroom "${username}" is already added` };
       }
 
-      if (savedChatrooms.length >= 5) {
-        return { error: "LIMIT_REACHED", message: "Maximum of 5 chatrooms allowed" };
+      if (savedChatrooms.length >= 20) {
+        return { error: "LIMIT_REACHED", message: "Maximum of 20 chatrooms allowed" };
       }
 
       const response = await queueChannelFetch(username);
@@ -1198,6 +1198,12 @@ const useChatStore = create((set, get) => ({
   removeChatroom: (chatroomId) => {
     console.log(`[ChatProvider]: Removing chatroom ${chatroomId}`);
 
+    // Use connection manager for shared connections
+    if (connectionManager) {
+      connectionManager.removeChatroom(chatroomId);
+    }
+    
+    // Clean up any individual connections in state (works for both pooled and individual modes)
     const { connections } = get();
     const connection = connections[chatroomId];
     const stvSocket = connection?.stvSocket;
