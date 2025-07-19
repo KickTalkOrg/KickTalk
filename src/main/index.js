@@ -221,6 +221,12 @@ ipcMain.handle("store:set", (e, { key, value }) => {
     } else if (process.platform === "linux") {
       mainWindow.setAlwaysOnTop(value.alwaysOnTop, "screen-saver", 1);
     }
+
+    // Handle auto-update setting changes
+    if (value.hasOwnProperty('autoUpdate') && value.autoUpdate === false) {
+      // Dismiss any active update notifications when auto-update is disabled
+      mainWindow.webContents.send("autoUpdater:dismiss");
+    }
   }
 
   return result;
