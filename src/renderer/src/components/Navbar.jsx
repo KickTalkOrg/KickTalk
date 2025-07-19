@@ -57,6 +57,15 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
         return;
       }
 
+      // Handle errors from addChatroom
+      if (newChatroom?.error) {
+        setIsSubmitError(newChatroom.message);
+        setTimeout(() => {
+          setIsSubmitError(null);
+        }, 3000);
+        return;
+      }
+
       if (newChatroom?.status)
         setTimeout(() => {
           setIsSubmitError(null);
@@ -67,7 +76,6 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
   };
 
   const handleRemoveChatroom = async (chatroomId) => {
-    if (!connections[chatroomId]) return;
 
     const currentIndex = orderedChatrooms.findIndex((chatroom) => chatroom.id === chatroomId);
     await removeChatroom(chatroomId);
@@ -289,8 +297,13 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
                 <div>
                   <input ref={inputRef} placeholder="Enter streamer name..." disabled={isConnecting} />
                 </div>
+                {isSubmitError && (
+                  <div className="navbarAddError">
+                    {isSubmitError}
+                  </div>
+                )}
                 <button className="navbarAddChatroomBtn navbarDialogBtn" type="submit" disabled={isConnecting}>
-                  {isConnecting ? "Connecting..." : isSubmitError ? isSubmitError?.message : "Add Chatroom"}
+                  {isConnecting ? "Connecting..." : "Add Chatroom"}
                 </button>
               </form>
             </div>

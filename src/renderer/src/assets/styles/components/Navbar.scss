@@ -343,6 +343,18 @@
   padding-top: 24px;
   width: 100%;
   flex-wrap: wrap;
+  
+  .navbarAddError {
+    width: 100%;
+    margin: 8px 16px 0 16px;
+    padding: 8px 12px;
+    background-color: rgba(255, 99, 99, 0.1);
+    border: 1px solid rgba(255, 99, 99, 0.3);
+    border-radius: 5px;
+    color: #ff6b6b;
+    font-size: 14px;
+    text-align: center;
+  }
   input {
     max-height: 48px;
     min-height: 48px;
