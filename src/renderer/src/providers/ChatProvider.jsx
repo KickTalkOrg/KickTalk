@@ -86,6 +86,8 @@ const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (chatroomId, content) => {
+    const startTime = Date.now();
+    
     try {
       const message = content.trim();
       console.info("Sending message to chatroom:", chatroomId);
@@ -93,6 +95,10 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.sendMessage(chatroomId, message);
 
       if (response?.data?.status?.code === 401) {
+        // Record auth failure
+        const duration = (Date.now() - startTime) / 1000;
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false);
+        
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
           type: "system",
@@ -103,8 +109,21 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
+      // Record successful message send
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, true);
+
       return true;
     } catch (error) {
+      // Record failed message send with error details
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false);
+      window.app?.telemetry?.recordError(error, {
+        'chatroom.id': chatroomId,
+        'message.operation': 'send',
+        'message.content_length': content?.length || 0
+      });
+      
       const errMsg = chatroomErrorHandler(error);
 
       get().addMessage(chatroomId, {
@@ -120,6 +139,8 @@ const useChatStore = create((set, get) => ({
   },
 
   sendReply: async (chatroomId, content, metadata = {}) => {
+    const startTime = Date.now();
+    
     try {
       const message = content.trim();
       console.info("Sending reply to chatroom:", chatroomId);
@@ -127,6 +148,10 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
 
       if (response?.data?.status?.code === 401) {
+        // Record auth failure for reply
+        const duration = (Date.now() - startTime) / 1000;
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false);
+        
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
           type: "system",
@@ -137,8 +162,22 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
+      // Record successful reply send
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, true);
+
       return true;
     } catch (error) {
+      // Record failed reply send with error details
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false);
+      window.app?.telemetry?.recordError(error, {
+        'chatroom.id': chatroomId,
+        'message.operation': 'reply',
+        'message.content_length': content?.length || 0,
+        'reply.original_message_id': metadata.original_message?.id
+      });
+      
       const errMsg = chatroomErrorHandler(error);
 
       get().addMessage(chatroomId, {

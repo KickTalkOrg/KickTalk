@@ -8,8 +8,15 @@ import fs from "fs";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Initialize telemetry early if enabled
+const { initTelemetry, shutdownTelemetry, isTelemetryEnabled } = require("../telemetry");
+if (isTelemetryEnabled()) {
+  initTelemetry();
+}
+
 const isDev = process.env.NODE_ENV === "development";
 const iconPath = join(__dirname, "../../resources/icons/win/KickTalk_v1.ico");
+const { metrics } = require("../telemetry");
 
 const authStore = new Store({
   fileExtension: "env",
@@ -459,6 +466,7 @@ const createWindow = () => {
   ]);
 
   setAlwaysOnTop(mainWindow);
+  metrics.incrementOpenWindows();
 
   mainWindow.once("ready-to-show", async () => {
     mainWindow.show();
@@ -475,6 +483,7 @@ const createWindow = () => {
 
   mainWindow.on("close", () => {
     store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
+    metrics.decrementOpenWindows();
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -527,6 +536,7 @@ const loginToKick = async (method) => {
         sandbox: false,
       },
     });
+    metrics.incrementOpenWindows();
 
     switch (method) {
       case "kick":
@@ -590,6 +600,7 @@ const loginToKick = async (method) => {
     loginDialog.on("closed", () => {
       clearInterval(interval);
       resolve(false);
+      metrics.decrementOpenWindows();
     });
   });
 };
@@ -746,6 +757,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -778,6 +790,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
     setAlwaysOnTop(mainWindow);
     dialogInfo = null;
     userDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -830,6 +843,7 @@ ipcMain.handle("authDialog:open", (e) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -847,6 +861,7 @@ ipcMain.handle("authDialog:open", (e) => {
 
   authDialog.on("closed", () => {
     authDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -906,11 +921,55 @@ ipcMain.handle("get-app-info", () => {
   };
 });
 
+// Telemetry handlers
+ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'regular', duration = null, success = true }) => {
+  if (isTelemetryEnabled()) {
+    const { metrics } = require("../telemetry");
+    metrics.recordMessageSent(chatroomId, messageType);
+    if (duration !== null) {
+      metrics.recordMessageSendDuration(duration, chatroomId, success);
+    }
+  }
+});
+
+ipcMain.handle("telemetry:recordError", (e, { error, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    const { metrics } = require("../telemetry");
+    const errorObj = new Error(error.message || error);
+    errorObj.name = error.name || 'RendererError';
+    errorObj.stack = error.stack;
+    metrics.recordError(errorObj, context);
+  }
+});
+
+ipcMain.handle("telemetry:recordRendererMemory", (e, memory) => {
+  if (isTelemetryEnabled()) {
+    const { metrics } = require("../telemetry");
+    metrics.recordRendererMemory(memory);
+  }
+});
+
+ipcMain.handle("telemetry:recordDomNodeCount", (e, count) => {
+  if (isTelemetryEnabled()) {
+    const { metrics } = require("../telemetry");
+    metrics.recordDomNodeCount(count);
+  }
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
   if (process.platform !== "darwin") {
+    // Shutdown telemetry before quitting
+    if (isTelemetryEnabled()) {
+      if (allWindows.size > 0) {
+        const openWindowTitles = Array.from(allWindows).map(win => win.getTitle());
+        console.error(`[ProcessExit] Closing with ${allWindows.size} windows still open: ${openWindowTitles.join(", ")}`);
+        metrics.recordError(new Error("Lingering windows on exit"), { openWindows: openWindowTitles });
+      }
+      await shutdownTelemetry();
+    }
     app.quit();
   }
 });
@@ -951,6 +1010,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     chattersDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/chatters.html`);
@@ -970,6 +1030,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
 
   chattersDialog.on("closed", () => {
     chattersDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1019,6 +1080,7 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     searchDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/search.html`);
@@ -1043,6 +1105,7 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
 
   searchDialog.on("closed", () => {
     searchDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1097,6 +1160,7 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
@@ -1121,6 +1185,7 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
 
   settingsDialog.on("closed", () => {
     settingsDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1175,6 +1240,7 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     replyThreadDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/replyThread.html`);
@@ -1196,6 +1262,7 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
 
   replyThreadDialog.on("closed", () => {
     replyThreadDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 

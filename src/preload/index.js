@@ -391,8 +391,20 @@ if (process.contextIsolated) {
         clearTokens: () => tokenManager.clearTokens(),
         getToken: () => tokenManager.getToken(),
       },
+
+      // Telemetry utilities
+      telemetry: {
+        recordMessageSent: (chatroomId, messageType, duration, success) =>
+          ipcRenderer.invoke("telemetry:recordMessageSent", { chatroomId, messageType, duration, success }),
+        recordError: (error, context) =>
+          ipcRenderer.invoke("telemetry:recordError", { error, context }),
+        recordRendererMemory: (memory) =>
+          ipcRenderer.invoke("telemetry:recordRendererMemory", memory),
+        recordDomNodeCount: (count) =>
+          ipcRenderer.invoke("telemetry:recordDomNodeCount", count),
+      },
     });
-  } catch (error) {
+   } catch (error) {
     console.error("Failed to expose APIs:", error);
   }
 } else {

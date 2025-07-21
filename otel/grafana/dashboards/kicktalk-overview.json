@@ -1,0 +1,215 @@
+{
+  "dashboard": {
+    "id": null,
+    "title": "KickTalk Application Overview",
+    "tags": ["kicktalk", "overview"],
+    "style": "dark",
+    "timezone": "browser",
+    "refresh": "5s",
+    "schemaVersion": 27,
+    "version": 1,
+    "time": {
+      "from": "now-5m",
+      "to": "now"
+    },
+    "panels": [
+      {
+        "id": 1,
+        "title": "Application Status",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 0},
+        "targets": [
+          {
+            "expr": "up{job=\"kicktalk-app\"}",
+            "refId": "A",
+            "legendFormat": "App Status"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [
+              {"options": {"0": {"text": "Down"}}, "type": "value"},
+              {"options": {"1": {"text": "Up"}}, "type": "value"}
+            ],
+            "color": {
+              "mode": "thresholds"
+            },
+            "thresholds": {
+              "steps": [
+                {"color": "red", "value": null},
+                {"color": "green", "value": 1}
+              ]
+            }
+          }
+        }
+      },
+      {
+        "id": 2,
+        "title": "Active Connections",
+        "type": "stat",
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 0},
+        "targets": [
+          {
+            "expr": "kicktalk_websocket_connections_active",
+            "refId": "A",
+            "legendFormat": "WebSocket Connections"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "displayMode": "list",
+              "orientation": "horizontal"
+            }
+          }
+        }
+      },
+      {
+        "id": 3,
+        "title": "Message Throughput",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 8},
+        "targets": [
+          {
+            "expr": "rate(kicktalk_messages_sent_total[5m])",
+            "refId": "A",
+            "legendFormat": "Messages Sent/sec"
+          },
+          {
+            "expr": "rate(kicktalk_messages_received_total[5m])",
+            "refId": "B", 
+            "legendFormat": "Messages Received/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "barAlignment": 0,
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "none",
+              "spanNulls": false,
+              "insertNulls": false,
+              "showPoints": "never",
+              "pointSize": 5
+            }
+          }
+        }
+      },
+      {
+        "id": 4,
+        "title": "Memory Usage",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+        "targets": [
+          {
+            "expr": "kicktalk_memory_usage_bytes",
+            "refId": "A",
+            "legendFormat": "Memory Usage (Bytes)"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "continuous-GrYlRd"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "barAlignment": 0,
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "opacity"
+            },
+            "unit": "bytes"
+          }
+        }
+      },
+      {
+        "id": 5,
+        "title": "Connection Errors",
+        "type": "timeseries", 
+        "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+        "targets": [
+          {
+            "expr": "rate(kicktalk_connection_errors_total[5m])",
+            "refId": "A",
+            "legendFormat": "Connection Errors/sec"
+          },
+          {
+            "expr": "rate(kicktalk_websocket_reconnections_total[5m])",
+            "refId": "B",
+            "legendFormat": "Reconnections/sec"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "barAlignment": 0,
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "none"
+            }
+          }
+        }
+      },
+      {
+        "id": 6,
+        "title": "API Response Times",
+        "type": "timeseries",
+        "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+        "targets": [
+          {
+            "expr": "histogram_quantile(0.50, rate(kicktalk_api_request_duration_seconds_bucket{api=\"kick\"}[5m]))",
+            "refId": "A",
+            "legendFormat": "Kick API p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(kicktalk_api_request_duration_seconds_bucket{api=\"kick\"}[5m]))",
+            "refId": "B",
+            "legendFormat": "Kick API p95"
+          },
+          {
+            "expr": "histogram_quantile(0.50, rate(kicktalk_api_request_duration_seconds_bucket{api=\"7tv\"}[5m]))",
+            "refId": "C",
+            "legendFormat": "7TV API p50"
+          },
+          {
+            "expr": "histogram_quantile(0.95, rate(kicktalk_api_request_duration_seconds_bucket{api=\"7tv\"}[5m]))",
+            "refId": "D",
+            "legendFormat": "7TV API p95"
+          }
+        ],
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "palette-classic"
+            },
+            "custom": {
+              "drawStyle": "line",
+              "lineInterpolation": "linear",
+              "barAlignment": 0,
+              "lineWidth": 1,
+              "fillOpacity": 10,
+              "gradientMode": "none"
+            },
+            "unit": "s"
+          }
+        }
+      }
+    ]
+  }
+}

@@ -1,3 +1,5 @@
+const { metrics, tracing } = require('../../../src/telemetry');
+
 class KickPusher extends EventTarget {
   constructor(chatroomNumber, streamerId) {
     super();
@@ -7,6 +9,7 @@ class KickPusher extends EventTarget {
     this.streamerId = streamerId;
     this.shouldReconnect = true;
     this.socketId = null;
+    this.connectionStartTime = null;
   }
 
   connect() {
@@ -15,8 +18,25 @@ class KickPusher extends EventTarget {
       return;
     }
     console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
-    this.chat = new WebSocket(
-      "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
+    
+    // Start timing the connection
+    this.connectionStartTime = metrics.startTimer();
+    
+    return tracing.traceWebSocketConnection(
+      this.chatroomNumber, 
+      this.streamerId, 
+      (span) => {
+        this.chat = new WebSocket(
+          "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
+        );
+        
+        span.setAttributes({
+          'websocket.url': 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679',
+          'websocket.protocol': 'pusher',
+          'chatroom.number': this.chatroomNumber,
+          'streamer.id': this.streamerId
+        });
+      }
     );
 
     this.dispatchEvent(
@@ -31,6 +51,20 @@ class KickPusher extends EventTarget {
 
     this.chat.addEventListener("open", async () => {
       console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
+      
+      // Record successful connection
+      metrics.recordChatroomJoin(this.chatroomNumber, this.streamerId);
+      
+      // Record connection timing if available
+      if (this.connectionStartTime) {
+        const connectionDuration = metrics.endTimer(this.connectionStartTime);
+        tracing.addEvent('websocket.connection_established', {
+          'connection.duration_seconds': connectionDuration,
+          'chatroom.number': this.chatroomNumber,
+          'streamer.id': this.streamerId
+        });
+        this.connectionStartTime = null;
+      }
 
       setTimeout(() => {
         if (this.chat && this.chat.readyState === WebSocket.OPEN) {
@@ -58,17 +92,38 @@ class KickPusher extends EventTarget {
 
     this.chat.addEventListener("error", (error) => {
       console.log(`Error occurred: ${error.message}`);
+      
+      // Record connection error
+      metrics.recordConnectionError('websocket_error', this.chatroomNumber);
+      metrics.recordError(error, {
+        'chatroom.number': this.chatroomNumber,
+        'streamer.id': this.streamerId,
+        'websocket.event': 'error'
+      });
+      
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
     });
 
     this.chat.addEventListener("close", () => {
       console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
 
+      // Record connection close
+      metrics.recordChatroomLeave(this.chatroomNumber, this.streamerId);
+      tracing.addEvent('websocket.connection_closed', {
+        'chatroom.number': this.chatroomNumber,
+        'streamer.id': this.streamerId,
+        'will_reconnect': this.shouldReconnect
+      });
+
       this.dispatchEvent(new Event("close"));
 
       if (this.shouldReconnect) {
         setTimeout(() => {
           console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
+          
+          // Record reconnection attempt
+          metrics.recordReconnection(this.chatroomNumber, 'websocket_close');
+          
           this.connect();
         }, this.reconnectDelay);
       } else {
@@ -180,6 +235,24 @@ class KickPusher extends EventTarget {
           jsonData.event === `App\\Events\\UserBannedEvent` ||
           jsonData.event === `App\\Events\\UserUnbannedEvent`
         ) {
+          // Record message events in telemetry
+          const eventData = JSON.parse(jsonData.data);
+          
+          switch (jsonData.event) {
+            case 'App\\Events\\ChatMessageEvent':
+              metrics.recordMessageReceived(this.chatroomNumber, 'chat', eventData.sender?.id);
+              break;
+            case 'App\\Events\\MessageDeletedEvent':
+              metrics.recordMessageReceived(this.chatroomNumber, 'deletion', eventData.message?.sender?.id);
+              break;
+            case 'App\\Events\\UserBannedEvent':
+              metrics.recordMessageReceived(this.chatroomNumber, 'ban', eventData.user?.id);
+              break;
+            case 'App\\Events\\UserUnbannedEvent':
+              metrics.recordMessageReceived(this.chatroomNumber, 'unban', eventData.user?.id);
+              break;
+          }
+          
           this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));
         }
 

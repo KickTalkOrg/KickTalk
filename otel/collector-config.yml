@@ -1,0 +1,122 @@
+receivers:
+  # OTLP receiver for traces, metrics, and logs
+  otlp:
+    protocols:
+      grpc:
+        endpoint: 0.0.0.0:4317
+      http:
+        endpoint: 0.0.0.0:4318
+        cors:
+          allowed_origins:
+            - "http://localhost:*"
+            - "http://127.0.0.1:*"
+            - "http://0.0.0.0:*"
+
+  # Prometheus receiver for scraping metrics
+  prometheus:
+    config:
+      scrape_configs:
+        - job_name: 'otel-collector'
+          scrape_interval: 10s
+          static_configs:
+            - targets: ['localhost:8888']
+        - job_name: 'kicktalk-app'
+          scrape_interval: 15s
+          static_configs:
+            - targets: ['host.docker.internal:9464'] # KickTalk metrics endpoint
+
+processors:
+  # Batch processor for better performance
+  batch:
+    timeout: 1s
+    send_batch_size: 1024
+
+  # Memory limiter to prevent OOM
+  memory_limiter:
+    limit_mib: 256
+    spike_limit_mib: 64
+    check_interval: 5s
+
+  # Add resource attributes
+  resource:
+    attributes:
+      - key: service.name
+        value: "kicktalk"
+        action: upsert
+      - key: service.version
+        from_attribute: service.version
+        action: insert
+      - key: deployment.environment
+        value: "development"
+        action: upsert
+
+  # Filter sensitive data
+  attributes:
+    actions:
+      - key: user.token
+        action: delete
+      - key: auth.token  
+        action: delete
+      - key: kick.session
+        action: delete
+
+exporters:
+  # OTLP exporter for traces (to Jaeger)
+  otlp/jaeger:
+    endpoint: jaeger:4317
+    tls:
+      insecure: true
+
+  # Prometheus exporter for metrics
+  prometheus:
+    endpoint: "0.0.0.0:8889"
+    metric_expiration: 180m
+    enable_open_metrics: true
+
+  # File exporter for logs and debugging
+  file:
+    path: /var/log/otel/telemetry.log
+    rotation:
+      max_megabytes: 100
+      max_days: 3
+
+  # Debug exporter for debugging (console output)
+  debug:
+    verbosity: normal
+    sampling_initial: 5
+    sampling_thereafter: 200
+
+  # OTLP HTTP exporter (for external systems)
+  otlphttp:
+    endpoint: "http://localhost:4318"
+    headers:
+      "X-Custom-Header": "kicktalk-telemetry"
+
+service:
+  pipelines:
+    traces:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, attributes, batch]
+      exporters: [otlp/jaeger, debug]
+    
+    metrics:
+      receivers: [otlp, prometheus]
+      processors: [memory_limiter, resource, batch]
+      exporters: [prometheus, debug]
+    
+    logs:
+      receivers: [otlp]
+      processors: [memory_limiter, resource, batch]
+      exporters: [file, debug]
+
+  extensions: [health_check, pprof]
+
+extensions:
+  health_check:
+    endpoint: 0.0.0.0:13133
+  
+  pprof:
+    endpoint: 0.0.0.0:1777
+
+  zpages:
+    endpoint: 0.0.0.0:55679
