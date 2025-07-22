@@ -8,6 +8,7 @@ import { memo, useMemo } from "react";
 const ReplyMessage = ({
   message,
   sevenTVEmotes,
+  sevenTVSettings,
   subscriberBadges,
   kickTalkBadges,
   donatorBadges,
@@ -45,6 +46,7 @@ const ReplyMessage = ({
             type="reply"
             message={message?.metadata?.original_message}
             sevenTVEmotes={sevenTVEmotes}
+            sevenTVSettings={sevenTVSettings}
             userChatroomInfo={userChatroomInfo}
             chatroomId={chatroomId}
             chatroomName={chatroomName}
