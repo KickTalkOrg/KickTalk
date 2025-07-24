@@ -1,8 +1,17 @@
-// KickTalk distributed tracing implementation
-const { trace, context, SpanStatusCode, SpanKind } = require('@opentelemetry/api');
+// KickTalk distributed tracing implementation - Manual instrumentation
+const { tracer } = require('./instrumentation');
 
-// Get the tracer for KickTalk
-const tracer = trace.getTracer('kicktalk', require('../../package.json').version);
+// Import OpenTelemetry API with fallbacks
+let trace, context, SpanStatusCode, SpanKind;
+try {
+  ({ trace, context, SpanStatusCode, SpanKind } = require('@opentelemetry/api'));
+} catch (error) {
+  // Fallback for when API is not available
+  SpanStatusCode = { OK: 1, ERROR: 2 };
+  SpanKind = { INTERNAL: 0, CLIENT: 3, PRODUCER: 5 };
+  trace = { getActiveSpan: () => null };
+  context = {};
+}
 
 // Tracing helper functions
 const TracingHelper = {
@@ -22,7 +31,22 @@ const TracingHelper = {
 
   // Start a span with automatic context propagation
   startActiveSpan(name, callback, options = {}) {
-    return tracer.startActiveSpan(name, options, callback);
+    // Use manual span management since Electron doesn't support auto-context
+    const span = this.startSpan(name, options);
+    try {
+      const result = callback(span);
+      if (result && typeof result.then === 'function') {
+        return result.finally(() => span.end());
+      } else {
+        span.end();
+        return result;
+      }
+    } catch (error) {
+      span.recordException(error);
+      span.setStatus({ code: SpanStatusCode.ERROR, message: error.message });
+      span.end();
+      throw error;
+    }
   },
 
   // WebSocket connection tracing

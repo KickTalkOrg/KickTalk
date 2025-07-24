@@ -9,16 +9,66 @@ import dotenv from "dotenv";
 dotenv.config();
 
 // Initialize telemetry early if enabled
-const { initTelemetry, shutdownTelemetry, isTelemetryEnabled } = require("../telemetry");
-if (isTelemetryEnabled()) {
-  initTelemetry();
+let initTelemetry = null;
+let shutdownTelemetry = null;
+let isTelemetryEnabled = () => false; // Default fallback
+
+// Function to check telemetry settings from main process
+const checkTelemetrySettings = () => {
+  // Check user settings
+  try {
+    // Use the same store approach as elsewhere in the codebase
+    const settings = store.get('telemetry', { enabled: false });
+    return settings.enabled === true;
+  } catch (error) {
+    console.warn('[Telemetry]: Could not access settings store:', error.message);
+    return false;
+  }
+};
+
+try {
+  const telemetryModule = require("../telemetry/index.js");
+  initTelemetry = telemetryModule.initTelemetry;
+  shutdownTelemetry = telemetryModule.shutdownTelemetry;
+  
+  // Override the telemetry enabled check with our main process version
+  isTelemetryEnabled = checkTelemetrySettings;
+  
+  if (isTelemetryEnabled()) {
+    initTelemetry();
+  }
+} catch (error) {
+  console.warn('[Telemetry]: Failed to load telemetry module:', error.message);
 }
 
 const isDev = process.env.NODE_ENV === "development";
 const iconPath = process.platform === "win32" 
   ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
   : join(__dirname, "../../resources/icons/KickTalk_v1.png");
-const { metrics } = require("../telemetry");
+
+// Load metrics with fallback
+let metrics = null;
+try {
+  const telemetryModule = require("../telemetry/index.js");
+  metrics = telemetryModule.metrics;
+} catch (error) {
+  console.warn('[Telemetry]: Failed to load metrics:', error.message);
+  // Fallback no-op metrics
+  metrics = {
+    incrementOpenWindows: () => {},
+    decrementOpenWindows: () => {},
+    recordError: () => {},
+    recordMessageSent: () => {},
+    recordMessageSendDuration: () => {},
+    recordMessageReceived: () => {},
+    recordRendererMemory: () => {},
+    recordDomNodeCount: () => {},
+    incrementWebSocketConnections: () => {},
+    decrementWebSocketConnections: () => {},
+    recordConnectionError: () => {},
+    recordReconnection: () => {}
+  };
+}
 
 const authStore = new Store({
   fileExtension: "env",
@@ -84,6 +134,9 @@ let userDialog = null;
 let authDialog = null;
 let chattersDialog = null;
 let settingsDialog = null;
+
+// Track all windows for telemetry
+const allWindows = new Set();
 let searchDialog = null;
 let replyThreadDialog = null;
 let availableNotificationSounds = [];
@@ -473,6 +526,7 @@ const createWindow = () => {
   mainWindow.once("ready-to-show", async () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
+    allWindows.add(mainWindow);
 
     if (isDev) {
       mainWindow.webContents.openDevTools({ mode: "detach" });
@@ -485,6 +539,7 @@ const createWindow = () => {
 
   mainWindow.on("close", () => {
     store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
+    allWindows.delete(mainWindow);
     metrics.decrementOpenWindows();
   });
 
@@ -539,6 +594,7 @@ const loginToKick = async (method) => {
       },
     });
     metrics.incrementOpenWindows();
+    allWindows.add(loginDialog);
 
     switch (method) {
       case "kick":
@@ -602,6 +658,7 @@ const loginToKick = async (method) => {
     loginDialog.on("closed", () => {
       clearInterval(interval);
       resolve(false);
+      allWindows.delete(loginDialog);
       metrics.decrementOpenWindows();
     });
   });
@@ -760,6 +817,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(userDialog);
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -791,6 +849,7 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   userDialog.on("closed", () => {
     setAlwaysOnTop(mainWindow);
     dialogInfo = null;
+    allWindows.delete(userDialog);
     userDialog = null;
     metrics.decrementOpenWindows();
   });
@@ -846,6 +905,7 @@ ipcMain.handle("authDialog:open", (e) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(authDialog);
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -863,6 +923,7 @@ ipcMain.handle("authDialog:open", (e) => {
 
   authDialog.on("closed", () => {
     authDialog = null;
+    allWindows.delete(authDialog);
     metrics.decrementOpenWindows();
   });
 });
@@ -926,7 +987,6 @@ ipcMain.handle("get-app-info", () => {
 // Telemetry handlers
 ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'regular', duration = null, success = true }) => {
   if (isTelemetryEnabled()) {
-    const { metrics } = require("../telemetry");
     metrics.recordMessageSent(chatroomId, messageType);
     if (duration !== null) {
       metrics.recordMessageSendDuration(duration, chatroomId, success);
@@ -936,7 +996,6 @@ ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'r
 
 ipcMain.handle("telemetry:recordError", (e, { error, context = {} }) => {
   if (isTelemetryEnabled()) {
-    const { metrics } = require("../telemetry");
     const errorObj = new Error(error.message || error);
     errorObj.name = error.name || 'RendererError';
     errorObj.stack = error.stack;
@@ -946,15 +1005,49 @@ ipcMain.handle("telemetry:recordError", (e, { error, context = {} }) => {
 
 ipcMain.handle("telemetry:recordRendererMemory", (e, memory) => {
   if (isTelemetryEnabled()) {
-    const { metrics } = require("../telemetry");
-    metrics.recordRendererMemory(memory);
+    // const { metrics } = require("../telemetry/index.js");
+    // metrics.recordRendererMemory(memory);
   }
 });
 
 ipcMain.handle("telemetry:recordDomNodeCount", (e, count) => {
   if (isTelemetryEnabled()) {
-    const { metrics } = require("../telemetry");
-    metrics.recordDomNodeCount(count);
+    // const { metrics } = require("../telemetry/index.js");
+    // metrics.recordDomNodeCount(count);
+  }
+});
+
+ipcMain.handle("telemetry:recordWebSocketConnection", (e, { chatroomId, streamerId, connected }) => {
+  if (isTelemetryEnabled()) {
+    if (connected) {
+      metrics.incrementWebSocketConnections(chatroomId, streamerId);
+    } else {
+      metrics.decrementWebSocketConnections(chatroomId, streamerId);
+    }
+  }
+});
+
+ipcMain.handle("telemetry:recordConnectionError", (e, { chatroomId, errorType }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordConnectionError(errorType, chatroomId);
+  }
+});
+
+ipcMain.handle("telemetry:recordMessageReceived", (e, { chatroomId, messageType, senderId }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordMessageReceived(chatroomId, messageType, senderId);
+  }
+});
+
+ipcMain.handle("telemetry:recordReconnection", (e, { chatroomId, reason }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordReconnection(chatroomId, reason);
+  }
+});
+
+ipcMain.handle("telemetry:recordAPIRequest", (e, { endpoint, method, statusCode, duration }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordAPIRequest(endpoint, method, statusCode, duration);
   }
 });
 
@@ -970,7 +1063,13 @@ app.on("window-all-closed", async () => {
         console.error(`[ProcessExit] Closing with ${allWindows.size} windows still open: ${openWindowTitles.join(", ")}`);
         metrics.recordError(new Error("Lingering windows on exit"), { openWindows: openWindowTitles });
       }
-      await shutdownTelemetry();
+      if (shutdownTelemetry) {
+        try {
+          await shutdownTelemetry();
+        } catch (error) {
+          console.warn('[Telemetry]: Failed to shutdown telemetry:', error.message);
+        }
+      }
     }
     app.quit();
   }
@@ -1013,6 +1112,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(chattersDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     chattersDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/chatters.html`);
@@ -1032,6 +1132,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
 
   chattersDialog.on("closed", () => {
     chattersDialog = null;
+    allWindows.delete(chattersDialog);
     metrics.decrementOpenWindows();
   });
 });
@@ -1083,6 +1184,7 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(searchDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     searchDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/search.html`);
@@ -1107,6 +1209,7 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
 
   searchDialog.on("closed", () => {
     searchDialog = null;
+    allWindows.delete(searchDialog);
     metrics.decrementOpenWindows();
   });
 });
@@ -1163,6 +1266,7 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(settingsDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
@@ -1187,6 +1291,7 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
 
   settingsDialog.on("closed", () => {
     settingsDialog = null;
+    allWindows.delete(settingsDialog);
     metrics.decrementOpenWindows();
   });
 });
@@ -1243,6 +1348,7 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
     },
   });
   metrics.incrementOpenWindows();
+  allWindows.add(replyThreadDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     replyThreadDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/replyThread.html`);
@@ -1264,6 +1370,7 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
 
   replyThreadDialog.on("closed", () => {
     replyThreadDialog = null;
+    allWindows.delete(replyThreadDialog);
     metrics.decrementOpenWindows();
   });
 });

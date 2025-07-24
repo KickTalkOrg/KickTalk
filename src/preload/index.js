@@ -402,6 +402,16 @@ if (process.contextIsolated) {
           ipcRenderer.invoke("telemetry:recordRendererMemory", memory),
         recordDomNodeCount: (count) =>
           ipcRenderer.invoke("telemetry:recordDomNodeCount", count),
+        recordWebSocketConnection: (chatroomId, streamerId, connected) =>
+          ipcRenderer.invoke("telemetry:recordWebSocketConnection", { chatroomId, streamerId, connected }),
+        recordConnectionError: (chatroomId, errorType) =>
+          ipcRenderer.invoke("telemetry:recordConnectionError", { chatroomId, errorType }),
+        recordMessageReceived: (chatroomId, messageType, senderId) =>
+          ipcRenderer.invoke("telemetry:recordMessageReceived", { chatroomId, messageType, senderId }),
+        recordReconnection: (chatroomId, reason) =>
+          ipcRenderer.invoke("telemetry:recordReconnection", { chatroomId, reason }),
+        recordAPIRequest: (endpoint, method, statusCode, duration) =>
+          ipcRenderer.invoke("telemetry:recordAPIRequest", { endpoint, method, statusCode, duration }),
       },
     });
    } catch (error) {

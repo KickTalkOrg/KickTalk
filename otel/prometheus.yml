@@ -24,7 +24,7 @@ scrape_configs:
   # Scrape KickTalk application metrics (when implemented)
   - job_name: 'kicktalk-app'
     static_configs:
-      - targets: ['host.docker.internal:9464']
+      - targets: ['192.168.1.50:9464']
     scrape_interval: 15s
     metrics_path: /metrics
     scheme: http

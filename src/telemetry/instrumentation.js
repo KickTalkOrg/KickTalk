@@ -1,129 +1,147 @@
-// OpenTelemetry instrumentation for KickTalk
-const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
-const { HttpInstrumentation } = require('@opentelemetry/instrumentation-http');
-const { FsInstrumentation } = require('@opentelemetry/instrumentation-fs');
-const { PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
-const { performance, PerformanceObserver } = require('perf_hooks');
-const { metrics } = require('./metrics');
-const pkg = require('../../package.json');
+// OpenTelemetry tracing and metrics for KickTalk (Electron-compatible)
+// Based on SigNoz Electron sample: https://github.com/SigNoz/ElectronJS-otel-sample-app
 
-const isDev = process.env.NODE_ENV === 'development';
+let tracer = null;
+let provider = null;
+let metricsProvider = null;
 
-// Resource configuration
-const resource = new Resource({
-  [SemanticResourceAttributes.SERVICE_NAME]: 'kicktalk',
-  [SemanticResourceAttributes.SERVICE_VERSION]: pkg.version,
-  [SemanticResourceAttributes.DEPLOYMENT_ENVIRONMENT]: isDev ? 'development' : 'production',
-  'service.instance.id': `kicktalk-${process.pid}`,
-  'process.runtime.name': 'electron',
-  'process.runtime.version': process.versions.electron
-});
-
-// OTLP exporters configuration
-const traceExporter = new OTLPTraceExporter({
-  url: 'http://localhost:4318/v1/traces',
-  headers: {
-    'X-Custom-Header': 'kicktalk-telemetry'
+try {
+  // Try to import from different packages - some versions have different locations
+  let BasicTracerProvider, SimpleSpanProcessor;
+  
+  try {
+    ({ BasicTracerProvider } = require('@opentelemetry/sdk-trace-base'));
+    ({ SimpleSpanProcessor } = require('@opentelemetry/sdk-trace-base'));
+  } catch (sdkError) {
+    console.log('[OTEL]: Trying alternative SDK imports...');
+    ({ BasicTracerProvider } = require('@opentelemetry/sdk-trace-node'));
+    ({ SimpleSpanProcessor } = require('@opentelemetry/sdk-trace-node'));
   }
-});
+  
+  const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+  const { trace } = require('@opentelemetry/api');
+  const pkg = require('../../package.json');
 
-const metricExporter = new OTLPMetricExporter({
-  url: 'http://localhost:4318/v1/metrics',
-  headers: {
-    'X-Custom-Header': 'kicktalk-telemetry'
+  const isDev = process.env.NODE_ENV === 'development';
+
+  // Create a tracer provider without resource for Electron compatibility
+  provider = new BasicTracerProvider();
+
+  // Configure the OTLP exporter
+  const exporter = new OTLPTraceExporter({
+    url: 'http://localhost:4318/v1/traces',
+    headers: {
+      'X-Custom-Header': 'kicktalk-telemetry'
+    }
+  });
+
+  // Add a simple span processor - check if method exists
+  if (typeof provider.addSpanProcessor === 'function') {
+    provider.addSpanProcessor(new SimpleSpanProcessor(exporter));
+    console.log('[OTEL]: addSpanProcessor method available, using standard approach');
+  } else {
+    console.log('[OTEL]: addSpanProcessor method not available, trying alternative');
   }
-});
 
-// Metric reader with 15 second export interval
-const metricReader = new PeriodicExportingMetricReader({
-  exporter: metricExporter,
-  exportIntervalMillis: 15000
-});
+  // Register the provider (only once)
+  if (typeof provider.register === 'function') {
+    provider.register();
+    console.log('[OTEL]: Provider registered successfully');
+  } else {
+    console.log('[OTEL]: Provider register method not available');
+  }
 
-// Initialize SDK
-const sdk = new NodeSDK({
-  resource,
-  traceExporter,
-  metricReader,
-  instrumentations: [
-    new HttpInstrumentation({
-      // Filter sensitive data from HTTP traces
-      requestHook: (span, request) => {
-        // Don't trace auth-related headers
-        const headers = { ...request.headers };
-        delete headers.authorization;
-        delete headers.cookie;
-        delete headers['session-token'];
-        delete headers['kick-session'];
-        
-        span.setAttributes({
-          'http.request.headers': JSON.stringify(headers)
-        });
-      },
-      responseHook: (span, response) => {
-        // Don't include response body for privacy
-        span.setAttributes({
-          'http.response.status_code': response.statusCode,
-          'http.response.status_text': response.statusMessage
-        });
-      }
-    }),
-    new FsInstrumentation({
-      // Only trace non-sensitive file operations
-      ignoreIncomingRequestHook: (request) => {
-        const filename = request.filename || '';
-        // Ignore user data, logs, and config files
-        return filename.includes('user') || 
-               filename.includes('.log') || 
-               filename.includes('token') ||
-               filename.includes('.env');
-      }
+  // Get a tracer
+  tracer = trace.getTracer('kicktalk', pkg.version);
+
+  console.log('[OTEL]: Manual instrumentation tracer initialized');
+
+  // Initialize metrics provider
+  try {
+    const { MeterProvider } = require('@opentelemetry/sdk-metrics');
+    const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
+    const { PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
+    const { metrics } = require('@opentelemetry/api');
+
+    // Create metrics provider
+    metricsProvider = new MeterProvider({
+      readers: [
+        new PeriodicExportingMetricReader({
+          exporter: new OTLPMetricExporter({
+            url: 'http://localhost:4318/v1/metrics',
+            headers: {
+              'X-Custom-Header': 'kicktalk-telemetry'
+            }
+          }),
+          exportIntervalMillis: 10000, // Export every 10 seconds
+        }),
+      ],
+    });
+
+    // Register the metrics provider
+    metrics.setGlobalMeterProvider(metricsProvider);
+    console.log('[OTEL]: Metrics provider initialized successfully');
+  } catch (metricsError) {
+    console.warn('[OTEL]: Failed to initialize metrics provider:', metricsError.message);
+  }
+} catch (error) {
+  console.error('[OTEL]: Failed to initialize tracer:', error.message);
+  // Create a no-op tracer
+  tracer = {
+    startSpan: (name) => ({
+      setAttributes: () => {},
+      addEvent: () => {},
+      recordException: () => {},
+      setStatus: () => {},
+      end: () => {}
     })
-  ]
-});
+  };
+}
 
 // Graceful shutdown
 const shutdown = async () => {
+  const shutdownPromises = [];
+  
+  if (provider) {
+    shutdownPromises.push(provider.shutdown());
+  }
+  
+  if (metricsProvider) {
+    shutdownPromises.push(metricsProvider.shutdown());
+  }
+  
+  if (shutdownPromises.length === 0) return;
+  
   try {
     console.log('[OTEL]: Shutting down telemetry...');
-    await sdk.shutdown();
+    await Promise.all(shutdownPromises);
     console.log('[OTEL]: Telemetry shut down successfully');
   } catch (error) {
     console.error('[OTEL]: Error shutting down telemetry:', error);
   }
 };
 
-// Initialize telemetry if OTEL collector is available
+// Initialize telemetry (already done above, just return status)
 const initializeTelemetry = () => {
-  try {
-    sdk.start();
-    console.log('[OTEL]: Telemetry initialized successfully');
-    
-    // Monitor GC
-    const obs = new PerformanceObserver((list) => {
-      const entry = list.getEntries()[0];
-      metrics.recordGCDuration(entry.duration / 1000, entry.kind);
-    });
-    obs.observe({ entryTypes: ['gc'], buffered: false });
-    
+  const isInitialized = tracer !== null && provider !== null;
+  
+  if (isInitialized) {
     // Register shutdown handlers
     process.on('SIGTERM', shutdown);
     process.on('SIGINT', shutdown);
     process.on('exit', shutdown);
     
+    console.log('[OTEL]: Telemetry ready for manual instrumentation');
     return true;
-  } catch (error) {
-    console.error('[OTEL]: Failed to initialize telemetry:', error);
-    return false;
   }
+  
+  console.log('[OTEL]: Using no-op tracer (telemetry disabled)');
+  return false;
 };
 
 module.exports = {
-  sdk,
+  tracer,
+  provider,
   initializeTelemetry,
   shutdown
 };

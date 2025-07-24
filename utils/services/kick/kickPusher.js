@@ -1,5 +1,3 @@
-const { metrics, tracing } = require('../../../src/telemetry');
-
 class KickPusher extends EventTarget {
   constructor(chatroomNumber, streamerId) {
     super();
@@ -9,7 +7,6 @@ class KickPusher extends EventTarget {
     this.streamerId = streamerId;
     this.shouldReconnect = true;
     this.socketId = null;
-    this.connectionStartTime = null;
   }
 
   connect() {
@@ -18,25 +15,8 @@ class KickPusher extends EventTarget {
       return;
     }
     console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
-    
-    // Start timing the connection
-    this.connectionStartTime = metrics.startTimer();
-    
-    return tracing.traceWebSocketConnection(
-      this.chatroomNumber, 
-      this.streamerId, 
-      (span) => {
-        this.chat = new WebSocket(
-          "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
-        );
-        
-        span.setAttributes({
-          'websocket.url': 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679',
-          'websocket.protocol': 'pusher',
-          'chatroom.number': this.chatroomNumber,
-          'streamer.id': this.streamerId
-        });
-      }
+    this.chat = new WebSocket(
+      "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
     );
 
     this.dispatchEvent(
@@ -52,18 +32,11 @@ class KickPusher extends EventTarget {
     this.chat.addEventListener("open", async () => {
       console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
       
-      // Record successful connection
-      metrics.recordChatroomJoin(this.chatroomNumber, this.streamerId);
-      
-      // Record connection timing if available
-      if (this.connectionStartTime) {
-        const connectionDuration = metrics.endTimer(this.connectionStartTime);
-        tracing.addEvent('websocket.connection_established', {
-          'connection.duration_seconds': connectionDuration,
-          'chatroom.number': this.chatroomNumber,
-          'streamer.id': this.streamerId
-        });
-        this.connectionStartTime = null;
+      // Record WebSocket connection
+      try {
+        await window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, true);
+      } catch (error) {
+        console.warn('[Telemetry]: Failed to record WebSocket connection:', error);
       }
 
       setTimeout(() => {
@@ -94,26 +67,24 @@ class KickPusher extends EventTarget {
       console.log(`Error occurred: ${error.message}`);
       
       // Record connection error
-      metrics.recordConnectionError('websocket_error', this.chatroomNumber);
-      metrics.recordError(error, {
-        'chatroom.number': this.chatroomNumber,
-        'streamer.id': this.streamerId,
-        'websocket.event': 'error'
-      });
+      try {
+        window.app?.telemetry?.recordConnectionError?.(this.chatroomNumber, error.message || 'unknown');
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record connection error:', telemetryError);
+      }
       
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
     });
 
     this.chat.addEventListener("close", () => {
       console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
-
-      // Record connection close
-      metrics.recordChatroomLeave(this.chatroomNumber, this.streamerId);
-      tracing.addEvent('websocket.connection_closed', {
-        'chatroom.number': this.chatroomNumber,
-        'streamer.id': this.streamerId,
-        'will_reconnect': this.shouldReconnect
-      });
+      
+      // Record WebSocket disconnection
+      try {
+        window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, false);
+      } catch (error) {
+        console.warn('[Telemetry]: Failed to record WebSocket disconnection:', error);
+      }
 
       this.dispatchEvent(new Event("close"));
 
@@ -122,7 +93,11 @@ class KickPusher extends EventTarget {
           console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
           
           // Record reconnection attempt
-          metrics.recordReconnection(this.chatroomNumber, 'websocket_close');
+          try {
+            window.app?.telemetry?.recordReconnection?.(this.chatroomNumber, 'websocket_close');
+          } catch (error) {
+            console.warn('[Telemetry]: Failed to record reconnection:', error);
+          }
           
           this.connect();
         }, this.reconnectDelay);
@@ -235,22 +210,16 @@ class KickPusher extends EventTarget {
           jsonData.event === `App\\Events\\UserBannedEvent` ||
           jsonData.event === `App\\Events\\UserUnbannedEvent`
         ) {
-          // Record message events in telemetry
-          const eventData = JSON.parse(jsonData.data);
-          
-          switch (jsonData.event) {
-            case 'App\\Events\\ChatMessageEvent':
-              metrics.recordMessageReceived(this.chatroomNumber, 'chat', eventData.sender?.id);
-              break;
-            case 'App\\Events\\MessageDeletedEvent':
-              metrics.recordMessageReceived(this.chatroomNumber, 'deletion', eventData.message?.sender?.id);
-              break;
-            case 'App\\Events\\UserBannedEvent':
-              metrics.recordMessageReceived(this.chatroomNumber, 'ban', eventData.user?.id);
-              break;
-            case 'App\\Events\\UserUnbannedEvent':
-              metrics.recordMessageReceived(this.chatroomNumber, 'unban', eventData.user?.id);
-              break;
+          // Record received message for ChatMessageEvent
+          if (jsonData.event === `App\\Events\\ChatMessageEvent`) {
+            try {
+              const messageData = JSON.parse(jsonData.data);
+              const messageType = messageData.type || 'regular';
+              const senderId = messageData.sender?.id;
+              await window.app?.telemetry?.recordMessageReceived?.(this.chatroomNumber, messageType, senderId);
+            } catch (error) {
+              console.warn('[Telemetry]: Failed to record received message:', error);
+            }
           }
           
           this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));

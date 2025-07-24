@@ -1,12 +1,44 @@
 #!/bin/bash
 
-# KickTalk OpenTelemetry Stack Management Script
+# KickTalk OpenTelemetry Stack Management Script (Podman Compatible)
 
 set -e
+
+# Detect container runtime (podman preferred, docker fallback)
+if command -v podman-compose &> /dev/null; then
+    COMPOSE_CMD="podman-compose"
+    CONTAINER_CMD="podman"
+elif command -v podman &> /dev/null && podman compose version &> /dev/null; then
+    COMPOSE_CMD="podman compose"
+    CONTAINER_CMD="podman"
+elif command -v docker &> /dev/null; then
+    COMPOSE_CMD="docker compose"
+    CONTAINER_CMD="docker"
+else
+    echo "Error: No suitable container runtime found."
+    echo "Please install either:"
+    echo "  - podman-compose: pip install podman-compose"
+    echo "  - Docker with compose plugin"
+    exit 1
+fi
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 COMPOSE_FILE="$PROJECT_ROOT/docker-compose.otel.yml"
+
+# Check if podman socket is needed and available
+check_podman_socket() {
+    if [[ "$CONTAINER_CMD" == "podman" ]] && [[ "$COMPOSE_CMD" == "podman compose" ]]; then
+        if ! systemctl --user is-active podman.socket &> /dev/null; then
+            echo -e "${YELLOW}Podman socket not running. Starting it...${NC}"
+            systemctl --user start podman.socket
+            sleep 2
+        fi
+        
+        # Set the Docker host for podman compose to use podman socket
+        export DOCKER_HOST="unix://$XDG_RUNTIME_DIR/podman/podman.sock"
+    fi
+}
 
 # Colors for output
 RED='\033[0;31m'
@@ -16,7 +48,8 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 print_usage() {
-    echo "KickTalk OpenTelemetry Stack Management"
+    echo "KickTalk OpenTelemetry Stack Management (Podman/Docker Compatible)"
+    echo "Using: $COMPOSE_CMD"
     echo
     echo "Usage: $0 [COMMAND]"
     echo
@@ -40,7 +73,8 @@ start_stack() {
         exit 1
     fi
     
-    docker compose -f "$COMPOSE_FILE" up -d
+    check_podman_socket
+    $COMPOSE_CMD -f "$COMPOSE_FILE" up -d
     
     echo -e "${GREEN}✓ Stack started successfully!${NC}"
     echo
@@ -49,14 +83,16 @@ start_stack() {
 
 stop_stack() {
     echo -e "${YELLOW}Stopping KickTalk OpenTelemetry stack...${NC}"
-    docker compose -f "$COMPOSE_FILE" down
+    check_podman_socket
+    $COMPOSE_CMD -f "$COMPOSE_FILE" down
     echo -e "${GREEN}✓ Stack stopped successfully!${NC}"
 }
 
 restart_stack() {
     echo -e "${YELLOW}Restarting KickTalk OpenTelemetry stack...${NC}"
-    docker compose -f "$COMPOSE_FILE" down
-    docker compose -f "$COMPOSE_FILE" up -d
+    check_podman_socket
+    $COMPOSE_CMD -f "$COMPOSE_FILE" down
+    $COMPOSE_CMD -f "$COMPOSE_FILE" up -d
     echo -e "${GREEN}✓ Stack restarted successfully!${NC}"
     echo
     show_urls
@@ -65,13 +101,22 @@ restart_stack() {
 show_status() {
     echo -e "${BLUE}KickTalk OpenTelemetry Stack Status:${NC}"
     echo
-    docker compose -f "$COMPOSE_FILE" ps
+    if [[ "$CONTAINER_CMD" == "podman" ]]; then
+        # Use native podman commands for better compatibility
+        echo "Containers (filtering by kicktalk prefix):"
+        podman ps --filter name=kicktalk --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+        echo
+        echo "All containers:"
+        podman ps --format "table {{.Names}}\t{{.Status}}\t{{.Ports}}"
+    else
+        $COMPOSE_CMD -f "$COMPOSE_FILE" ps
+    fi
 }
 
 show_logs() {
     echo -e "${BLUE}Following logs from all services (Ctrl+C to exit):${NC}"
     echo
-    docker compose -f "$COMPOSE_FILE" logs -f
+    $COMPOSE_CMD -f "$COMPOSE_FILE" logs -f
 }
 
 clean_stack() {
@@ -80,7 +125,7 @@ clean_stack() {
     echo
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         echo -e "${YELLOW}Cleaning up KickTalk OpenTelemetry stack...${NC}"
-        docker compose -f "$COMPOSE_FILE" down -v --remove-orphans
+        $COMPOSE_CMD -f "$COMPOSE_FILE" down -v --remove-orphans
         echo -e "${GREEN}✓ Stack cleaned up successfully!${NC}"
     else
         echo "Cancelled."

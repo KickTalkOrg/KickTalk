@@ -1,7 +1,51 @@
 // Main telemetry module for KickTalk
-const { initializeTelemetry, shutdown } = require('./instrumentation');
-const { MetricsHelper } = require('./metrics');
-const { TracingHelper } = require('./tracing');
+let initializeTelemetry, shutdown, MetricsHelper, TracingHelper, SpanStatusCode;
+
+try {
+  console.log('[Telemetry]: Loading telemetry modules...');
+  const instrumentation = require('./instrumentation');
+  const metrics = require('./metrics');
+  const tracing = require('./tracing');
+  
+  initializeTelemetry = instrumentation.initializeTelemetry;
+  shutdown = instrumentation.shutdown;
+  MetricsHelper = metrics.MetricsHelper;
+  TracingHelper = tracing.TracingHelper;
+  SpanStatusCode = tracing.SpanStatusCode;
+  
+  console.log('[Telemetry]: All modules loaded successfully');
+} catch (error) {
+  console.error('[Telemetry]: Failed to load telemetry modules:', error.message);
+  console.error('[Telemetry]: Full error:', error);
+  
+  // Provide fallback implementations
+  initializeTelemetry = () => false;
+  shutdown = () => Promise.resolve();
+  MetricsHelper = {
+    startTimer: () => Date.now(),
+    endTimer: () => 0,
+    incrementWebSocketConnections: () => {},
+    decrementWebSocketConnections: () => {},
+    recordConnectionError: () => {},
+    recordReconnection: () => {},
+    recordMessageReceived: () => {},
+    recordMessageSent: () => {},
+    recordMessageSendDuration: () => {},
+    recordError: () => {},
+    recordRendererMemory: () => {},
+    recordDomNodeCount: () => {},
+    incrementOpenWindows: () => {},
+    decrementOpenWindows: () => {}
+  };
+  TracingHelper = {
+    addEvent: () => {},
+    setAttributes: () => {},
+    traceWebSocketConnection: (id, streamerId, callback) => callback(),
+    traceMessageFlow: (id, content, callback) => callback(),
+    traceKickAPICall: (endpoint, method, callback) => callback()
+  };
+  SpanStatusCode = { OK: 1, ERROR: 2 };
+}
 
 let telemetryInitialized = false;
 
@@ -17,6 +61,14 @@ const initTelemetry = () => {
     if (success) {
       telemetryInitialized = true;
       console.log('[Telemetry]: KickTalk telemetry initialized successfully');
+      
+      // Start Prometheus metrics server
+      try {
+        const { startMetricsServer } = require('./prometheus-server');
+        startMetricsServer(9464);
+      } catch (error) {
+        console.warn('[Telemetry]: Failed to start metrics server:', error.message);
+      }
       
       // Record application start
       KickTalkMetrics.recordApplicationStart();
@@ -38,6 +90,14 @@ const shutdownTelemetry = async () => {
   if (!telemetryInitialized) return;
   
   try {
+    // Stop metrics server
+    try {
+      const { stopMetricsServer } = require('./prometheus-server');
+      stopMetricsServer();
+    } catch (error) {
+      console.warn('[Telemetry]: Failed to stop metrics server:', error.message);
+    }
+    
     await shutdown();
     telemetryInitialized = false;
     console.log('[Telemetry]: Shutdown complete');
@@ -46,11 +106,11 @@ const shutdownTelemetry = async () => {
   }
 };
 
-// Check if telemetry is enabled (could be controlled by settings)
-const isTelemetryEnabled = () => {
-  // For now, always enabled in development, could be user-configurable
-  const isDev = process.env.NODE_ENV === 'development';
-  return isDev || process.env.KICKTALK_TELEMETRY_ENABLED === 'true';
+// Check if telemetry is enabled (controlled by user settings)
+// This function will be overridden by the main process with actual settings
+let isTelemetryEnabled = () => {
+  // Default to false for privacy - main process will override this
+  return false;
 };
 
 // Extended metrics helper with application-specific methods

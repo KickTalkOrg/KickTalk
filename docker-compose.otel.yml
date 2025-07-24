@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # OpenTelemetry Collector
   otel-collector:
@@ -7,8 +5,9 @@ services:
     container_name: kicktalk-otel-collector
     command: ["--config=/etc/otel-collector-config.yml"]
     volumes:
-      - ./otel/collector-config.yml:/etc/otel-collector-config.yml
-      - ./otel/logs:/var/log/otel
+      - ./otel/collector-config.yml:/etc/otel-collector-config.yml:Z
+      - ./otel/logs:/var/log/otel:Z
+    user: "0:0"  # Run as root to avoid permission issues
     ports:
       - "4317:4317"   # OTLP gRPC receiver
       - "4318:4318"   # OTLP HTTP receiver
@@ -37,8 +36,9 @@ services:
     ports:
       - "9090:9090"
     volumes:
-      - ./otel/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./otel/prometheus.yml:/etc/prometheus/prometheus.yml:Z
       - prometheus_data:/prometheus
+    user: "nobody"  # Use nobody user for security
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
@@ -57,8 +57,8 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=admin
     volumes:
       - grafana_data:/var/lib/grafana
-      - ./otel/grafana/provisioning:/etc/grafana/provisioning
-      - ./otel/grafana/dashboards:/var/lib/grafana/dashboards
+      - ./otel/grafana/provisioning:/etc/grafana/provisioning:Z
+      - ./otel/grafana/dashboards:/var/lib/grafana/dashboards:Z
 
   # Redis for caching telemetry data (optional)
   redis:
