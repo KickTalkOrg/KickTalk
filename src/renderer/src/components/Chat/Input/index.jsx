@@ -197,7 +197,7 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
   const userChatroomInfo = useChatStore(
     useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.userChatroomInfo),
   );
-  const chatters = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatters));
+  const chatters = useChatStore(useShallow((state) => state.chatters[chatroomId]));
   const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
 
   const searchEmotes = useCallback(
