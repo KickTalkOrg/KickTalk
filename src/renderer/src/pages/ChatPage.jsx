@@ -7,6 +7,39 @@ import Navbar from "../components/Navbar";
 import TitleBar from "../components/TitleBar";
 import Mentions from "../components/Dialogs/Mentions";
 
+// Telemetry monitoring hook
+const useTelemetryMonitoring = () => {
+  useEffect(() => {
+    const collectMetrics = () => {
+      try {
+        // Collect DOM node count
+        const domNodeCount = document.querySelectorAll('*').length;
+        window.app?.telemetry?.recordDomNodeCount(domNodeCount);
+
+        // Collect renderer memory usage
+        if (performance.memory) {
+          const memoryData = {
+            jsHeapUsedSize: performance.memory.usedJSHeapSize,
+            jsHeapTotalSize: performance.memory.totalJSHeapSize,
+            jsHeapSizeLimit: performance.memory.jsHeapSizeLimit
+          };
+          window.app?.telemetry?.recordRendererMemory(memoryData);
+        }
+      } catch (error) {
+        console.warn('Telemetry collection failed:', error);
+      }
+    };
+
+    // Collect metrics initially
+    collectMetrics();
+
+    // Set up periodic collection every 10 seconds for testing
+    const interval = setInterval(collectMetrics, 10000);
+
+    return () => clearInterval(interval);
+  }, []);
+};
+
 const ChatPage = () => {
   const { settings, updateSettings } = useSettings();
   const setCurrentChatroom = useChatStore((state) => state.setCurrentChatroom);
@@ -14,6 +47,9 @@ const ChatPage = () => {
   const [activeChatroomId, setActiveChatroomId] = useState(null);
   const kickUsername = localStorage.getItem("kickUsername");
   const kickId = localStorage.getItem("kickId");
+
+  // Enable telemetry monitoring
+  useTelemetryMonitoring();
 
   useEffect(() => {
     setCurrentChatroom(activeChatroomId);

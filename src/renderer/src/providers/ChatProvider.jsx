@@ -233,6 +233,11 @@ const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (chatroomId, content) => {
+    const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendMessage - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
+    
     try {
       const message = content.trim();
       console.info("Sending message to chatroom:", chatroomId);
@@ -271,12 +276,26 @@ const useChatStore = create((set, get) => ({
       }, 30000);
 
       // Send message to server
+      const apiStartTime = Date.now();
       const response = await window.app.kick.sendMessage(chatroomId, message);
+      const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
       clearTimeout(timeoutId);
 
+      // Record API request timing
+      try {
+        const statusCode = response?.status || response?.data?.status?.code || 200;
+        await window.app?.telemetry?.recordAPIRequest?.('kick_send_message', 'POST', statusCode, apiDuration);
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record API request:', telemetryError);
+      }
+
       if (response?.data?.status?.code === 401) {
+        // Record auth failure
+        const duration = (Date.now() - startTime) / 1000;
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false, streamerName);
+        
         // Mark optimistic message as failed and show error
         get().updateMessageState(chatroomId, optimisticMessage.tempId, MESSAGE_STATES.FAILED);
         get().addMessage(chatroomId, {
@@ -288,10 +307,25 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
+      // Record successful message send
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, true, streamerName);
+
       // Message sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       console.error('[Send Message]: Error sending message:', error);
+
+      // Record failed message send with error details
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false, streamerName);
+      window.app?.telemetry?.recordError(error, {
+        'chatroom.id': chatroomId,
+        'message.operation': 'send',
+        'message.content_length': content?.length || 0
+      });
+      
+      const errMsg = chatroomErrorHandler(error);
 
       // Find and mark the optimistic message as failed
       const messages = get().messages[chatroomId] || [];
@@ -307,6 +341,11 @@ const useChatStore = create((set, get) => ({
   },
 
   sendReply: async (chatroomId, content, metadata = {}) => {
+    const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendReply - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
+    
     try {
       const message = content.trim();
       console.info("Sending reply to chatroom:", chatroomId);
@@ -344,12 +383,26 @@ const useChatStore = create((set, get) => ({
       }, 30000);
 
       // Send reply to server
+      const apiStartTime = Date.now();
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
+      const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
       clearTimeout(timeoutId);
 
+      // Record API request timing
+      try {
+        const statusCode = response?.status || response?.data?.status?.code || 200;
+        await window.app?.telemetry?.recordAPIRequest?.('kick_send_reply', 'POST', statusCode, apiDuration);
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record API request:', telemetryError);
+      }
+
       if (response?.data?.status?.code === 401) {
+        // Record auth failure for reply
+        const duration = (Date.now() - startTime) / 1000;
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false, streamerName);
+        
         // Mark optimistic reply as failed and show error
         get().updateMessageState(chatroomId, optimisticReply.tempId, MESSAGE_STATES.FAILED);
         get().addMessage(chatroomId, {
@@ -361,10 +414,26 @@ const useChatStore = create((set, get) => ({
         return false;
       }
 
+      // Record successful reply send
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, true, streamerName);
+
       // Reply sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       console.error('[Send Reply]: Error sending reply:', error);
+
+      // Record failed reply send with error details
+      const duration = (Date.now() - startTime) / 1000;
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false, streamerName);
+      window.app?.telemetry?.recordError(error, {
+        'chatroom.id': chatroomId,
+        'message.operation': 'reply',
+        'message.content_length': content?.length || 0,
+        'reply.original_message_id': metadata.original_message?.id
+      });
+      
+      const errMsg = chatroomErrorHandler(error);
 
       // Find and mark the optimistic reply as failed
       const messages = get().messages[chatroomId] || [];
@@ -468,7 +537,7 @@ const useChatStore = create((set, get) => ({
 
   connectToChatroom: async (chatroom) => {
     if (!chatroom?.id) return;
-    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id);
+    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id, chatroom.streamerData?.user?.username);
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {
@@ -1532,11 +1601,6 @@ const useChatStore = create((set, get) => ({
     localStorage.setItem("chatrooms", JSON.stringify(savedChatrooms.filter((room) => room.id !== chatroomId)));
   },
 
-  // Ordered Chatrooms
-  getOrderedChatrooms: () => {
-    return get().chatrooms.sort((a, b) => (a.order || 0) - (b.order || 0));
-  },
-
   updateChatroomOrder: (chatroomId, newOrder) => {
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => (room.id === chatroomId ? { ...room, order: newOrder } : room)),
@@ -1971,8 +2035,8 @@ const useChatStore = create((set, get) => ({
       });
     }
 
-    personalEmotes.sort((a, b) => a.name.localeCompare(b.name));
-    emotes.sort((a, b) => a.name.localeCompare(b.name));
+    personalEmotes = [...personalEmotes].sort((a, b) => a.name.localeCompare(b.name));
+    emotes = [...emotes].sort((a, b) => a.name.localeCompare(b.name));
 
     // Send emote update data to frontend for custom handling
     if (addedEmotes.length > 0 || removedEmotes.length > 0 || updatedEmotes.length > 0) {
@@ -2223,7 +2287,7 @@ const useChatStore = create((set, get) => ({
     });
 
     // Sort by timestamp, newest first
-    return allMentions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return [...allMentions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   },
 
   // Get mentions for a specific chatroom
