@@ -8,8 +8,67 @@ import fs from "fs";
 import dotenv from "dotenv";
 dotenv.config();
 
+// Initialize telemetry early if enabled
+let initTelemetry = null;
+let shutdownTelemetry = null;
+let isTelemetryEnabled = () => false; // Default fallback
+
+// Function to check telemetry settings from main process
+const checkTelemetrySettings = () => {
+  // Check user settings
+  try {
+    // Use the same store approach as elsewhere in the codebase
+    const settings = store.get('telemetry', { enabled: false });
+    return settings.enabled === true;
+  } catch (error) {
+    console.warn('[Telemetry]: Could not access settings store:', error.message);
+    return false;
+  }
+};
+
+try {
+  const telemetryModule = require("../telemetry/index.js");
+  initTelemetry = telemetryModule.initTelemetry;
+  shutdownTelemetry = telemetryModule.shutdownTelemetry;
+  
+  // Override the telemetry enabled check with our main process version
+  isTelemetryEnabled = checkTelemetrySettings;
+  
+  if (isTelemetryEnabled()) {
+    initTelemetry();
+  }
+} catch (error) {
+  console.warn('[Telemetry]: Failed to load telemetry module:', error.message);
+}
+
 const isDev = process.env.NODE_ENV === "development";
-const iconPath = join(__dirname, "../../resources/icons/win/KickTalk_v1.ico");
+const iconPath = process.platform === "win32" 
+  ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
+  : join(__dirname, "../../resources/icons/KickTalk_v1.png");
+
+// Load metrics with fallback
+let metrics = null;
+try {
+  const telemetryModule = require("../telemetry/index.js");
+  metrics = telemetryModule.metrics;
+} catch (error) {
+  console.warn('[Telemetry]: Failed to load metrics:', error.message);
+  // Fallback no-op metrics
+  metrics = {
+    incrementOpenWindows: () => {},
+    decrementOpenWindows: () => {},
+    recordError: () => {},
+    recordMessageSent: () => {},
+    recordMessageSendDuration: () => {},
+    recordMessageReceived: () => {},
+    recordRendererMemory: () => {},
+    recordDomNodeCount: () => {},
+    incrementWebSocketConnections: () => {},
+    decrementWebSocketConnections: () => {},
+    recordConnectionError: () => {},
+    recordReconnection: () => {}
+  };
+}
 
 const authStore = new Store({
   fileExtension: "env",
@@ -75,6 +134,9 @@ let userDialog = null;
 let authDialog = null;
 let chattersDialog = null;
 let settingsDialog = null;
+
+// Track all windows for telemetry
+const allWindows = new Set();
 let searchDialog = null;
 let replyThreadDialog = null;
 let availableNotificationSounds = [];
@@ -451,7 +513,7 @@ const createWindow = () => {
 
   mainWindow.setThumbarButtons([
     {
-      icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
+      icon: iconPath,
       click: () => {
         mainWindow.show();
       },
@@ -459,10 +521,12 @@ const createWindow = () => {
   ]);
 
   setAlwaysOnTop(mainWindow);
+  metrics.incrementOpenWindows();
 
   mainWindow.once("ready-to-show", async () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
+    allWindows.add(mainWindow);
 
     if (isDev) {
       mainWindow.webContents.openDevTools({ mode: "detach" });
@@ -475,6 +539,8 @@ const createWindow = () => {
 
   mainWindow.on("close", () => {
     store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
+    allWindows.delete(mainWindow);
+    metrics.decrementOpenWindows();
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -527,6 +593,8 @@ const loginToKick = async (method) => {
         sandbox: false,
       },
     });
+    metrics.incrementOpenWindows();
+    allWindows.add(loginDialog);
 
     switch (method) {
       case "kick":
@@ -590,6 +658,8 @@ const loginToKick = async (method) => {
     loginDialog.on("closed", () => {
       clearInterval(interval);
       resolve(false);
+      allWindows.delete(loginDialog);
+      metrics.decrementOpenWindows();
     });
   });
 };
@@ -653,7 +723,7 @@ const setupLocalShortcuts = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  tray = new Tray(join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"));
+  tray = new Tray(iconPath);
   tray.setToolTip("KickTalk");
 
   // Set the icon for the app
@@ -746,6 +816,8 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(userDialog);
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -777,7 +849,9 @@ ipcMain.handle("userDialog:open", (e, { data }) => {
   userDialog.on("closed", () => {
     setAlwaysOnTop(mainWindow);
     dialogInfo = null;
+    allWindows.delete(userDialog);
     userDialog = null;
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -830,6 +904,8 @@ ipcMain.handle("authDialog:open", (e) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(authDialog);
 
   // Load the same URL as main window but with dialog hash
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
@@ -847,6 +923,8 @@ ipcMain.handle("authDialog:open", (e) => {
 
   authDialog.on("closed", () => {
     authDialog = null;
+    allWindows.delete(authDialog);
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -906,11 +984,91 @@ ipcMain.handle("get-app-info", () => {
   };
 });
 
+// Telemetry handlers
+ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'regular', duration = null, success = true, streamerName = null }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordMessageSent(chatroomId, messageType, streamerName);
+    if (duration !== null) {
+      metrics.recordMessageSendDuration(duration, chatroomId, success);
+    }
+  }
+});
+
+ipcMain.handle("telemetry:recordError", (e, { error, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    const errorObj = new Error(error.message || error);
+    errorObj.name = error.name || 'RendererError';
+    errorObj.stack = error.stack;
+    metrics.recordError(errorObj, context);
+  }
+});
+
+ipcMain.handle("telemetry:recordRendererMemory", (e, memory) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordRendererMemory(memory);
+  }
+});
+
+ipcMain.handle("telemetry:recordDomNodeCount", (e, count) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordDomNodeCount(count);
+  }
+});
+
+ipcMain.handle("telemetry:recordWebSocketConnection", (e, { chatroomId, streamerId, connected, streamerName }) => {
+  if (isTelemetryEnabled()) {
+    if (connected) {
+      metrics.incrementWebSocketConnections(chatroomId, streamerId, streamerName);
+    } else {
+      metrics.decrementWebSocketConnections(chatroomId, streamerId, streamerName);
+    }
+  }
+});
+
+ipcMain.handle("telemetry:recordConnectionError", (e, { chatroomId, errorType }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordConnectionError(errorType, chatroomId);
+  }
+});
+
+ipcMain.handle("telemetry:recordMessageReceived", (e, { chatroomId, messageType, senderId, streamerName }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordMessageReceived(chatroomId, messageType, senderId, streamerName);
+  }
+});
+
+ipcMain.handle("telemetry:recordReconnection", (e, { chatroomId, reason }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordReconnection(chatroomId, reason);
+  }
+});
+
+ipcMain.handle("telemetry:recordAPIRequest", (e, { endpoint, method, statusCode, duration }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordAPIRequest(endpoint, method, statusCode, duration);
+  }
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.
-app.on("window-all-closed", () => {
+app.on("window-all-closed", async () => {
   if (process.platform !== "darwin") {
+    // Shutdown telemetry before quitting
+    if (isTelemetryEnabled()) {
+      if (allWindows.size > 0) {
+        const openWindowTitles = Array.from(allWindows).map(win => win.getTitle());
+        console.error(`[ProcessExit] Closing with ${allWindows.size} windows still open: ${openWindowTitles.join(", ")}`);
+        metrics.recordError(new Error("Lingering windows on exit"), { openWindows: openWindowTitles });
+      }
+      if (shutdownTelemetry) {
+        try {
+          await shutdownTelemetry();
+        } catch (error) {
+          console.warn('[Telemetry]: Failed to shutdown telemetry:', error.message);
+        }
+      }
+    }
     app.quit();
   }
 });
@@ -951,6 +1109,8 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(chattersDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     chattersDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/chatters.html`);
@@ -970,6 +1130,8 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
 
   chattersDialog.on("closed", () => {
     chattersDialog = null;
+    allWindows.delete(chattersDialog);
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1019,6 +1181,8 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(searchDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     searchDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/search.html`);
@@ -1043,6 +1207,8 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
 
   searchDialog.on("closed", () => {
     searchDialog = null;
+    allWindows.delete(searchDialog);
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1097,6 +1263,8 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(settingsDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
@@ -1121,6 +1289,8 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
 
   settingsDialog.on("closed", () => {
     settingsDialog = null;
+    allWindows.delete(settingsDialog);
+    metrics.decrementOpenWindows();
   });
 });
 
@@ -1175,6 +1345,8 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
       sandbox: false,
     },
   });
+  metrics.incrementOpenWindows();
+  allWindows.add(replyThreadDialog);
 
   if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
     replyThreadDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/replyThread.html`);
@@ -1196,6 +1368,8 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
 
   replyThreadDialog.on("closed", () => {
     replyThreadDialog = null;
+    allWindows.delete(replyThreadDialog);
+    metrics.decrementOpenWindows();
   });
 });
 

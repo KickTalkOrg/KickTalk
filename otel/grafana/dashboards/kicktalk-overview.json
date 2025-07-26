@@ -1,0 +1,623 @@
+{
+  "id": null,
+  "title": "KickTalk Application Overview",
+  "tags": ["kicktalk", "overview"],
+  "style": "dark",
+  "timezone": "browser",
+  "refresh": "5s",
+  "schemaVersion": 27,
+  "version": 3,
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Application Status",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 0, "y": 0},
+      "targets": [
+        {
+          "expr": "kicktalk_up",
+          "refId": "A",
+          "legendFormat": "App Status"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"options": {"0": {"text": "Down"}}, "type": "value"},
+            {"options": {"1": {"text": "Up"}}, "type": "value"}
+          ],
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "green", "value": 1}
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Total Messages Sent",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 6, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(kicktalk_messages_sent_total)",
+          "refId": "A",
+          "legendFormat": "Messages Sent"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Total Messages Received",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 12, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(kicktalk_messages_received_total)",
+          "refId": "A",
+          "legendFormat": "Messages Received"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Active Connections",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 6, "x": 18, "y": 0},
+      "targets": [
+        {
+          "expr": "sum(kicktalk_websocket_connections_active)",
+          "refId": "A",
+          "legendFormat": "Active Connections"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 5,
+      "title": "Message Throughput",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
+      "targets": [
+        {
+          "expr": "topk(10, sum by(streamer_name)(rate(kicktalk_messages_received_total{streamer_name!=\"\"}[1m])))",
+          "refId": "A",
+          "legendFormat": "{{streamer_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 6,
+      "title": "Memory Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
+      "targets": [
+        {
+          "expr": "kicktalk_memory_usage_bytes{type=\"heap_used\"}",
+          "refId": "A",
+          "legendFormat": "Heap Used"
+        },
+        {
+          "expr": "kicktalk_memory_usage_bytes{type=\"heap_total\"}",
+          "refId": "B",
+          "legendFormat": "Heap Total"
+        },
+        {
+          "expr": "kicktalk_memory_usage_bytes{type=\"rss\"}",
+          "refId": "C",
+          "legendFormat": "RSS Memory"
+        },
+        {
+          "expr": "kicktalk_memory_usage_bytes{type=\"external\"}",
+          "refId": "D",
+          "legendFormat": "External Memory"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "bytes"
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "CPU Usage",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 8, "x": 0, "y": 14},
+      "targets": [
+        {
+          "expr": "kicktalk_cpu_usage_percent",
+          "refId": "A",
+          "legendFormat": "CPU Usage (%)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity"
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 8,
+      "title": "Uptime",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 14},
+      "targets": [
+        {
+          "expr": "kicktalk_uptime_seconds",
+          "refId": "A",
+          "legendFormat": "Uptime"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "color": {
+            "mode": "palette-classic"
+          }
+        }
+      }
+    },
+    {
+      "id": 9,
+      "title": "Connection Health",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 14},
+      "targets": [
+        {
+          "expr": "sum(increase(kicktalk_connection_errors_total[5m]))",
+          "refId": "A",
+          "legendFormat": "Total Errors (5m)"
+        },
+        {
+          "expr": "sum(increase(kicktalk_websocket_reconnections_total[5m]))",
+          "refId": "B",
+          "legendFormat": "Total Reconnections (5m)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 1},
+              {"color": "red", "value": 5}
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 10,
+      "title": "Open Windows & Handles",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 18},
+      "targets": [
+        {
+          "expr": "kicktalk_open_windows",
+          "refId": "A",
+          "legendFormat": "Open Windows"
+        },
+        {
+          "expr": "kicktalk_open_handles_total_ratio",
+          "refId": "B",
+          "legendFormat": "Open Handles"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "displayMode": "list",
+            "orientation": "horizontal"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 11,
+      "title": "Message Send Latency",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(kicktalk_message_send_duration_seconds_bucket[5m])) or vector(0)",
+          "refId": "A",
+          "legendFormat": "Message Send p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(kicktalk_message_send_duration_seconds_bucket[5m])) or vector(0)",
+          "refId": "B",
+          "legendFormat": "Message Send p95"
+        },
+        {
+          "expr": "rate(kicktalk_message_send_duration_seconds_count[5m])",
+          "refId": "C",
+          "legendFormat": "Send Rate/min"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 12,
+      "title": "API Request Performance",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 22},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.50, rate(kicktalk_api_request_duration_seconds_bucket[5m]))",
+          "refId": "A",
+          "legendFormat": "API p50"
+        },
+        {
+          "expr": "histogram_quantile(0.95, rate(kicktalk_api_request_duration_seconds_bucket[5m]))",
+          "refId": "B",
+          "legendFormat": "API p95"
+        },
+        {
+          "expr": "histogram_quantile(0.99, rate(kicktalk_api_request_duration_seconds_bucket[5m]))",
+          "refId": "C",
+          "legendFormat": "API p99"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 13,
+      "title": "API Request Rate",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 30},
+      "targets": [
+        {
+          "expr": "rate(kicktalk_api_requests_total[1m])",
+          "refId": "A",
+          "legendFormat": "API Requests/min - {{endpoint}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "reqps"
+        }
+      }
+    },
+    {
+      "id": 14,
+      "title": "WebSocket Connections by Streamer",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
+      "targets": [
+        {
+          "expr": "kicktalk_websocket_connections_active{streamer_name!=\"\"}",
+          "refId": "A",
+          "legendFormat": "{{streamer_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Garbage Collection Performance",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 38},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(kicktalk_gc_duration_seconds_bucket[5m])) or vector(0)",
+          "refId": "A",
+          "legendFormat": "GC p95 - {{kind}}"
+        },
+        {
+          "expr": "rate(kicktalk_gc_duration_seconds_count[5m]) or vector(0)",
+          "refId": "B",
+          "legendFormat": "GC Frequency - {{kind}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "DOM Node Count",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 38},
+      "targets": [
+        {
+          "expr": "kicktalk_dom_node_count",
+          "refId": "A",
+          "legendFormat": "DOM Nodes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5000},
+              {"color": "red", "value": 10000}
+            ]
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Error Rates",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 38},
+      "targets": [
+        {
+          "expr": "rate(kicktalk_connection_errors_total[5m]) * 100",
+          "refId": "A",
+          "legendFormat": "Connection Error Rate % - {{error_type}}"
+        },
+        {
+          "expr": "rate(kicktalk_websocket_reconnections_total[5m]) * 100",
+          "refId": "B",
+          "legendFormat": "Reconnection Rate % - {{reason}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "Memory Efficiency",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 44},
+      "targets": [
+        {
+          "expr": "((kicktalk_memory_usage_bytes{type=\"heap_used\"} / kicktalk_memory_usage_bytes{type=\"heap_total\"}) * 100) or on() vector(0)",
+          "refId": "A",
+          "legendFormat": "Heap Usage %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "red", "value": 90}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "Handle Efficiency",
+      "type": "timeseries",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 44},
+      "targets": [
+        {
+          "expr": "kicktalk_open_handles_total{type=\"total\"} or on() vector(0)",
+          "refId": "A",
+          "legendFormat": "Open Handles"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Message Success Rate",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 44},
+      "targets": [
+        {
+          "expr": "((sum(rate(kicktalk_messages_sent_total[5m])) / (sum(rate(kicktalk_messages_sent_total[5m])) + sum(rate(kicktalk_connection_errors_total{error_type=\"message_send_failed\"}[5m])))) * 100) or on() vector(100)",
+          "refId": "A",
+          "legendFormat": "Message Success %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    }
+  ]
+}

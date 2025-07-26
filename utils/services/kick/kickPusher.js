@@ -1,10 +1,11 @@
 class KickPusher extends EventTarget {
-  constructor(chatroomNumber, streamerId) {
+  constructor(chatroomNumber, streamerId, streamerName = null) {
     super();
     this.reconnectDelay = 5000;
     this.chat = null;
     this.chatroomNumber = chatroomNumber;
     this.streamerId = streamerId;
+    this.streamerName = streamerName;
     this.shouldReconnect = true;
     this.socketId = null;
   }
@@ -31,6 +32,15 @@ class KickPusher extends EventTarget {
 
     this.chat.addEventListener("open", async () => {
       console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
+      
+      // Record WebSocket connection
+      try {
+        const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+        console.log(`[Telemetry] WebSocket connected - chatroomId: ${this.chatroomNumber}, streamerId: ${this.streamerId}, streamerName: ${streamerName}`);
+        await window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, true, streamerName);
+      } catch (error) {
+        console.warn('[Telemetry]: Failed to record WebSocket connection:', error);
+      }
 
       setTimeout(() => {
         if (this.chat && this.chat.readyState === WebSocket.OPEN) {
@@ -58,17 +68,41 @@ class KickPusher extends EventTarget {
 
     this.chat.addEventListener("error", (error) => {
       console.log(`Error occurred: ${error.message}`);
+      
+      // Record connection error
+      try {
+        window.app?.telemetry?.recordConnectionError?.(this.chatroomNumber, error.message || 'unknown');
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record connection error:', telemetryError);
+      }
+      
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
     });
 
     this.chat.addEventListener("close", () => {
       console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
+      
+      // Record WebSocket disconnection
+      try {
+        const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+        window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, false, streamerName);
+      } catch (error) {
+        console.warn('[Telemetry]: Failed to record WebSocket disconnection:', error);
+      }
 
       this.dispatchEvent(new Event("close"));
 
       if (this.shouldReconnect) {
         setTimeout(() => {
           console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
+          
+          // Record reconnection attempt
+          try {
+            window.app?.telemetry?.recordReconnection?.(this.chatroomNumber, 'websocket_close');
+          } catch (error) {
+            console.warn('[Telemetry]: Failed to record reconnection:', error);
+          }
+          
           this.connect();
         }, this.reconnectDelay);
       } else {
@@ -180,6 +214,19 @@ class KickPusher extends EventTarget {
           jsonData.event === `App\\Events\\UserBannedEvent` ||
           jsonData.event === `App\\Events\\UserUnbannedEvent`
         ) {
+          // Record received message for ChatMessageEvent
+          if (jsonData.event === `App\\Events\\ChatMessageEvent`) {
+            try {
+              const messageData = JSON.parse(jsonData.data);
+              const messageType = messageData.type || 'regular';
+              const senderId = messageData.sender?.id;
+              const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+              await window.app?.telemetry?.recordMessageReceived?.(this.chatroomNumber, messageType, senderId, streamerName);
+            } catch (error) {
+              console.warn('[Telemetry]: Failed to record received message:', error);
+            }
+          }
+          
           this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));
         }
 

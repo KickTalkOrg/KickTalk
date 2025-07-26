@@ -783,6 +783,47 @@ const NotificationsSection = ({ settingsData, onChange }) => {
           </div>
         </div>
       </div>
+
+      {/* Telemetry Section */}
+      <div className="settingsContentSection">
+        <div className="settingsSectionHeader">
+          <h4>Telemetry & Analytics</h4>
+          <p>Control data collection and usage analytics.</p>
+        </div>
+
+        <div className="settingsItems">
+          <div className="settingsItem">
+            <div
+              className={clsx("settingSwitchItem", {
+                active: settingsData?.telemetry?.enabled,
+              })}>
+              <div className="settingsItemTitleWithInfo">
+                <span className="settingsItemTitle">Enable Telemetry</span>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button className="settingsInfoIcon">
+                      <img src={InfoIcon} width={14} height={14} alt="Info" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Allow KickTalk to collect anonymous usage data to help improve the application. This includes app performance metrics, error reports, and feature usage statistics. No personal chat data is collected.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Switch
+                checked={settingsData?.telemetry?.enabled || false}
+                onCheckedChange={(checked) =>
+                  onChange("telemetry", {
+                    ...settingsData?.telemetry,
+                    enabled: checked,
+                  })
+                }
+              />
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
   );
 };
