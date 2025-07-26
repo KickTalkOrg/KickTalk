@@ -26,8 +26,18 @@
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run build && electron-builder --dir",
     "build:win": "npm run build && electron-builder --win",
+    "build:win:portable": "npm run build && electron-builder --win portable",
+    "build:win:nsis": "npm run build && electron-builder --win nsis",
     "build:mac": "npm run build && electron-builder --mac",
-    "build:linux": "npm run build && electron-builder --linux"
+    "build:mac:dmg": "npm run build && electron-builder --mac dmg",
+    "build:linux": "npm run build && electron-builder --linux",
+    "build:linux:appimage": "npm run build && electron-builder --linux AppImage",
+    "build:linux:deb": "npm run build && electron-builder --linux deb",
+    "build:all": "npm run build && electron-builder --win --mac --linux",
+    "dist": "npm run build && electron-builder --publish=never",
+    "dist:win": "npm run build && electron-builder --win --publish=never",
+    "dist:mac": "npm run build && electron-builder --mac --publish=never",
+    "dist:linux": "npm run build && electron-builder --linux --publish=never"
   },
   "repository": "https://github.com/KickTalkOrg/KickTalk",
   "publish": {

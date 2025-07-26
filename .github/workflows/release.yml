@@ -1,0 +1,197 @@
+name: Manual Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Release version (e.g., 1.2.0)'
+        required: true
+        type: string
+      prerelease:
+        description: 'Is this a pre-release?'
+        required: false
+        default: false
+        type: boolean
+      draft:
+        description: 'Create as draft release?'
+        required: false
+        default: true
+        type: boolean
+
+jobs:
+  version-bump:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Update version in package.json
+        id: version
+        run: |
+          # Update package.json version
+          npm version ${{ github.event.inputs.version }} --no-git-tag-version
+          echo "version=${{ github.event.inputs.version }}" >> $GITHUB_OUTPUT
+          
+          # Commit version bump
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add package.json
+          git commit -m "chore: bump version to v${{ github.event.inputs.version }}" || exit 0
+          git push
+
+      - name: Create and push tag
+        run: |
+          git tag v${{ github.event.inputs.version }}
+          git push origin v${{ github.event.inputs.version }}
+
+  build:
+    needs: version-bump
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: 'macos-latest'
+            args: '--mac --arm64'
+          - platform: 'macos-13'
+            args: '--mac --x64'
+          - platform: 'ubuntu-22.04'
+            args: '--linux'
+          - platform: 'windows-latest'
+            args: '--win'
+
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version-bump.outputs.version }}
+
+      - name: Install Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Get pnpm store directory
+        shell: bash
+        run: |
+          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
+
+      - name: Setup pnpm cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ env.STORE_PATH }}
+          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
+          restore-keys: |
+            ${{ runner.os }}-pnpm-store-
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build application
+        run: pnpm run build
+
+      - name: Build Electron app
+        run: pnpm exec electron-builder ${{ matrix.args }}
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-${{ matrix.platform }}
+          path: dist/
+          retention-days: 7
+
+  create-release:
+    needs: [version-bump, build]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          ref: v${{ needs.version-bump.outputs.version }}
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Organize release files
+        run: |
+          mkdir -p release-files
+          
+          # Copy Windows files
+          find artifacts/build-windows-latest -name "*.exe" -exec cp {} release-files/ \;
+          find artifacts/build-windows-latest -name "*.exe.blockmap" -exec cp {} release-files/ \;
+          
+          # Copy macOS files
+          find artifacts/build-macos-latest -name "*.dmg" -exec cp {} release-files/ \;
+          find artifacts/build-macos-13 -name "*.dmg" -exec cp {} release-files/ \;
+          find artifacts/build-macos-latest -name "*.zip" -exec cp {} release-files/ \;
+          find artifacts/build-macos-13 -name "*.zip" -exec cp {} release-files/ \;
+          
+          # Copy Linux files
+          find artifacts/build-ubuntu-22.04 -name "*.AppImage" -exec cp {} release-files/ \;
+          find artifacts/build-ubuntu-22.04 -name "*.deb" -exec cp {} release-files/ \;
+          find artifacts/build-ubuntu-22.04 -name "*.snap" -exec cp {} release-files/ \;
+          
+          ls -la release-files/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ needs.version-bump.outputs.version }}
+          name: KickTalk v${{ needs.version-bump.outputs.version }}
+          draft: ${{ github.event.inputs.draft }}
+          prerelease: ${{ github.event.inputs.prerelease }}
+          files: release-files/*
+          generate_release_notes: true
+          body: |
+            ## 🚀 KickTalk v${{ needs.version-bump.outputs.version }}
+            
+            ### 📥 Downloads
+            
+            **Windows:**
+            - `kicktalk-${{ needs.version-bump.outputs.version }}-setup.exe` - Windows installer
+            
+            **macOS:**
+            - `kicktalk-${{ needs.version-bump.outputs.version }}-arm64.dmg` - Apple Silicon (M1/M2/M3)
+            - `kicktalk-${{ needs.version-bump.outputs.version }}.dmg` - Intel Macs
+            
+            **Linux:**
+            - `kicktalk-${{ needs.version-bump.outputs.version }}.AppImage` - Universal Linux (recommended)
+            - `kicktalk_${{ needs.version-bump.outputs.version }}_amd64.deb` - Debian/Ubuntu
+            
+            ### 🔧 Installation
+            
+            **Windows:** Download and run the `.exe` installer
+            **macOS:** Download the `.dmg` file and drag to Applications
+            **Linux:** Download `.AppImage`, make executable with `chmod +x`, then run
+            
+            ---
+            
+            **Full Changelog:** https://github.com/KickTalkOrg/KickTalk/compare/v${{ needs.version-bump.outputs.version }}...HEAD
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
