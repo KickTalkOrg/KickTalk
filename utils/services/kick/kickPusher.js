@@ -1,10 +1,11 @@
 class KickPusher extends EventTarget {
-  constructor(chatroomNumber, streamerId) {
+  constructor(chatroomNumber, streamerId, streamerName = null) {
     super();
     this.reconnectDelay = 5000;
     this.chat = null;
     this.chatroomNumber = chatroomNumber;
     this.streamerId = streamerId;
+    this.streamerName = streamerName;
     this.shouldReconnect = true;
     this.socketId = null;
   }
@@ -34,7 +35,9 @@ class KickPusher extends EventTarget {
       
       // Record WebSocket connection
       try {
-        await window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, true);
+        const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+        console.log(`[Telemetry] WebSocket connected - chatroomId: ${this.chatroomNumber}, streamerId: ${this.streamerId}, streamerName: ${streamerName}`);
+        await window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, true, streamerName);
       } catch (error) {
         console.warn('[Telemetry]: Failed to record WebSocket connection:', error);
       }
@@ -81,7 +84,8 @@ class KickPusher extends EventTarget {
       
       // Record WebSocket disconnection
       try {
-        window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, false);
+        const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+        window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, false, streamerName);
       } catch (error) {
         console.warn('[Telemetry]: Failed to record WebSocket disconnection:', error);
       }
@@ -216,7 +220,8 @@ class KickPusher extends EventTarget {
               const messageData = JSON.parse(jsonData.data);
               const messageType = messageData.type || 'regular';
               const senderId = messageData.sender?.id;
-              await window.app?.telemetry?.recordMessageReceived?.(this.chatroomNumber, messageType, senderId);
+              const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
+              await window.app?.telemetry?.recordMessageReceived?.(this.chatroomNumber, messageType, senderId, streamerName);
             } catch (error) {
               console.warn('[Telemetry]: Failed to record received message:', error);
             }

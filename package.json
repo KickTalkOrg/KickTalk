@@ -51,6 +51,7 @@
     "@lexical/react": "^0.30.0",
     "@opentelemetry/context-async-hooks": "^2.0.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
+    "@opentelemetry/exporter-prometheus": "^0.203.0",
     "@opentelemetry/exporter-trace-otlp-http": "^0.203.0",
     "@opentelemetry/instrumentation": "^0.203.0",
     "@opentelemetry/instrumentation-express": "^0.52.0",

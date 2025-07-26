@@ -62,13 +62,8 @@ const initTelemetry = () => {
       telemetryInitialized = true;
       console.log('[Telemetry]: KickTalk telemetry initialized successfully');
       
-      // Start Prometheus metrics server
-      try {
-        const { startMetricsServer } = require('./prometheus-server');
-        startMetricsServer(9464);
-      } catch (error) {
-        console.warn('[Telemetry]: Failed to start metrics server:', error.message);
-      }
+      // Prometheus metrics server is now integrated into the MeterProvider
+      console.log('[Telemetry]: Prometheus metrics available at http://localhost:9464/metrics');
       
       // Record application start
       KickTalkMetrics.recordApplicationStart();
@@ -90,14 +85,7 @@ const shutdownTelemetry = async () => {
   if (!telemetryInitialized) return;
   
   try {
-    // Stop metrics server
-    try {
-      const { stopMetricsServer } = require('./prometheus-server');
-      stopMetricsServer();
-    } catch (error) {
-      console.warn('[Telemetry]: Failed to stop metrics server:', error.message);
-    }
-    
+    // Metrics server shutdown is handled by the MeterProvider
     await shutdown();
     telemetryInitialized = false;
     console.log('[Telemetry]: Shutdown complete');

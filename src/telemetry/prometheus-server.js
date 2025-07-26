@@ -12,30 +12,37 @@ const startMetricsServer = (port = 9464) => {
   }
 
   try {
-    // Import PrometheusRegistry if available
+    // Try to use PrometheusRegistry from OpenTelemetry
     let PrometheusRegistry;
     try {
-      ({ PrometheusRegistry } = require('@opentelemetry/exporter-prometheus'));
+      const { PrometheusRegistry: PR } = require('@opentelemetry/exporter-prometheus');
+      PrometheusRegistry = PR;
     } catch (error) {
-      console.warn('[Metrics]: PrometheusRegistry not available, using fallback');
-      return false;
+      console.warn('[Metrics]: @opentelemetry/exporter-prometheus not available, using fallback');
+      PrometheusRegistry = null;
     }
 
-    // Create the registry
-    const registry = new PrometheusRegistry({
-      port: port,
-      endpoint: '/metrics',
-    });
+    if (PrometheusRegistry) {
+      // Create the registry with proper configuration
+      const registry = new PrometheusRegistry({
+        port: port,
+        endpoint: '/metrics',
+      });
 
-    // Start the registry (this creates the HTTP server internally)
-    registry.startServer().then(() => {
-      isServerRunning = true;
-      console.log(`[Metrics]: Prometheus server started on http://localhost:${port}/metrics`);
-    }).catch((error) => {
-      console.error('[Metrics]: Failed to start Prometheus server:', error.message);
-    });
+      // Start the registry (this creates the HTTP server internally)
+      registry.startServer().then(() => {
+        isServerRunning = true;
+        console.log(`[Metrics]: Prometheus server started on http://localhost:${port}/metrics`);
+      }).catch((error) => {
+        console.error('[Metrics]: Failed to start Prometheus server:', error.message);
+        // Fall through to fallback implementation
+        throw error;
+      });
 
-    return true;
+      return true;
+    } else {
+      throw new Error('PrometheusRegistry not available');
+    }
   } catch (error) {
     console.error('[Metrics]: Error setting up Prometheus server:', error.message);
     

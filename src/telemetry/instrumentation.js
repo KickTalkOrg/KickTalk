@@ -61,26 +61,42 @@ try {
     const { MeterProvider } = require('@opentelemetry/sdk-metrics');
     const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
     const { PeriodicExportingMetricReader } = require('@opentelemetry/sdk-metrics');
+    const { PrometheusExporter } = require('@opentelemetry/exporter-prometheus');
     const { metrics } = require('@opentelemetry/api');
+    const http = require('http');
+
+    // Create Prometheus exporter
+    const prometheusExporter = new PrometheusExporter({
+      port: 9464,
+      endpoint: '/metrics',
+    }, () => {
+      console.log('[OTEL]: Prometheus metrics server started on http://localhost:9464/metrics');
+    });
+
+    // Create readers array
+    const readers = [
+      // OTLP exporter for external systems
+      new PeriodicExportingMetricReader({
+        exporter: new OTLPMetricExporter({
+          url: 'http://localhost:4318/v1/metrics',
+          headers: {
+            'X-Custom-Header': 'kicktalk-telemetry'
+          }
+        }),
+        exportIntervalMillis: 10000, // Export every 10 seconds
+      }),
+      // Prometheus exporter for Grafana
+      prometheusExporter
+    ];
 
     // Create metrics provider
     metricsProvider = new MeterProvider({
-      readers: [
-        new PeriodicExportingMetricReader({
-          exporter: new OTLPMetricExporter({
-            url: 'http://localhost:4318/v1/metrics',
-            headers: {
-              'X-Custom-Header': 'kicktalk-telemetry'
-            }
-          }),
-          exportIntervalMillis: 10000, // Export every 10 seconds
-        }),
-      ],
+      readers: readers,
     });
 
     // Register the metrics provider
     metrics.setGlobalMeterProvider(metricsProvider);
-    console.log('[OTEL]: Metrics provider initialized successfully');
+    console.log('[OTEL]: Metrics provider initialized successfully with Prometheus and OTLP exporters');
   } catch (metricsError) {
     console.warn('[OTEL]: Failed to initialize metrics provider:', metricsError.message);
   }

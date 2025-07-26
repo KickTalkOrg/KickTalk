@@ -985,9 +985,9 @@ ipcMain.handle("get-app-info", () => {
 });
 
 // Telemetry handlers
-ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'regular', duration = null, success = true }) => {
+ipcMain.handle("telemetry:recordMessageSent", (e, { chatroomId, messageType = 'regular', duration = null, success = true, streamerName = null }) => {
   if (isTelemetryEnabled()) {
-    metrics.recordMessageSent(chatroomId, messageType);
+    metrics.recordMessageSent(chatroomId, messageType, streamerName);
     if (duration !== null) {
       metrics.recordMessageSendDuration(duration, chatroomId, success);
     }
@@ -1005,24 +1005,22 @@ ipcMain.handle("telemetry:recordError", (e, { error, context = {} }) => {
 
 ipcMain.handle("telemetry:recordRendererMemory", (e, memory) => {
   if (isTelemetryEnabled()) {
-    // const { metrics } = require("../telemetry/index.js");
-    // metrics.recordRendererMemory(memory);
+    metrics.recordRendererMemory(memory);
   }
 });
 
 ipcMain.handle("telemetry:recordDomNodeCount", (e, count) => {
   if (isTelemetryEnabled()) {
-    // const { metrics } = require("../telemetry/index.js");
-    // metrics.recordDomNodeCount(count);
+    metrics.recordDomNodeCount(count);
   }
 });
 
-ipcMain.handle("telemetry:recordWebSocketConnection", (e, { chatroomId, streamerId, connected }) => {
+ipcMain.handle("telemetry:recordWebSocketConnection", (e, { chatroomId, streamerId, connected, streamerName }) => {
   if (isTelemetryEnabled()) {
     if (connected) {
-      metrics.incrementWebSocketConnections(chatroomId, streamerId);
+      metrics.incrementWebSocketConnections(chatroomId, streamerId, streamerName);
     } else {
-      metrics.decrementWebSocketConnections(chatroomId, streamerId);
+      metrics.decrementWebSocketConnections(chatroomId, streamerId, streamerName);
     }
   }
 });
@@ -1033,9 +1031,9 @@ ipcMain.handle("telemetry:recordConnectionError", (e, { chatroomId, errorType })
   }
 });
 
-ipcMain.handle("telemetry:recordMessageReceived", (e, { chatroomId, messageType, senderId }) => {
+ipcMain.handle("telemetry:recordMessageReceived", (e, { chatroomId, messageType, senderId, streamerName }) => {
   if (isTelemetryEnabled()) {
-    metrics.recordMessageReceived(chatroomId, messageType, senderId);
+    metrics.recordMessageReceived(chatroomId, messageType, senderId, streamerName);
   }
 });
 

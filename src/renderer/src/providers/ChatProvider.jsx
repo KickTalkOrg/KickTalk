@@ -87,6 +87,9 @@ const useChatStore = create((set, get) => ({
 
   sendMessage: async (chatroomId, content) => {
     const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendMessage - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
     
     try {
       const message = content.trim();
@@ -107,7 +110,7 @@ const useChatStore = create((set, get) => ({
       if (response?.data?.status?.code === 401) {
         // Record auth failure
         const duration = (Date.now() - startTime) / 1000;
-        window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false);
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false, streamerName);
         
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
@@ -121,13 +124,13 @@ const useChatStore = create((set, get) => ({
 
       // Record successful message send
       const duration = (Date.now() - startTime) / 1000;
-      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, true);
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, true, streamerName);
 
       return true;
     } catch (error) {
       // Record failed message send with error details
       const duration = (Date.now() - startTime) / 1000;
-      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false);
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, false, streamerName);
       window.app?.telemetry?.recordError(error, {
         'chatroom.id': chatroomId,
         'message.operation': 'send',
@@ -150,6 +153,9 @@ const useChatStore = create((set, get) => ({
 
   sendReply: async (chatroomId, content, metadata = {}) => {
     const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendReply - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
     
     try {
       const message = content.trim();
@@ -170,7 +176,7 @@ const useChatStore = create((set, get) => ({
       if (response?.data?.status?.code === 401) {
         // Record auth failure for reply
         const duration = (Date.now() - startTime) / 1000;
-        window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false);
+        window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, false, streamerName);
         
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
@@ -184,7 +190,7 @@ const useChatStore = create((set, get) => ({
 
       // Record successful reply send
       const duration = (Date.now() - startTime) / 1000;
-      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, true);
+      window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, true, streamerName);
 
       return true;
     } catch (error) {
@@ -300,7 +306,7 @@ const useChatStore = create((set, get) => ({
 
   connectToChatroom: async (chatroom) => {
     if (!chatroom?.id) return;
-    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id);
+    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id, chatroom.streamerData?.user?.username);
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {

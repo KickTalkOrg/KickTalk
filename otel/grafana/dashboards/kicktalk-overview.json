@@ -112,14 +112,9 @@
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 6},
       "targets": [
         {
-          "expr": "rate(kicktalk_messages_sent_total[1m])",
+          "expr": "topk(10, sum by(streamer_name)(rate(kicktalk_messages_received_total{streamer_name!=\"\"}[1m])))",
           "refId": "A",
-          "legendFormat": "Messages Sent/min"
-        },
-        {
-          "expr": "rate(kicktalk_messages_received_total[1m])",
-          "refId": "B",
-          "legendFormat": "Messages Received/min"
+          "legendFormat": "{{streamer_name}}"
         }
       ],
       "fieldConfig": {
@@ -132,10 +127,14 @@
             "lineInterpolation": "linear",
             "barAlignment": 0,
             "lineWidth": 1,
-            "fillOpacity": 10,
-            "gradientMode": "none"
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
           },
-          "unit": "reqps"
+          "unit": "short"
         }
       }
     },
@@ -146,12 +145,12 @@
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 6},
       "targets": [
         {
-          "expr": "kicktalk_memory_heap_used_bytes",
+          "expr": "kicktalk_memory_usage_bytes{type=\"heap_used\"}",
           "refId": "A",
           "legendFormat": "Heap Used"
         },
         {
-          "expr": "kicktalk_memory_heap_total_bytes",
+          "expr": "kicktalk_memory_usage_bytes{type=\"heap_total\"}",
           "refId": "B",
           "legendFormat": "Heap Total"
         },
@@ -159,6 +158,11 @@
           "expr": "kicktalk_memory_usage_bytes{type=\"rss\"}",
           "refId": "C",
           "legendFormat": "RSS Memory"
+        },
+        {
+          "expr": "kicktalk_memory_usage_bytes{type=\"external\"}",
+          "refId": "D",
+          "legendFormat": "External Memory"
         }
       ],
       "fieldConfig": {
@@ -236,14 +240,14 @@
       "gridPos": {"h": 4, "w": 8, "x": 16, "y": 14},
       "targets": [
         {
-          "expr": "increase(kicktalk_connection_errors_total[5m])",
+          "expr": "sum(increase(kicktalk_connection_errors_total[5m]))",
           "refId": "A",
-          "legendFormat": "Errors (5m)"
+          "legendFormat": "Total Errors (5m)"
         },
         {
-          "expr": "increase(kicktalk_websocket_reconnections_total[5m])",
+          "expr": "sum(increase(kicktalk_websocket_reconnections_total[5m]))",
           "refId": "B",
-          "legendFormat": "Reconnections (5m)"
+          "legendFormat": "Total Reconnections (5m)"
         }
       ],
       "fieldConfig": {
@@ -299,14 +303,19 @@
       "gridPos": {"h": 8, "w": 12, "x": 0, "y": 22},
       "targets": [
         {
-          "expr": "histogram_quantile(0.50, rate(kicktalk_message_send_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.50, rate(kicktalk_message_send_duration_seconds_bucket[5m])) or vector(0)",
           "refId": "A",
           "legendFormat": "Message Send p50"
         },
         {
-          "expr": "histogram_quantile(0.95, rate(kicktalk_message_send_duration_seconds_bucket[5m]))",
+          "expr": "histogram_quantile(0.95, rate(kicktalk_message_send_duration_seconds_bucket[5m])) or vector(0)",
           "refId": "B",
           "legendFormat": "Message Send p95"
+        },
+        {
+          "expr": "rate(kicktalk_message_send_duration_seconds_count[5m])",
+          "refId": "C",
+          "legendFormat": "Send Rate/min"
         }
       ],
       "fieldConfig": {
@@ -396,14 +405,52 @@
     },
     {
       "id": 14,
-      "title": "WebSocket Connections by Chatroom",
+      "title": "WebSocket Connections by Streamer",
       "type": "timeseries",
       "gridPos": {"h": 8, "w": 12, "x": 12, "y": 30},
       "targets": [
         {
-          "expr": "kicktalk_websocket_connections_active",
+          "expr": "kicktalk_websocket_connections_active{streamer_name!=\"\"}",
           "refId": "A",
-          "legendFormat": "Chatroom {{chatroom_id}}"
+          "legendFormat": "{{streamer_name}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 50,
+            "gradientMode": "none",
+            "stacking": {
+              "mode": "normal",
+              "group": "A"
+            }
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 15,
+      "title": "Garbage Collection Performance",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 8, "x": 0, "y": 38},
+      "targets": [
+        {
+          "expr": "histogram_quantile(0.95, rate(kicktalk_gc_duration_seconds_bucket[5m])) or vector(0)",
+          "refId": "A",
+          "legendFormat": "GC p95 - {{kind}}"
+        },
+        {
+          "expr": "rate(kicktalk_gc_duration_seconds_count[5m]) or vector(0)",
+          "refId": "B",
+          "legendFormat": "GC Frequency - {{kind}}"
         }
       ],
       "fieldConfig": {
@@ -419,7 +466,156 @@
             "fillOpacity": 10,
             "gradientMode": "none"
           },
+          "unit": "s"
+        }
+      }
+    },
+    {
+      "id": 16,
+      "title": "DOM Node Count",
+      "type": "stat",
+      "gridPos": {"h": 6, "w": 8, "x": 8, "y": 38},
+      "targets": [
+        {
+          "expr": "kicktalk_dom_node_count",
+          "refId": "A",
+          "legendFormat": "DOM Nodes"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 5000},
+              {"color": "red", "value": 10000}
+            ]
+          },
           "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 17,
+      "title": "Error Rates",
+      "type": "timeseries",
+      "gridPos": {"h": 6, "w": 8, "x": 16, "y": 38},
+      "targets": [
+        {
+          "expr": "rate(kicktalk_connection_errors_total[5m]) * 100",
+          "refId": "A",
+          "legendFormat": "Connection Error Rate % - {{error_type}}"
+        },
+        {
+          "expr": "rate(kicktalk_websocket_reconnections_total[5m]) * 100",
+          "refId": "B",
+          "legendFormat": "Reconnection Rate % - {{reason}}"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "none"
+          },
+          "unit": "percent"
+        }
+      }
+    },
+    {
+      "id": 18,
+      "title": "Memory Efficiency",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 0, "y": 44},
+      "targets": [
+        {
+          "expr": "((kicktalk_memory_usage_bytes{type=\"heap_used\"} / kicktalk_memory_usage_bytes{type=\"heap_total\"}) * 100) or on() vector(0)",
+          "refId": "A",
+          "legendFormat": "Heap Usage %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "green", "value": null},
+              {"color": "yellow", "value": 70},
+              {"color": "red", "value": 90}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
+        }
+      }
+    },
+    {
+      "id": 19,
+      "title": "Handle Efficiency",
+      "type": "timeseries",
+      "gridPos": {"h": 4, "w": 8, "x": 8, "y": 44},
+      "targets": [
+        {
+          "expr": "kicktalk_open_handles_total{type=\"total\"} or on() vector(0)",
+          "refId": "A",
+          "legendFormat": "Open Handles"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "continuous-GrYlRd"
+          },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "barAlignment": 0,
+            "lineWidth": 1,
+            "fillOpacity": 10,
+            "gradientMode": "opacity"
+          },
+          "unit": "short"
+        }
+      }
+    },
+    {
+      "id": 20,
+      "title": "Message Success Rate",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 8, "x": 16, "y": 44},
+      "targets": [
+        {
+          "expr": "((sum(rate(kicktalk_messages_sent_total[5m])) / (sum(rate(kicktalk_messages_sent_total[5m])) + sum(rate(kicktalk_connection_errors_total{error_type=\"message_send_failed\"}[5m])))) * 100) or on() vector(100)",
+          "refId": "A",
+          "legendFormat": "Message Success %"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "steps": [
+              {"color": "red", "value": null},
+              {"color": "yellow", "value": 95},
+              {"color": "green", "value": 99}
+            ]
+          },
+          "unit": "percent",
+          "max": 100
         }
       }
     }

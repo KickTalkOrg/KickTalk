@@ -394,20 +394,20 @@ if (process.contextIsolated) {
 
       // Telemetry utilities
       telemetry: {
-        recordMessageSent: (chatroomId, messageType, duration, success) =>
-          ipcRenderer.invoke("telemetry:recordMessageSent", { chatroomId, messageType, duration, success }),
+        recordMessageSent: (chatroomId, messageType, duration, success, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordMessageSent", { chatroomId, messageType, duration, success, streamerName }),
         recordError: (error, context) =>
           ipcRenderer.invoke("telemetry:recordError", { error, context }),
         recordRendererMemory: (memory) =>
           ipcRenderer.invoke("telemetry:recordRendererMemory", memory),
         recordDomNodeCount: (count) =>
           ipcRenderer.invoke("telemetry:recordDomNodeCount", count),
-        recordWebSocketConnection: (chatroomId, streamerId, connected) =>
-          ipcRenderer.invoke("telemetry:recordWebSocketConnection", { chatroomId, streamerId, connected }),
+        recordWebSocketConnection: (chatroomId, streamerId, connected, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordWebSocketConnection", { chatroomId, streamerId, connected, streamerName }),
         recordConnectionError: (chatroomId, errorType) =>
           ipcRenderer.invoke("telemetry:recordConnectionError", { chatroomId, errorType }),
-        recordMessageReceived: (chatroomId, messageType, senderId) =>
-          ipcRenderer.invoke("telemetry:recordMessageReceived", { chatroomId, messageType, senderId }),
+        recordMessageReceived: (chatroomId, messageType, senderId, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordMessageReceived", { chatroomId, messageType, senderId, streamerName }),
         recordReconnection: (chatroomId, reason) =>
           ipcRenderer.invoke("telemetry:recordReconnection", { chatroomId, reason }),
         recordAPIRequest: (endpoint, method, statusCode, duration) =>

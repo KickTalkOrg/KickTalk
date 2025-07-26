@@ -4,8 +4,10 @@ const { metrics } = require('@opentelemetry/api');
 // Get the meter for KickTalk
 const meter = metrics.getMeter('kicktalk', require('../../package.json').version);
 
-// Connection Metrics
-const websocketConnections = meter.createUpDownCounter('kicktalk_websocket_connections_active', {
+// Connection Metrics - Track active connections in a Map for accurate counting
+const activeConnections = new Map();
+
+const websocketConnections = meter.createObservableGauge('kicktalk_websocket_connections_active', {
   description: 'Number of active WebSocket connections',
   unit: '1'
 });
@@ -75,8 +77,20 @@ const domNodeCount = meter.createObservableGauge('kicktalk_dom_node_count', {
   unit: '1'
 });
 
+// Storage for current values
+let currentRendererMemory = {
+  jsHeapUsedSize: 0,
+  jsHeapTotalSize: 0
+};
+let currentDomNodeCount = 0;
+
 const openWindows = meter.createUpDownCounter('kicktalk_open_windows', {
   description: 'Number of open windows',
+  unit: '1'
+});
+
+const upStatus = meter.createObservableGauge('kicktalk_up', {
+  description: 'Application status (1=up, 0=down)',
   unit: '1'
 });
 
@@ -126,21 +140,81 @@ openHandles.addCallback((observableResult) => {
   }
 });
 
+// Application uptime status
+upStatus.addCallback((observableResult) => {
+  // Application is up if this callback is running
+  observableResult.observe(1);
+});
+
+// Renderer memory usage callback
+rendererMemoryUsage.addCallback((observableResult) => {
+  observableResult.observe(currentRendererMemory.jsHeapUsedSize, { type: 'js_heap_used' });
+  observableResult.observe(currentRendererMemory.jsHeapTotalSize, { type: 'js_heap_total' });
+});
+
+// DOM node count callback
+domNodeCount.addCallback((observableResult) => {
+  observableResult.observe(currentDomNodeCount);
+});
+
+// Active WebSocket connections callback
+websocketConnections.addCallback((observableResult) => {
+  // Group connections by unique attribute sets and count them
+  const connectionCounts = new Map();
+  
+  for (const [connectionKey, attributes] of activeConnections) {
+    const key = JSON.stringify(attributes);
+    connectionCounts.set(key, (connectionCounts.get(key) || 0) + 1);
+  }
+  
+  for (const [attributesJson, count] of connectionCounts) {
+    const attributes = JSON.parse(attributesJson);
+    observableResult.observe(count, attributes);
+  }
+});
+
+// GC monitoring setup
+try {
+  const v8 = require('v8');
+  const performanceObserver = require('perf_hooks').PerformanceObserver;
+  
+  // Monitor GC events using Performance Observer
+  const gcObserver = new performanceObserver((list) => {
+    const entries = list.getEntries();
+    entries.forEach((entry) => {
+      if (entry.entryType === 'gc') {
+        gcDuration.record(entry.duration / 1000, {
+          kind: entry.detail?.kind || 'unknown'
+        });
+      }
+    });
+  });
+  
+  gcObserver.observe({ entryTypes: ['gc'] });
+} catch (error) {
+  // GC monitoring not available, continue without it
+  console.warn('GC monitoring unavailable:', error.message);
+}
+
 // Metrics helper functions
 const MetricsHelper = {
   // Connection metrics
-  incrementWebSocketConnections(chatroomId, streamerId) {
-    websocketConnections.add(1, {
+  incrementWebSocketConnections(chatroomId, streamerId, streamerName = null) {
+    const attributes = {
       chatroom_id: chatroomId,
       streamer_id: streamerId
-    });
+    };
+    if (streamerName) attributes.streamer_name = streamerName;
+    
+    const connectionKey = `${chatroomId}_${streamerId}`;
+    activeConnections.set(connectionKey, attributes);
+    console.log(`[Metrics] WebSocket INCREMENT for ${streamerName || 'unknown'} (${chatroomId}) - Active: ${activeConnections.size}`);
   },
 
-  decrementWebSocketConnections(chatroomId, streamerId) {
-    websocketConnections.add(-1, {
-      chatroom_id: chatroomId,
-      streamer_id: streamerId
-    });
+  decrementWebSocketConnections(chatroomId, streamerId, streamerName = null) {
+    const connectionKey = `${chatroomId}_${streamerId}`;
+    const removed = activeConnections.delete(connectionKey);
+    console.log(`[Metrics] WebSocket DECREMENT for ${streamerName || 'unknown'} (${chatroomId}) - Removed: ${removed} - Active: ${activeConnections.size}`);
   },
 
   recordReconnection(chatroomId, reason = 'unknown') {
@@ -158,19 +232,23 @@ const MetricsHelper = {
   },
 
   // Message metrics
-  recordMessageSent(chatroomId, messageType = 'regular') {
-    messagesSent.add(1, {
+  recordMessageSent(chatroomId, messageType = 'regular', streamerName = null) {
+    const attributes = {
       chatroom_id: chatroomId,
       message_type: messageType
-    });
+    };
+    if (streamerName) attributes.streamer_name = streamerName;
+    
+    messagesSent.add(1, attributes);
   },
 
-  recordMessageReceived(chatroomId, messageType = 'regular', senderId = null) {
+  recordMessageReceived(chatroomId, messageType = 'regular', senderId = null, streamerName = null) {
     const attributes = {
       chatroom_id: chatroomId,
       message_type: messageType
     };
     if (senderId) attributes.sender_id = senderId;
+    if (streamerName) attributes.streamer_name = streamerName;
     
     messagesReceived.add(1, attributes);
   },
@@ -214,12 +292,12 @@ const MetricsHelper = {
   },
 
   recordRendererMemory(memory) {
-    rendererMemoryUsage.observe(memory.jsHeapUsedSize, { type: 'js_heap_used' });
-    rendererMemoryUsage.observe(memory.jsHeapTotalSize, { type: 'js_heap_total' });
+    currentRendererMemory.jsHeapUsedSize = memory.jsHeapUsedSize || 0;
+    currentRendererMemory.jsHeapTotalSize = memory.jsHeapTotalSize || 0;
   },
 
   recordDomNodeCount(count) {
-    domNodeCount.observe(count);
+    currentDomNodeCount = count || 0;
   },
 
   incrementOpenWindows() {
@@ -248,7 +326,8 @@ module.exports = {
     gcDuration,
     rendererMemoryUsage,
     domNodeCount,
-    openWindows
+    openWindows,
+    upStatus
   },
   MetricsHelper
 };
