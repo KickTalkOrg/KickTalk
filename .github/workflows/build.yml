@@ -100,19 +100,33 @@ jobs:
       - name: Rename artifacts with package manager suffix
         shell: bash
         run: |
-          for file in dist/*; do
-            if [[ -f "$file" ]]; then
-              filename=$(basename "$file")
-              extension="${filename##*.}"
-              name="${filename%.*}"
-              if [[ "$filename" == *.*.* ]]; then
-                # Handle files like .exe.blockmap
-                name="${filename%.*.*}"
-                extension="${filename#*.}"
+          if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
+            for file in dist/*; do
+              if [[ -f "$file" ]]; then
+                filename=$(basename "$file")
+                if [[ "$filename" == *.exe.blockmap ]]; then
+                  # Handle .exe.blockmap files
+                  name="${filename%.exe.blockmap}"
+                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.exe.blockmap"
+                elif [[ "$filename" == *.dmg.blockmap ]]; then
+                  # Handle .dmg.blockmap files
+                  name="${filename%.dmg.blockmap}"
+                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.dmg.blockmap"
+                elif [[ "$filename" == *.zip.blockmap ]]; then
+                  # Handle .zip.blockmap files
+                  name="${filename%.zip.blockmap}"
+                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.zip.blockmap"
+                else
+                  # Handle regular files
+                  extension="${filename##*.}"
+                  name="${filename%.*}"
+                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.${extension}"
+                fi
               fi
-              mv "$file" "dist/${name}-${{ matrix.package-manager }}.${extension}"
-            fi
-          done
+            done
+          else
+            echo "No files found in dist directory"
+          fi
 
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
