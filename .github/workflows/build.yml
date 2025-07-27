@@ -97,14 +97,31 @@ jobs:
           # This is used for uploading release assets to github
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Rename artifacts with package manager suffix
+        shell: bash
+        run: |
+          for file in dist/*; do
+            if [[ -f "$file" ]]; then
+              filename=$(basename "$file")
+              extension="${filename##*.}"
+              name="${filename%.*}"
+              if [[ "$filename" == *.*.* ]]; then
+                # Handle files like .exe.blockmap
+                name="${filename%.*.*}"
+                extension="${filename#*.}"
+              fi
+              mv "$file" "dist/${name}-${{ matrix.package-manager }}.${extension}"
+            fi
+          done
+
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
           name: windows-build-${{ matrix.package-manager }}
           path: |
-            dist/*.exe
-            dist/*.exe.blockmap
+            dist/*-${{ matrix.package-manager }}.exe
+            dist/*-${{ matrix.package-manager }}.exe.blockmap
           retention-days: 7
 
       - name: Upload artifacts (macOS)
@@ -113,10 +130,10 @@ jobs:
         with:
           name: macos-build-${{ matrix.package-manager }}-${{ matrix.platform }}
           path: |
-            dist/*.dmg
-            dist/*.dmg.blockmap
-            dist/*.zip
-            dist/*.zip.blockmap
+            dist/*-${{ matrix.package-manager }}.dmg
+            dist/*-${{ matrix.package-manager }}.dmg.blockmap
+            dist/*-${{ matrix.package-manager }}.zip
+            dist/*-${{ matrix.package-manager }}.zip.blockmap
           retention-days: 7
 
       - name: Upload artifacts (Linux)
@@ -124,7 +141,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: linux-build-${{ matrix.package-manager }}
-          path: dist/*.AppImage
+          path: dist/*-${{ matrix.package-manager }}.AppImage
           retention-days: 7
 
   release:
