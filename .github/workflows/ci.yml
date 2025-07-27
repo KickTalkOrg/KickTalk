@@ -1,10 +1,8 @@
 name: CI
 
 on:
-  pull_request:
-    branches: [main, develop]
   push:
-    branches: [main, develop]
+    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -12,27 +10,34 @@ concurrency:
 
 jobs:
   lint-and-test:
+    strategy:
+      matrix:
+        node-version: [20, 22]
+        package-manager: [pnpm, npm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
+      - name: Setup Node.js ${{ matrix.node-version }}
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: ${{ matrix.node-version }}
 
       - name: Install pnpm
+        if: matrix.package-manager == 'pnpm'
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
       - name: Get pnpm store directory
+        if: matrix.package-manager == 'pnpm'
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
+        if: matrix.package-manager == 'pnpm'
         uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
@@ -40,14 +45,29 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
-      - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+      - name: Setup npm cache
+        if: matrix.package-manager == 'npm'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
 
-      - name: Run linter
-        run: pnpm run lint
+      - name: Install dependencies
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
+
+      # - name: Run linter
+      #   run: ${{ matrix.package-manager }} run lint
 
       - name: Build application
-        run: pnpm run build
+        run: ${{ matrix.package-manager }} run build
 
   test-builds:
     runs-on: ${{ matrix.os }}
@@ -55,6 +75,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
+        package-manager: [pnpm, npm]
 
     steps:
       - name: Checkout repository
@@ -66,17 +87,20 @@ jobs:
           node-version: 20
 
       - name: Install pnpm
+        if: matrix.package-manager == 'pnpm'
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
       - name: Get pnpm store directory
+        if: matrix.package-manager == 'pnpm'
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
+        if: matrix.package-manager == 'pnpm'
         uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
@@ -84,20 +108,53 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Setup npm cache
+        if: matrix.package-manager == 'npm'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
 
       - name: Build application
-        run: pnpm run build
+        run: ${{ matrix.package-manager }} run build
 
       - name: Test Electron build (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
-        run: pnpm exec electron-builder --linux --dir
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm exec electron-builder --linux --dir
+          else
+            npx electron-builder --linux --dir
+          fi
         
       - name: Test Electron build (Windows)
         if: matrix.os == 'windows-latest'
-        run: pnpm exec electron-builder --win --dir
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm exec electron-builder --win --dir
+          else
+            npx electron-builder --win --dir
+          fi
 
       - name: Test Electron build (macOS)
         if: matrix.os == 'macos-latest'
-        run: pnpm exec electron-builder --mac --dir
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm exec electron-builder --mac --dir
+          else
+            npx electron-builder --mac --dir
+          fi

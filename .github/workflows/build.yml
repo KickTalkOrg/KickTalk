@@ -1,17 +1,9 @@
-name: Build & Release
+name: Build
 
 on:
   push:
     branches:
       - main
-      - develop
-    tags:
-      - 'v*'
-  pull_request:
-    branches:
-      - main
-      - develop
-  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -22,6 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
+        package-manager: [pnpm, npm]
         include:
           - platform: 'macos-latest' # for Arm based macs (M1 and above).
             args: '--mac --arm64'
@@ -43,17 +36,20 @@ jobs:
           node-version: 20
           
       - name: Install pnpm
+        if: matrix.package-manager == 'pnpm'
         uses: pnpm/action-setup@v4
         with:
           version: 9
           run_install: false
 
       - name: Get pnpm store directory
+        if: matrix.package-manager == 'pnpm'
         shell: bash
         run: |
           echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
 
       - name: Setup pnpm cache
+        if: matrix.package-manager == 'pnpm'
         uses: actions/cache@v4
         with:
           path: ${{ env.STORE_PATH }}
@@ -61,14 +57,35 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-pnpm-store-
 
+      - name: Setup npm cache
+        if: matrix.package-manager == 'npm'
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: ${{ runner.os }}-npm-${{ hashFiles('**/package.json') }}
+          restore-keys: |
+            ${{ runner.os }}-npm-
+
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm install --frozen-lockfile
+          else
+            npm install
+          fi
 
       - name: Build application
-        run: pnpm run build
+        run: ${{ matrix.package-manager }} run build
 
       - name: Build Electron app
-        run: pnpm exec electron-builder ${{ matrix.args }}
+        shell: bash
+        run: |
+          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
+            pnpm exec electron-builder ${{ matrix.args }}
+          else
+            npx electron-builder ${{ matrix.args }}
+          fi
         env:
           # These are used for auto updates signing
           # APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -82,7 +99,7 @@ jobs:
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build
+          name: windows-build-${{ matrix.package-manager }}
           path: |
             dist/*.exe
             dist/*.exe.blockmap
@@ -92,7 +109,7 @@ jobs:
         if: contains(matrix.platform, 'macos')
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build-${{ matrix.platform }}
+          name: macos-build-${{ matrix.package-manager }}-${{ matrix.platform }}
           path: |
             dist/*.dmg
             dist/*.dmg.blockmap
@@ -104,39 +121,10 @@ jobs:
         if: matrix.platform == 'ubuntu-22.04'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build
+          name: linux-build-${{ matrix.package-manager }}
           path: |
             dist/*.AppImage
             dist/*.deb
             dist/*.snap
             dist/*.tar.gz
           retention-days: 7
-
-  release:
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
-    permissions:
-      contents: write
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Download all artifacts
-        uses: actions/download-artifact@v4
-        with:
-          path: artifacts
-
-      - name: Display structure of downloaded files
-        run: ls -la artifacts/
-
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: false
-          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
-          files: |
-            artifacts/**/*
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

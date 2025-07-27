@@ -13,6 +13,9 @@ asarUnpack:
 win:
   executableName: kicktalk
   icon: resources/icons/win/KickTalk_v1.ico
+  target:
+    - target: nsis
+      arch: [x64]
 nsis:
   artifactName: ${name}-${version}-setup.${ext}
   shortcutName: ${productName}
@@ -22,17 +25,21 @@ nsis:
   oneClick: true
   allowToChangeInstallationDirectory: false
 mac:
+  icon: resources/icons/KickTalk_v1.png
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
+  target:
+    - target: dmg
+      arch: [x64, arm64]
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
   target:
     - AppImage
-    - snap
     - deb
-  maintainer: electronjs.org
-  category: Utility
+  maintainer: KickTalk Team <contact@kicktalk.org>
+  category: Network
+  icon: resources/icons/KickTalk_v1.png
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
