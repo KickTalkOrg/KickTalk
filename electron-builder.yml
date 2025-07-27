@@ -25,7 +25,7 @@ nsis:
   oneClick: true
   allowToChangeInstallationDirectory: false
 mac:
-  icon: resources/icons/KickTalk_v1.png
+  icon: resources/icons/KickTalk_v1_512.png
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
   target:
@@ -36,10 +36,9 @@ dmg:
 linux:
   target:
     - AppImage
-    - deb
   maintainer: KickTalk Team <contact@kicktalk.org>
   category: Network
-  icon: resources/icons/KickTalk_v1.png
+  icon: resources/icons/KickTalk_v1_512.png
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
