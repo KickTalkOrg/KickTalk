@@ -44,7 +44,7 @@ appImage:
 npmRebuild: false
 publish:
   provider: github
-  owner: KickTalkOrg
+  owner: BP602
   repo: KickTalk
   private: false
   releaseType: release
