@@ -20,15 +20,15 @@ jobs:
         platform: 
           - 'macos-latest' # for Arm based macs (M1 and above).
           - 'macos-13' # for Intel based macs.
-          - 'ubuntu-22.04'
+          - 'ubuntu-24.04'
           - 'windows-latest'
         include:
           - platform: 'macos-latest'
-            args: '--mac --arm64 dmg'
+            args: '--mac=dmg --arm64'
           - platform: 'macos-13'
-            args: '--mac --x64 dmg'
-          - platform: 'ubuntu-22.04'
-            args: '--linux AppImage'
+            args: '--mac=dmg --x64'
+          - platform: 'ubuntu-24.04'
+            args: '--linux=AppImage'
           - platform: 'windows-latest'
             args: '--win'
 
@@ -156,14 +156,11 @@ jobs:
           retention-days: 7
 
       - name: Upload artifacts (Linux)
-        if: matrix.platform == 'ubuntu-22.04'
+        if: matrix.platform == 'ubuntu-24.04'
         uses: actions/upload-artifact@v4
         with:
           name: linux-build-${{ matrix.package-manager }}
-          path: |
-            dist/*-${{ matrix.package-manager }}.AppImage
-            dist/*-${{ matrix.package-manager }}.dmg
-            dist/*-${{ matrix.package-manager }}.dmg.blockmap
+          path: dist/*-${{ matrix.package-manager }}.AppImage
           retention-days: 7
 
   release:
