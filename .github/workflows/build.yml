@@ -17,10 +17,15 @@ jobs:
       fail-fast: false
       matrix:
         package-manager: [pnpm, npm]
+        platform: 
+          - 'macos-latest' # for Arm based macs (M1 and above).
+          - 'macos-13' # for Intel based macs.
+          - 'ubuntu-22.04'
+          - 'windows-latest'
         include:
-          - platform: 'macos-latest' # for Arm based macs (M1 and above).
+          - platform: 'macos-latest'
             args: '--mac --arm64 dmg'
-          - platform: 'macos-13' # for Intel based macs.
+          - platform: 'macos-13'
             args: '--mac --x64 dmg'
           - platform: 'ubuntu-22.04'
             args: '--linux AppImage'
