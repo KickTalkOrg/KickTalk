@@ -129,32 +129,62 @@ jobs:
       - name: Build application
         run: ${{ matrix.package-manager }} run build
 
-      - name: Test Electron build (Ubuntu)
+      - name: Build Electron app (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --linux --dir
+            pnpm exec electron-builder --linux=AppImage
           else
-            npx electron-builder --linux --dir
+            npx electron-builder --linux=AppImage
           fi
         
-      - name: Test Electron build (Windows)
+      - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --win --dir
+            pnpm exec electron-builder --win
           else
-            npx electron-builder --win --dir
+            npx electron-builder --win
           fi
 
-      - name: Test Electron build (macOS)
+      - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --mac --dir
+            pnpm exec electron-builder --mac=dmg
           else
-            npx electron-builder --mac --dir
+            npx electron-builder --mac=dmg
           fi
+
+      - name: Upload artifacts (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-windows-${{ matrix.package-manager }}
+          path: |
+            dist/*.exe
+            dist/*.exe.blockmap
+          retention-days: 7
+
+      - name: Upload artifacts (macOS)
+        if: matrix.os == 'macos-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-macos-${{ matrix.package-manager }}
+          path: |
+            dist/*.dmg
+            dist/*.dmg.blockmap
+            dist/*.zip
+            dist/*.zip.blockmap
+          retention-days: 7
+
+      - name: Upload artifacts (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: latest-linux-${{ matrix.package-manager }}
+          path: dist/*.AppImage
+          retention-days: 7
