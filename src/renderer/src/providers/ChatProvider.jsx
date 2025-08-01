@@ -2265,6 +2265,8 @@ const useChatStore = create((set, get) => ({
     // Clear emote cache to ensure new emotes are loaded from updated store
     clearChatroomEmoteCache(chatroomId);
     
+    // Refresh emote data to get the updated emote set
+    get().refresh7TVEmotes(chatroomId);
   },
 
   refresh7TVEmotes: async (chatroomId) => {

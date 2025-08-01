@@ -473,7 +473,6 @@ class SharedStvWebSocket extends EventTarget {
             break;
 
           case "emote_set.update":
-            console.log(`[Shared7TV] Emote set update for chatroom ${chatroomId}:`, body);
             this.dispatchEvent(
               new CustomEvent("message", {
                 detail: {
