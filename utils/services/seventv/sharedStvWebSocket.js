@@ -6,6 +6,9 @@ const cosmetics = {
   badges: [],
 };
 
+// Constants for ID validation
+const INVALID_7TV_NULL_ID = "00000000000000000000000000"; // Known 7TV null ID pattern
+
 const updateCosmetics = async (body) => {
   if (!body?.object) {
     return;
@@ -31,9 +34,7 @@ const updateCosmetics = async (body) => {
         url: `https:${data.host.url}/${data.host.files[data.host.files.length - 1].name}`,
       });
     }
-  }
-
-  if (object?.kind === "PAINT") {
+  } else if (object?.kind === "PAINT") {
     if (!object.user) {
       const data = object.data;
 
@@ -127,22 +128,6 @@ const updateCosmetics = async (body) => {
     if (object?.id === "00000000000000000000000000" && object?.ref_id) {
       object.id = object.ref_id;
     }
-  } else if (object?.kind == "BADGE") {
-    const data = object.data;
-
-    const foundBadge = cosmetics.badges.find(
-      (badge) => badge && badge.id === (data && data.id === "00000000000000000000000000" ? data.ref_id : data.id),
-    );
-
-    if (foundBadge) {
-      return;
-    }
-
-    cosmetics.badges.push({
-      id: data.id === "00000000000000000000000000" ? data.ref_id || "default_id" : data.id,
-      title: data.tooltip,
-      url: `https:${data.host.url}/${data.host.files[data.host.files.length - 1].name}`,
-    });
   } else {
     console.log("[Shared7TV] Didn't process cosmetics:", body);
   }
@@ -215,6 +200,19 @@ class SharedStvWebSocket extends EventTarget {
       this.connectionState = 'disconnected';
       this.subscribedEvents.clear();
       this.userEventSubscribed = false;
+      
+      // Don't reconnect if we're getting persistent Invalid Payload errors
+      if (event.code === 1008 && event.reason === "Invalid Payload") {
+        console.log(`[Shared7TV]: Invalid Payload error - checking for valid 7TV data before reconnecting`);
+        const hasValidData = Array.from(this.chatrooms.values()).some(data => 
+          data.stvId && data.stvId !== "0" && data.stvId !== INVALID_7TV_NULL_ID
+        );
+        if (!hasValidData) {
+          console.log(`[Shared7TV]: No valid 7TV data found - stopping reconnection attempts`);
+          return;
+        }
+      }
+      
       this.handleReconnection();
     };
 
@@ -284,17 +282,25 @@ class SharedStvWebSocket extends EventTarget {
       return;
     }
 
-    const { channelKickID, stvId, stvEmoteSetId } = chatroomData;
+    const { channelKickID, stvEmoteSetId } = chatroomData;
 
-    // Subscribe to cosmetic events
-    if (channelKickID !== "0") {
+    // Validate IDs for specific subscriptions
+    const hasValidChannelKickID = channelKickID && channelKickID !== "0" && typeof channelKickID === "string";
+    const hasValidEmoteSetId = stvEmoteSetId && stvEmoteSetId !== "0" && stvEmoteSetId !== INVALID_7TV_NULL_ID;
+    
+    // Subscribe to cosmetic and entitlement events if we have a valid Kick channel ID
+    if (hasValidChannelKickID) {
       await this.subscribeToCosmeticEvents(chatroomId, channelKickID);
       await this.subscribeToEntitlementEvents(chatroomId, channelKickID);
+    } else {
+      console.log(`[Shared7TV]: No valid Kick channel ID for chatroom ${chatroomId} (channelKickID: ${channelKickID}) - skipping cosmetic/entitlement subscriptions`);
+    }
 
-      // Only subscribe to emote set events if we have a valid emote set ID
-      if (stvEmoteSetId !== "0") {
-        await this.subscribeToEmoteSetEvents(chatroomId, stvEmoteSetId);
-      }
+    // Subscribe to emote set events only if we have valid emote set ID
+    if (hasValidEmoteSetId) {
+      await this.subscribeToEmoteSetEvents(chatroomId, stvEmoteSetId);
+    } else {
+      console.log(`[Shared7TV]: No valid emote set ID for chatroom ${chatroomId} (setId: ${stvEmoteSetId}) - skipping emote set subscription`);
     }
   }
 
@@ -312,10 +318,12 @@ class SharedStvWebSocket extends EventTarget {
       return;
     }
 
-    // Find any chatroom with a valid stvId
-    const chatroomWithStvId = Array.from(this.chatrooms.values()).find(data => data.stvId !== "0");
+    // Find any chatroom with a valid 7TV user ID
+    const chatroomWithStvId = Array.from(this.chatrooms.values()).find(data => 
+      data.stvId && data.stvId !== "0" && data.stvId !== INVALID_7TV_NULL_ID
+    );
     if (!chatroomWithStvId) {
-      console.log(`[Shared7TV]: No valid stvId found for user events`);
+      console.log(`[Shared7TV]: No valid 7TV user ID found for user events (skipping subscription)`);
       return;
     }
 
@@ -336,7 +344,7 @@ class SharedStvWebSocket extends EventTarget {
     this.chat.send(JSON.stringify(subscribeUserMessage));
     this.subscribedEvents.add(eventKey);
     this.userEventSubscribed = true;
-    console.log(`[Shared7TV]: Subscribed to user.* events`);
+    console.log(`[Shared7TV]: Subscribed to user.* events with stvId: ${chatroomWithStvId.stvId}`);
   }
 
   /**
@@ -414,6 +422,12 @@ class SharedStvWebSocket extends EventTarget {
       return;
     }
 
+    // Validate emote set ID
+    if (!stvEmoteSetId || stvEmoteSetId === "0" || stvEmoteSetId === INVALID_7TV_NULL_ID) {
+      console.log(`[Shared7TV]: Invalid emote set ID "${stvEmoteSetId}" for chatroom ${chatroomId} (skipping subscription)`);
+      return;
+    }
+
     const eventKey = `emote_set.*:${stvEmoteSetId}`;
     if (this.subscribedEvents.has(eventKey)) {
       return;
@@ -430,7 +444,7 @@ class SharedStvWebSocket extends EventTarget {
 
     this.chat.send(JSON.stringify(subscribeAllEmoteSets));
     this.subscribedEvents.add(eventKey);
-    console.log(`[Shared7TV]: Subscribed to emote_set.* events for chatroom ${chatroomId}`);
+    console.log(`[Shared7TV]: Subscribed to emote_set.* events for chatroom ${chatroomId} with setId: ${stvEmoteSetId}`);
   }
 
   setupMessageHandler() {
@@ -459,6 +473,7 @@ class SharedStvWebSocket extends EventTarget {
             break;
 
           case "emote_set.update":
+            console.log(`[Shared7TV] Emote set update for chatroom ${chatroomId}:`, body);
             this.dispatchEvent(
               new CustomEvent("message", {
                 detail: {
@@ -514,9 +529,9 @@ class SharedStvWebSocket extends EventTarget {
     }
 
     // For emote_set events, find chatroom by emote set ID
-    if (type.startsWith("emote_set.") && body?.object_id) {
+    if (type.startsWith("emote_set.") && body?.id) {
       for (const [chatroomId, data] of this.chatrooms) {
-        if (data.stvEmoteSetId === body.object_id) {
+        if (data.stvEmoteSetId === body.id) {
           return chatroomId;
         }
       }

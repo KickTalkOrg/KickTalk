@@ -166,7 +166,6 @@ class StvWebSocket extends EventTarget {
       return;
     }
 
-    console.log(`[7TV]: Connecting to WebSocket (attempt ${this.reconnectAttempts + 1})`);
 
     this.chat = new WebSocket("wss://events.7tv.io/v3?app=kicktalk&version=420.69");
 
@@ -176,12 +175,10 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.onclose = (event) => {
-      console.log(`[7TV]: WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
       this.handleReconnection();
     };
 
     this.chat.onopen = async () => {
-      console.log(`[7TV]: Connection opened successfully`);
 
       this.reconnectAttempts = 0;
 
@@ -192,10 +189,13 @@ class StvWebSocket extends EventTarget {
         await this.delay(100);
       }
 
+      const waitTime = Date.now() - waitStartTime;
+
       // Subscribe to user & cosmetic events
       if (this.stvId !== "0") {
         this.subscribeToUserEvents();
         this.subscribeToCosmeticEvents();
+      } else {
       }
 
       // Subscribe to entitlement events
@@ -205,7 +205,9 @@ class StvWebSocket extends EventTarget {
         // Only subscribe to emote set events if we have a valid emote set ID
         if (this.stvEmoteSetId !== "0") {
           this.subscribeToEmoteSetEvents();
+        } else {
         }
+      } else {
       }
 
       // Setup message handler
@@ -310,7 +312,6 @@ class StvWebSocket extends EventTarget {
 
   subscribeToEmoteSetEvents() {
     if (!this.chat || this.chat.readyState !== WebSocket.OPEN) {
-      console.log(`[7TV]: Cannot subscribe to emote set events - WebSocket not ready`);
       return;
     }
 
@@ -324,7 +325,6 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.send(JSON.stringify(subscribeAllEmoteSets));
-    console.log(`[7TV]: Subscribed to emote_set.* events`);
   }
 
   setupMessageHandler() {
@@ -332,7 +332,11 @@ class StvWebSocket extends EventTarget {
       try {
         const msg = JSON.parse(event.data);
 
-        if (!msg?.d?.body) return;
+        // Log ALL messages to see if we're getting any at all
+
+        if (!msg?.d?.body) {
+          return;
+        }
 
         const { body, type } = msg.d;
 
@@ -346,6 +350,7 @@ class StvWebSocket extends EventTarget {
             break;
 
           case "emote_set.update":
+            
             this.dispatchEvent(
               new CustomEvent("message", {
                 detail: { body, type: "emote_set.update" },
@@ -374,7 +379,7 @@ class StvWebSocket extends EventTarget {
             break;
         }
       } catch (error) {
-        console.log("Error parsing message:", error);
+        console.error(`[7TV WebSocket]: Error parsing message for channel ${this.channelKickID}:`, error);
       }
     };
   }

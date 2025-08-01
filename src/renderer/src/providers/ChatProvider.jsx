@@ -8,7 +8,58 @@ import ConnectionManager from "../../../../utils/services/connectionManager";
 import useCosmeticsStore from "./CosmeticsProvider";
 import { sendUserPresence } from "../../../../utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "../../../../utils/services/kick/kickAPI";
+import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
+
+// Migration constants
+const STORAGE_VERSION = 2;
+
+// Detect corrupted chatroom data
+const detectCorruptedChatroomData = (chatroom) => {
+  // Case 1: channel7TVEmotes is an object instead of array (Scenario 1)
+  if (chatroom?.channel7TVEmotes && !Array.isArray(chatroom.channel7TVEmotes)) {
+    return "object_instead_of_array";
+  }
+  
+  // Case 2: Missing essential streamerData fields (Scenarios 3 & 4)  
+  if (!chatroom?.streamerData?.id || 
+      !chatroom?.streamerData?.user_id ||
+      !chatroom?.streamerData?.user?.username) {
+    return "missing_streamer_data";
+  }
+  
+  // Case 3: Old structure with user at wrong level (Scenario 2)
+  // Check if we have an array but the channel set is missing user data
+  if (Array.isArray(chatroom.channel7TVEmotes)) {
+    const channelSet = chatroom.channel7TVEmotes.find(set => set.type === "channel");
+    if (channelSet && !channelSet.user) {
+      return "wrong_user_nesting";
+    }
+  }
+  
+  return null; // No corruption detected
+};
+
+// Clean corrupted chatroom data
+const cleanCorruptedChatroom = (chatroom, corruptionType) => {
+  console.log(`[Migration] Auto-fixing corrupted data for chatroom ${chatroom.id} (${chatroom.username || 'unknown'}): ${corruptionType}`);
+  
+  const cleaned = { ...chatroom };
+  
+  // Always clear corrupted emote data to force fresh fetch
+  if (cleaned.channel7TVEmotes) {
+    delete cleaned.channel7TVEmotes;
+    delete cleaned.last7TVSetUpdated;
+  }
+  
+  // For missing streamer data, we can't recover - this chatroom needs to be removed
+  if (corruptionType === "missing_streamer_data") {
+    console.log(`[Migration] Chatroom ${chatroom.id} has unrecoverable corruption, will be removed`);
+    return null; // Signal for removal
+  }
+  
+  return cleaned;
+};
 
 // Message states for optimistic sending
 const MESSAGE_STATES = {
@@ -89,7 +140,74 @@ const createOptimisticReply = (chatroomId, content, sender, metadata) => {
 
 // Load initial state from local storage
 const getInitialState = () => {
-  const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+  let savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+  const currentVersion = parseInt(localStorage.getItem("chatrooms_version") || "1");
+  
+  console.log(`[Migration] Current version: ${currentVersion}, Target version: ${STORAGE_VERSION}`);
+  console.log(`[Migration] Loaded ${savedChatrooms.length} chatrooms from localStorage`);
+  
+  // Run migration if needed
+  if (currentVersion < STORAGE_VERSION) {
+    console.log(`[Migration] Running migration from version ${currentVersion} to ${STORAGE_VERSION}`);
+    
+    let migrationStats = {
+      total: savedChatrooms.length,
+      fixed: 0,
+      removed: 0,
+      corrupted: 0
+    };
+    
+    // Process each chatroom for corruption
+    const migratedChatrooms = [];
+    
+    for (const chatroom of savedChatrooms) {
+      console.log(`[Migration] Checking chatroom ${chatroom.id} (${chatroom.username}):`, {
+        hasChannel7TVEmotes: !!chatroom.channel7TVEmotes,
+        isArray: Array.isArray(chatroom.channel7TVEmotes),
+        type: typeof chatroom.channel7TVEmotes,
+        hasStreamerData: !!chatroom.streamerData,
+        hasStreamerId: !!chatroom.streamerData?.id,
+        streamerDataStructure: chatroom.streamerData,
+        hasUserObject: !!chatroom.streamerData?.user,
+        hasUsername: !!chatroom.streamerData?.user?.username
+      });
+      
+      const corruptionType = detectCorruptedChatroomData(chatroom);
+      console.log(`[Migration] Corruption detection result for ${chatroom.id}: ${corruptionType || 'CLEAN'}`);
+      
+      if (corruptionType) {
+        migrationStats.corrupted++;
+        console.log(`[Migration] Found corruption in chatroom ${chatroom.id}: ${corruptionType}`);
+        
+        const cleaned = cleanCorruptedChatroom(chatroom, corruptionType);
+        
+        if (cleaned === null) {
+          // Chatroom was too corrupted to recover
+          migrationStats.removed++;
+          console.log(`[Migration] Removed unrecoverable chatroom ${chatroom.id}`);
+        } else {
+          // Chatroom was cleaned successfully
+          migrationStats.fixed++;
+          migratedChatrooms.push(cleaned);
+        }
+      } else {
+        // Chatroom is clean, keep as-is
+        migratedChatrooms.push(chatroom);
+      }
+    }
+    
+    // Save migrated data
+    savedChatrooms = migratedChatrooms;
+    localStorage.setItem("chatrooms", JSON.stringify(savedChatrooms));
+    localStorage.setItem("chatrooms_version", STORAGE_VERSION.toString());
+    
+    console.log(`[Migration] Migration completed:`, migrationStats);
+    
+    if (migrationStats.corrupted > 0) {
+      console.log(`[Migration] ✅ Fixed ${migrationStats.fixed} chatrooms, removed ${migrationStats.removed} unrecoverable chatrooms`);
+    }
+  }
+  
   const savedMentionsTab = localStorage.getItem("hasMentionsTab") === "true";
   const savedPersonalEmoteSets = JSON.parse(localStorage.getItem("stvPersonalEmoteSets")) || [];
 
@@ -176,6 +294,23 @@ const useChatStore = create((set, get) => ({
       manager: "not initialized",
       individual_connections: Object.keys(get().connections).length,
     };
+  },
+
+  // Debug function to check 7TV WebSocket status
+  get7TVStatus: () => {
+    const connections = get().connections;
+    const chatrooms = get().chatrooms;
+    
+    // Check if using shared connection manager
+    if (connectionManager) {
+      // TODO: Add OpenTelemetry metrics here for 7TV connection health
+      // Metrics to consider:
+      // - seventv_connections_total (gauge)
+      // - seventv_subscriptions_total (gauge) 
+      // - seventv_websocket_state (gauge with labels: connected, connecting, disconnected)
+    }
+    
+    return { chatrooms: chatrooms.length, connections: Object.keys(connections).length };
   },
 
   // Debug function to toggle livestream status for testing
@@ -463,12 +598,17 @@ const useChatStore = create((set, get) => ({
   },
 
   connectToStvWebSocket: (chatroom) => {
-    const stvId = chatroom?.channel7TVEmotes?.user?.id;
-    const stvEmoteSets = chatroom?.channel7TVEmotes?.find((set) => set.type === "channel")?.setInfo.id;
+    const channelSet = chatroom?.channel7TVEmotes?.find((set) => set.type === "channel");
+    const stvId = channelSet?.user?.id;
+    const stvEmoteSets = channelSet?.setInfo?.id;
+
+    // TODO: Add OpenTelemetry metrics for 7TV WebSocket setup
+    // Metrics to consider:
+    // - seventv_websocket_connections_created_total (counter)
+    // - seventv_emote_sets_subscribed_total (counter)
 
     const existingConnection = get().connections[chatroom.id]?.stvSocket;
     if (existingConnection) {
-      console.log("Closing existing 7TV WebSocket for chatroom:", chatroom.id);
       existingConnection.close();
     }
 
@@ -953,7 +1093,6 @@ const useChatStore = create((set, get) => ({
       onKickMessage: (event) => {
         try {
           const { chatroomId } = event.detail;
-          console.log(`[ChatProvider] Received kick message for chatroom ${chatroomId}:`, event.detail);
           if (chatroomId) {
             get().handleKickMessage(chatroomId, event.detail);
           }
@@ -1085,7 +1224,6 @@ const useChatStore = create((set, get) => ({
 
   // Shared connection event handlers
   handleKickMessage: async (chatroomId, eventDetail) => {
-    console.log(`[ChatProvider] Processing kick message for chatroom ${chatroomId}:`, eventDetail);
     const parsedEvent = JSON.parse(eventDetail.data);
 
     switch (eventDetail.event) {
@@ -1106,12 +1244,7 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           };
-          console.log(`[ChatProvider] Adding message to chatroom ${chatroomId}:`, messageWithTimestamp);
           get().addMessage(chatroomId, messageWithTimestamp);
-
-          // Verify the message was added
-          const currentMessages = get().messages[chatroomId] || [];
-          console.log(`[ChatProvider] Chatroom ${chatroomId} now has ${currentMessages.length} messages`);
 
           if (parsedEvent?.type === "reply") {
             window.app.replyLogs.add({
@@ -1872,22 +2005,37 @@ const useChatStore = create((set, get) => ({
   },
 
   handleEmoteSetUpdate: (chatroomId, body) => {
-    if (!body) return;
+    // TODO: Add OpenTelemetry metrics for emote set updates
+    // Metrics to consider:
+    // - seventv_emote_updates_total (counter with labels: type=pulled|pushed|updated)
+    // - seventv_emote_update_processing_duration (histogram)
+    
+    if (!body) {
+      return;
+    }
 
     const { pulled = [], pushed = [], updated = [] } = body;
 
     const chatroom = get().chatrooms.find((room) => room.id === chatroomId);
-    if (!chatroom) return;
+    if (!chatroom) {
+      return;
+    }
 
     const channelEmoteSet = Array.isArray(chatroom.channel7TVEmotes)
       ? chatroom.channel7TVEmotes.find((set) => set.type === "channel")
       : null;
 
     const personalEmoteSets = get().personalEmoteSets;
-    if (!channelEmoteSet?.emotes || !personalEmoteSets?.length) return;
+
+    // Check if we have either channel emotes OR this is a personal set update
+    const isPersonalSetUpdate = personalEmoteSets?.some((set) => body.id === set.setInfo?.id);
+    
+    if (!channelEmoteSet?.emotes && !isPersonalSetUpdate) {
+      return;
+    }
 
     let emotes = channelEmoteSet.emotes || [];
-    const isPersonalSetUpdated = personalEmoteSets.some((set) => body.id === set.setInfo?.id);
+    const isPersonalSetUpdated = isPersonalSetUpdate;
 
     // Get the specific personal emote set being updated
     const personalSetBeingUpdated = personalEmoteSets.find((set) => body.id === set.setInfo?.id);
@@ -2038,8 +2186,14 @@ const useChatStore = create((set, get) => ({
     personalEmotes = [...personalEmotes].sort((a, b) => a.name.localeCompare(b.name));
     emotes = [...emotes].sort((a, b) => a.name.localeCompare(b.name));
 
+
     // Send emote update data to frontend for custom handling
     if (addedEmotes.length > 0 || removedEmotes.length > 0 || updatedEmotes.length > 0) {
+      // TODO: Add OpenTelemetry metrics for emote changes
+      // Metrics to consider:
+      // - seventv_emotes_added_total (counter)
+      // - seventv_emotes_removed_total (counter)
+      // - seventv_emotes_updated_total (counter)
       const setInfo = isPersonalSetUpdated ? personalSetBeingUpdated?.setInfo : channelEmoteSet?.setInfo;
 
       if (body?.actor) {
@@ -2078,6 +2232,7 @@ const useChatStore = create((set, get) => ({
       return; // Don't update channel emotes if this was a personal set update
     }
 
+    
     let updatedChannel7TVEmotes;
     if (Array.isArray(chatroom.channel7TVEmotes)) {
       updatedChannel7TVEmotes = chatroom.channel7TVEmotes.map((set) => (set.type === "channel" ? { ...set, emotes } : set));
@@ -2106,6 +2261,10 @@ const useChatStore = create((set, get) => ({
         savedChatrooms.map((room) => (room.id === chatroomId ? { ...room, channel7TVEmotes: updatedChannel7TVEmotes } : room)),
       ),
     );
+
+    // Clear emote cache to ensure new emotes are loaded from updated store
+    clearChatroomEmoteCache(chatroomId);
+    
   },
 
   refresh7TVEmotes: async (chatroomId) => {
@@ -2140,6 +2299,9 @@ const useChatStore = create((set, get) => ({
             return room;
           }),
         }));
+
+        // Clear emote cache to ensure refreshed emotes are loaded
+        clearChatroomEmoteCache(chatroomId);
 
         // Send system message on success
         get().addMessage(chatroomId, {
@@ -2510,6 +2672,9 @@ if (process.env.NODE_ENV === 'development') {
     },
     getConnectionStatus: () => {
       return useChatStore.getState().getConnectionStatus();
+    },
+    get7TVStatus: () => {
+      return useChatStore.getState().get7TVStatus();
     }
   };
 }

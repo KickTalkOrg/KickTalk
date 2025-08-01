@@ -20,6 +20,20 @@ const clearEmoteCache = () => {
   }
 };
 
+// Export function to clear specific chatroom emote cache
+export const clearChatroomEmoteCache = (chatroomId) => {
+  if (chatroomEmoteCache.has(chatroomId)) {
+    chatroomEmoteCache.delete(chatroomId);
+    console.log(`[MessageParser] Cleared emote cache for chatroom ${chatroomId}`);
+  }
+};
+
+// Export function to clear all emote caches
+export const clearAllEmoteCaches = () => {
+  chatroomEmoteCache.clear();
+  console.log(`[MessageParser] Cleared all emote caches`);
+};
+
 const clearMessageCache = () => {
   if (messageContentCache.size > MAX_MESSAGE_CACHE_SIZE) {
     const entries = Array.from(messageContentCache.entries());

@@ -152,12 +152,16 @@ class ConnectionManager {
       );
 
       // Add to 7TV WebSocket
-      const stvId = chatroom.streamerData?.user_id || "0";
-      const stvEmoteSetId = chatroom.channel7TVEmotes?.[0]?.id || "0";
+      // Extract 7TV user ID and emote set ID from channel emotes
+      const channelEmoteSet = Array.isArray(chatroom.channel7TVEmotes) 
+        ? chatroom.channel7TVEmotes.find(set => set.type === "channel")
+        : null;
+      const stvId = channelEmoteSet?.user?.id || "0";
+      const stvEmoteSetId = channelEmoteSet?.setInfo?.id || "0";
 
       this.stvWebSocket.addChatroom(
         chatroom.id,
-        stvId,
+        chatroom.streamerData.id, // Use the Kick channel ID for cosmetic/entitlement subscriptions
         stvId,
         stvEmoteSetId
       );

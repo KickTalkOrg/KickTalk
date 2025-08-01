@@ -63,7 +63,7 @@
     "@electron-toolkit/utils": "^4.0.0",
     "@hello-pangea/dnd": "^18.0.1",
     "@lexical/react": "^0.30.0",
-    "@lexical/text": "^0.33.1",
+    "@lexical/text": "^0.30.0",
     "@opentelemetry/context-async-hooks": "^2.0.1",
     "@opentelemetry/exporter-metrics-otlp-http": "^0.203.0",
     "@opentelemetry/exporter-prometheus": "^0.203.0",
