@@ -1,8 +1,9 @@
 // KickTalk metrics implementation
 const { metrics } = require('@opentelemetry/api');
 
-// Get the meter for KickTalk
-const meter = metrics.getMeter('kicktalk', require('../../package.json').version);
+// Ensure a meter exists (provider is configured in instrumentation.js)
+const pkg = require('../../package.json');
+const meter = metrics.getMeter('kicktalk', pkg.version);
 
 // Connection Metrics - Track active connections in a Map for accurate counting
 const activeConnections = new Map();
@@ -58,7 +59,7 @@ const memoryUsage = meter.createObservableGauge('kicktalk_memory_usage_bytes', {
 });
 
 const cpuUsage = meter.createObservableGauge('kicktalk_cpu_usage_percent', {
-  description: 'CPU usage percentage',
+  description: 'CPU usage (user+system) seconds over interval; percent-like gauge for relative tracking',
   unit: '%'
 });
 
@@ -197,6 +198,10 @@ try {
 }
 
 // Metrics helper functions
+// Note: Exporter and endpoints are now configured via environment (see instrumentation.js):
+//   - OTEL_EXPORTER_OTLP_ENDPOINT or OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+//   - OTEL_EXPORTER_OTLP_HEADERS (e.g., Authorization=Basic base64(InstanceID:APITOKEN))
+//   - OTEL_SERVICE_NAME, OTEL_RESOURCE_ATTRIBUTES, etc.
 const MetricsHelper = {
   // Connection metrics
   incrementWebSocketConnections(chatroomId, streamerId, streamerName = null) {

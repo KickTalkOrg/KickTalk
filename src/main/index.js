@@ -1,3 +1,36 @@
+/* Telemetry bootstrap (NodeSDK OTLP -> Grafana Cloud)
+   Simplified: map electron-vite MAIN_VITE_* envs to OTEL_* before starting SDK.
+*/
+import dotenv from "dotenv";
+dotenv.config();
+
+// Map MAIN_VITE_* (electron-vite main-scoped) into standard OTEL_* before SDK starts
+try {
+  // Note: when using electron-vite, prefer MAIN_VITE_* in .env for main process values.
+  const env = process.env;
+  const map = (src, dest) => {
+    if (env[src] && !env[dest]) env[dest] = env[src];
+  };
+
+  map("MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT", "OTEL_EXPORTER_OTLP_ENDPOINT");
+  map("MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS", "OTEL_EXPORTER_OTLP_HEADERS");
+  map("MAIN_VITE_OTEL_DIAG_LOG_LEVEL", "OTEL_DIAG_LOG_LEVEL");
+  map("MAIN_VITE_OTEL_DEPLOYMENT_ENV", "OTEL_DEPLOYMENT_ENV");
+  // Optional: allow MAIN_VITE_OTEL_SERVICE_NAME to override service.name
+  map("MAIN_VITE_OTEL_SERVICE_NAME", "OTEL_SERVICE_NAME");
+
+  // If you want to push deployment env into resource attributes, set OTEL_RESOURCE_ATTRIBUTES accordingly.
+  if (!env.OTEL_RESOURCE_ATTRIBUTES) {
+    const attrs = [];
+    if (env.OTEL_SERVICE_NAME) attrs.push(`service.name=${env.OTEL_SERVICE_NAME}`);
+    if (env.OTEL_DEPLOYMENT_ENV) attrs.push(`deployment.environment=${env.OTEL_DEPLOYMENT_ENV}`);
+    if (attrs.length) env.OTEL_RESOURCE_ATTRIBUTES = attrs.join(",");
+  }
+} catch {}
+
+// Start NodeSDK (driven by OTEL_* envs)
+require('../telemetry/tracing.js');
+
 const { app, shell, BrowserWindow, ipcMain, screen, session, Tray, Menu, dialog } = require("electron");
 import { join, basename } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
@@ -5,8 +38,6 @@ import { update } from "./utils/update";
 import Store from "electron-store";
 import store from "../../utils/config";
 import fs from "fs";
-import dotenv from "dotenv";
-dotenv.config();
 
 // Initialize telemetry early if enabled
 let initTelemetry = null;
@@ -27,18 +58,19 @@ const checkTelemetrySettings = () => {
 };
 
 try {
-  const telemetryModule = require("../telemetry/index.js");
-  initTelemetry = telemetryModule.initTelemetry;
-  shutdownTelemetry = telemetryModule.shutdownTelemetry;
-  
+  // Legacy telemetry disabled: NodeSDK bootstrap runs at file start
+  // Legacy bootstrap removed entirely
+  // const telemetryModule = require("../telemetry/index.js");
+  // initTelemetry = telemetryModule.initTelemetry;
+  // shutdownTelemetry = telemetryModule.shutdownTelemetry;
+
   // Override the telemetry enabled check with our main process version
   isTelemetryEnabled = checkTelemetrySettings;
-  
-  if (isTelemetryEnabled()) {
-    initTelemetry();
-  }
+
+  // NodeSDK starts unconditionally at process start; we keep isTelemetryEnabled
+  // for future conditional behavior if needed.
 } catch (error) {
-  console.warn('[Telemetry]: Failed to load telemetry module:', error.message);
+  console.warn('[Telemetry]: Telemetry module skipped:', error.message);
 }
 
 const isDev = process.env.NODE_ENV === "development";
@@ -49,10 +81,25 @@ const iconPath = process.platform === "win32"
 // Load metrics with fallback
 let metrics = null;
 try {
-  const telemetryModule = require("../telemetry/index.js");
-  metrics = telemetryModule.metrics;
+  // Legacy metrics moved: prefer the new helper from src/telemetry/metrics.js
+  const metricsModule = require("../telemetry/metrics.js");
+  // Expose helper API expected by the main process
+  metrics = {
+    incrementOpenWindows: metricsModule.MetricsHelper?.incrementOpenWindows || (() => {}),
+    decrementOpenWindows: metricsModule.MetricsHelper?.decrementOpenWindows || (() => {}),
+    recordError: metricsModule.MetricsHelper?.recordConnectionError || (() => {}),
+    recordMessageSent: metricsModule.MetricsHelper?.recordMessageSent || (() => {}),
+    recordMessageSendDuration: metricsModule.MetricsHelper?.recordMessageSendDuration || (() => {}),
+    recordMessageReceived: metricsModule.MetricsHelper?.recordMessageReceived || (() => {}),
+    recordRendererMemory: metricsModule.MetricsHelper?.recordRendererMemory || (() => {}),
+    recordDomNodeCount: metricsModule.MetricsHelper?.recordDomNodeCount || (() => {}),
+    incrementWebSocketConnections: metricsModule.MetricsHelper?.incrementWebSocketConnections || (() => {}),
+    decrementWebSocketConnections: metricsModule.MetricsHelper?.decrementWebSocketConnections || (() => {}),
+    recordConnectionError: metricsModule.MetricsHelper?.recordConnectionError || (() => {}),
+    recordReconnection: metricsModule.MetricsHelper?.recordReconnection || (() => {}),
+  };
 } catch (error) {
-  console.warn('[Telemetry]: Failed to load metrics:', error.message);
+  console.warn('[Telemetry]: Failed to load metrics helper:', error.message);
   // Fallback no-op metrics
   metrics = {
     incrementOpenWindows: () => {},
