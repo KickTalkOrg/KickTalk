@@ -1,20 +1,23 @@
+import { useTranslation } from "react-i18next";
 import darkProfilePic from "../../../../assets/app/darkProfilePic.jpg";
 import ftkProfilePic from "../../../../assets/app/ftk789ProfilePic.jpg";
 import XLogo from "../../../../assets/logos/XLogo.svg?asset";
 import kickLogoIcon from "../../../../assets/logos/kickLogoIcon.svg?asset";
 
 const AboutSection = ({ appInfo }) => {
+  const { t } = useTranslation();
+  
   return (
     <div className="settingsContentAbout">
       <div className="settingsContentSection">
         <div className="settingsSectionHeader">
-          <h4>About KickTalk</h4>
-          <p>A chat client for Kick.com.</p>
+          <h4>{t('settings.about.title')}</h4>
+          <p>{t('settings.about.description')}</p>
         </div>
 
         <div className="settingsContentAboutDevsContainer">
           <div className="settingsContentHeader">
-            <h5>Meet the Creators</h5>
+            <h5>{t('settings.about.meetCreators')}</h5>
           </div>
           <div className="settingsContentAboutDevs">
             <div className="settingsContentAboutDev">
@@ -22,23 +25,23 @@ const AboutSection = ({ appInfo }) => {
                 <img src={darkProfilePic} alt="dark Profile Pic" width={80} height={80} />
                 <div className="settingsContentAboutDevSections">
                   <span>
-                    <p>Kick Username:</p>
+                    <p>{t('settings.about.kickUsername')}:</p>
                     <h5>DRKNESS_x</h5>
                   </span>
                   <span>
-                    <p>Role:</p>
-                    <h5>Developer & Designer</h5>
+                    <p>{t('settings.about.role')}:</p>
+                    <h5>{t('settings.about.developerDesigner')}</h5>
                   </span>
                 </div>
               </div>
 
               <div className="settingsContentAboutDevSocials">
                 <a href="https://x.com/drkerco" target="_blank" rel="noopener noreferrer">
-                  <span>Open Twitter</span>
+                  <span>{t('settings.about.openTwitter')}</span>
                   <img src={XLogo} width={12} height={12} alt="X-Twitter Logo" />
                 </a>
                 <a href="https://kick.com/drkness-x" target="_blank" rel="noopener noreferrer">
-                  <span>Open Channel</span>
+                  <span>{t('settings.about.openChannel')}</span>
                   <img src={kickLogoIcon} width={12} height={12} alt="Kick Logo" />
                 </a>
               </div>
@@ -49,23 +52,23 @@ const AboutSection = ({ appInfo }) => {
                 <img src={ftkProfilePic} alt="ftk789 Profile Pic" width={80} height={80} />
                 <div className="settingsContentAboutDevSections">
                   <span>
-                    <p>Kick Username:</p>
+                    <p>{t('settings.about.kickUsername')}:</p>
                     <h5>ftk789</h5>
                   </span>
                   <span>
-                    <p>Role:</p>
-                    <h5>Developer</h5>
+                    <p>{t('settings.about.role')}:</p>
+                    <h5>{t('settings.about.developer')}</h5>
                   </span>
                 </div>
               </div>
 
               <div className="settingsContentAboutDevSocials">
                 <a href="https://x.com/ftk789yt" target="_blank" rel="noopener noreferrer">
-                  <span>Open Twitter</span>
+                  <span>{t('settings.about.openTwitter')}</span>
                   <img src={XLogo} width={12} height={12} alt="X-Twitter Logo" />
                 </a>
                 <a href="https://kick.com/ftk789" target="_blank" rel="noopener noreferrer">
-                  <span>Open Channel</span>
+                  <span>{t('settings.about.openChannel')}</span>
                   <img src={kickLogoIcon} width={12} height={12} alt="Kick Logo" />
                 </a>
               </div>
@@ -76,14 +79,12 @@ const AboutSection = ({ appInfo }) => {
       <div className="settingsContentSection">
         <div className="settingsContentAboutApp">
           <div className="settingsContentHeader">
-            <h5>About KickTalk</h5>
+            <h5>{t('settings.about.aboutKickTalk')}</h5>
           </div>
 
           <div className="settingsContentAboutAppContent">
             <p>
-              We created this application because we felt the current solution Kick was offering couldn't meet the needs of users
-              who want more from their chatting experience. From multiple chatrooms to emotes and native Kick functionality all in
-              one place.
+              {t('settings.about.appDescription')}
             </p>
           </div>
         </div>
@@ -92,7 +93,7 @@ const AboutSection = ({ appInfo }) => {
       <div className="settingsContentSection">
         <div className="settingsAppDetailsSection">
           <div className="settingsAppDetailsInfo">
-            <h5>Current Version:</h5>
+            <h5>{t('settings.about.currentVersion')}:</h5>
             <p>{appInfo?.appVersion}</p>
           </div>
           {/* <UpdateButton /> */}

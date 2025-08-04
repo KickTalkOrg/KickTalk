@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import "../assets/styles/loader.css";
 import Klogo from "../assets/icons/K.svg";
 import clsx from "clsx";
 
 const Loader = ({ onFinish }) => {
+  const { t } = useTranslation();
   const [showText, setShowText] = useState(false);
   const [hideLoader, setHideLoader] = useState(false);
   const [appVersion, setAppVersion] = useState(null);
@@ -38,7 +40,7 @@ const Loader = ({ onFinish }) => {
       {showText && (
         <div className="textContainer">
           <p className="creatorText">
-            Created by <span>DRKNESS</span> and <span>ftk789</span>
+            {t('loader.createdBy')} <span>DRKNESS</span> and <span>ftk789</span>
           </p>
           {appVersion && <p className="appVersion">v{appVersion}</p>}
         </div>

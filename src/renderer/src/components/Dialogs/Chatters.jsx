@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
 import X from "../../assets/icons/x-bold.svg";
 import { useDebounceValue } from "../../utils/hooks";
 import { KickBadges } from "../Cosmetics/Badges";
 
 const Chatters = () => {
+  const { t } = useTranslation();
   const [chattersData, setChattersData] = useState(null);
   const [debouncedValue, setDebouncedValue] = useDebounceValue("", 200);
 
@@ -81,16 +83,16 @@ const Chatters = () => {
       <div className="chattersHead">
         <h2>
           <p>
-            Chatters: <span>{chattersData?.streamerData?.user?.username || ""}</span>
+            {t('chatters.title')}: <span>{chattersData?.streamerData?.user?.username || ""}</span>
           </p>
           <p>
             {debouncedValue ? (
               <>
-                Showing: <span>{filteredChatters.length}</span> of <span>{chattersData?.chatters?.length || 0}</span>
+                {t('chatters.showing')}: <span>{filteredChatters.length}</span> {t('chatters.of')} <span>{chattersData?.chatters?.length || 0}</span>
               </>
             ) : (
               <>
-                Total: <span>{chattersData?.chatters?.length || 0}</span>
+                {t('chatters.total')}: <span>{chattersData?.chatters?.length || 0}</span>
               </>
             )}
           </p>
@@ -102,14 +104,14 @@ const Chatters = () => {
       </div>
 
       <div className="chattersSearch">
-        <input type="text" placeholder="Search..." onChange={(e) => setDebouncedValue(e.target.value.trim())} />
+        <input type="text" placeholder={t('chatters.searchPlaceholder')} onChange={(e) => setDebouncedValue(e.target.value.trim())} />
       </div>
 
       {chattersData?.chatters?.length ? (
         <div className="chattersList">
           {!filteredChatters?.length && debouncedValue ? (
             <div className="chatterListItem">
-              <span>No results found</span>
+              <span>{t('chatters.noResults')}</span>
             </div>
           ) : (
             <Virtuoso
@@ -123,8 +125,8 @@ const Chatters = () => {
         </div>
       ) : (
         <div className="chattersListEmpty">
-          <p>No chatters tracked yet</p>
-          <span>As users type their username will appear here.</span>
+          <p>{t('chatters.noTrackingYet')}</p>
+          <span>{t('chatters.trackingDescription')}</span>
         </div>
       )}
     </div>

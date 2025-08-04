@@ -1,11 +1,13 @@
 import "../../assets/styles/components/Chat/Message.scss";
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
+import { useTranslation } from "react-i18next";
 import { Virtuoso } from "react-virtuoso";
 import { useDebounceValue } from "../../utils/hooks";
 import X from "../../assets/icons/x-bold.svg";
 import RegularMessage from "../Messages/RegularMessage";
 
 const Search = () => {
+  const { t } = useTranslation();
   const [searchData, setSearchData] = useState(null);
   const [messages, setMessages] = useState([]);
   const [debouncedValue, setDebouncedValue] = useDebounceValue("", 200);
@@ -139,20 +141,20 @@ const Search = () => {
         {debouncedValue ? (
           <h2>
             <p>
-              Searching History in <span>{searchData?.chatroomName}</span>
+              {t('search.searchingHistory')} <span>{searchData?.chatroomName}</span>
             </p>
             <p>
-              Messages: <span>{filteredMessages.length}</span> of{" "}
+              {t('search.messages')}: <span>{filteredMessages.length}</span> {t('chatters.of')}{" "}
               <span>{messages?.filter((m) => m.type === "message")?.length || 0}</span>
             </p>
           </h2>
         ) : (
           <h2>
             <p>
-              Searching History in <span>{searchData?.chatroomName}</span>
+              {t('search.searchingHistory')} <span>{searchData?.chatroomName}</span>
             </p>
             <p>
-              Messages: <span>{messages?.filter((m) => m.type === "message")?.length || 0}</span>
+              {t('search.messages')}: <span>{messages?.filter((m) => m.type === "message")?.length || 0}</span>
             </p>
           </h2>
         )}
@@ -164,7 +166,7 @@ const Search = () => {
       <div className="searchInput">
         <input
           type="text"
-          placeholder="Search messages..."
+          placeholder={t('search.placeholder')}
           onChange={(e) => setDebouncedValue(e.target.value.trim())}
           ref={inputRef}
         />
@@ -173,7 +175,7 @@ const Search = () => {
       <div className="searchResults">
         {!filteredMessages?.length && debouncedValue ? (
           <div className="searchResultItem">
-            <span>No messages found</span>
+            <span>{t('search.noResults')}</span>
           </div>
         ) : (
           <Virtuoso

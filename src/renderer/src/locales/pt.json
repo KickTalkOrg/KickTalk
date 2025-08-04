@@ -1,0 +1,246 @@
+{
+  "auth": {
+    "signIn": "Entrar",
+    "signInWithKick": "Entre com sua conta do Kick",
+    "loginWithKick": "Entrar com Kick",
+    "loginWithGoogle": "Entrar com Google",
+    "loginWithApple": "Entrar com Apple",
+    "continueAnonymous": "Continuar anônimo",
+    "kickLoginDescription": "Usar nome de usuário e senha para login? Continue para Kick.com",
+    "googleAppleDescription": "Já tem uma conta Kick com login do Google ou Apple?",
+    "disclaimer": "NÃO salvamos nenhum email ou senha."
+  },
+  "titleBar": {
+    "loading": "Carregando...",
+    "settings": "Configurações",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Fechar"
+  },
+  "chat": {
+    "addChatroom": "Adicione uma sala de chat usando \"CTRL\"+\"t\" ou clicando no botão Adicionar",
+    "pinMessage": "Fixar Mensagem",
+    "copyMessage": "Copiar Mensagem",
+    "replyTo": "Responder para {{username}}"
+  },
+  "navbar": {
+    "chatroom": "Sala de Chat",
+    "mentions": "Menções",
+    "addChatroom": "Adicionar Sala de Chat",
+    "addChatroomDescription": "Digite o nome de um canal para adicionar uma nova sala de chat",
+    "enterStreamerName": "Digite o nome do streamer...",
+    "connecting": "Conectando...",
+    "addMentionsTab": "Adicionar Aba de Menções",
+    "addMentionsDescription": "Adicione uma aba para ver todas as suas menções e destaques de todos os chats em um só lugar",
+    "closeAddMentions": "Fechar Adicionar Menções"
+  },
+  "userDialog": {
+    "muteUser": "Silenciar Usuário",
+    "unmuteUser": "Desilenciar Usuário",
+    "openProfile": "Abrir Canal",
+    "check": "Verificar",
+    "unban": "Desbanir Usuário",
+    "timeout1m": "1m",
+    "timeout5m": "5m",
+    "timeout10m": "10m",
+    "timeout30m": "30m",
+    "timeout1h": "1h",
+    "timeout3h": "3h",
+    "timeout6h": "6h",
+    "timeout12h": "12h",
+    "timeout24h": "1d",
+    "timeout1w": "1sem",
+    "ban": "Banir Usuário",
+    "followingSince": "Seguindo desde",
+    "subscribedFor": "Inscrito por",
+    "monthsSingular": "{{count}} mês",
+    "monthsPlural": "{{count}} meses"
+  },
+  "settings": {
+    "title": "Configurações",
+    "language": "Idioma",
+    "languageDescription": "Escolha seu idioma preferido",
+    "menu": {
+      "aboutKickTalk": "Sobre o KickTalk",
+      "general": "Geral",
+      "chat": "Chat",
+      "moderation": "Moderação",
+      "signOut": "Sair"
+    },
+    "general": {
+      "title": "Geral",
+      "description": "Selecione quais configurações gerais do aplicativo você quer alterar.",
+      "alwaysOnTop": "Sempre no topo",
+      "alwaysOnTopDescription": "Manter o aplicativo sempre no topo de outras janelas",
+      "wrapChatroomsList": "Quebrar lista de salas",
+      "wrapChatroomsListDescription": "Mostrar lista de salas de chat em múltiplas linhas quando há muitas abas",
+      "showTabImages": "Mostrar imagens das abas",
+      "showTabImagesDescription": "Mostrar fotos de perfil dos streamers nas abas das salas de chat",
+      "timestampFormat": "Formato de horário",
+      "timestampFormatDescription": "Escolha como os horários são exibidos nas mensagens do chat",
+      "disabled": "Desabilitado"
+    },
+    "chatrooms": {
+      "title": "Salas de Chat",
+      "description": "Configure configurações específicas das salas de chat e comportamento.",
+      "autoScroll": "Rolagem automática",
+      "autoScrollDescription": "Rolar automaticamente para a última mensagem",
+      "showUserBadges": "Mostrar badges de usuário",
+      "showUserBadgesDescription": "Exibir badges ao lado dos nomes de usuário no chat",
+      "showEmotes": "Mostrar emotes",
+      "showEmotesDescription": "Exibir emotes e emoji nas mensagens do chat",
+      "messageBatching": "Agrupamento de mensagens",
+      "messageBatchingDescription": "Agrupar mensagens para melhorar performance",
+      "batchingInterval": "Intervalo de agrupamento (segundos)",
+      "batchingIntervalDescription": "Com que frequência agrupar mensagens"
+    },
+    "notifications": {
+      "title": "Notificações",
+      "description": "Configure configurações de notificações e alertas sonoros.",
+      "enabled": "Habilitar notificações",
+      "enabledDescription": "Mostrar notificações para mensagens destacadas",
+      "sound": "Notificações sonoras",
+      "soundDescription": "Tocar som ao receber notificações",
+      "phrases": "Frases destacadas",
+      "phrasesDescription": "Palavras ou frases que ativam notificações",
+      "addPhrase": "Adicionar frase",
+      "selectSound": "Selecionar som de notificação",
+      "uploadCustomSound": "Enviar som personalizado"
+    },
+    "cosmetics": {
+      "title": "Cosméticos",
+      "description": "Personalize a aparência e tema da aplicação.",
+      "theme": "Tema",
+      "themeDescription": "Escolha seu esquema de cores preferido",
+      "customTheme": "Tema personalizado",
+      "customThemeDescription": "Enviar ou selecionar um tema personalizado",
+      "chatBackground": "Fundo do chat",
+      "chatBackgroundDescription": "Personalizar o fundo da área de chat",
+      "messageAnimations": "Animações de mensagens",
+      "messageAnimationsDescription": "Habilitar animações suaves para novas mensagens"
+    },
+    "moderation": {
+      "title": "Moderação",
+      "description": "Configure ferramentas de moderação e filtros.",
+      "quickModTools": "Ferramentas de moderação rápidas",
+      "quickModToolsDescription": "Habilita acesso rápido a ferramentas de moderação como timeout, ban e excluir mensagens",
+      "autoModeration": "Moderação automática",
+      "autoModerationDescription": "Moderar automaticamente o chat baseado em regras",
+      "wordFilter": "Filtro de palavras",
+      "wordFilterDescription": "Filtrar palavras inapropriadas",
+      "linkFilter": "Filtro de links",
+      "linkFilterDescription": "Filtrar mensagens contendo links",
+      "spamFilter": "Filtro de spam",
+      "spamFilterDescription": "Detectar e filtrar mensagens de spam"
+    },
+    "about": {
+      "title": "Sobre",
+      "description": "Conheça os desenvolvedores e saiba mais sobre o KickTalk",
+      "meetCreators": "Conheça os Criadores",
+      "kickUsername": "Nome de Usuário do Kick",
+      "role": "Função",
+      "developer": "Desenvolvedor",
+      "developerDesigner": "Desenvolvedor e Designer",
+      "openTwitter": "Abrir Twitter",
+      "openChannel": "Abrir Canal",
+      "aboutKickTalk": "Sobre o KickTalk",
+      "appDescription": "Criamos esta aplicação porque sentimos que a solução atual que o Kick oferecia não conseguia atender às necessidades dos usuários que querem mais da sua experiência de chat. Desde múltiplas salas de chat até emotes e funcionalidade nativa do Kick, tudo em um só lugar.",
+      "currentVersion": "Versão Atual",
+      "version": "Versão",
+      "electronVersion": "Versão do Electron",
+      "chromeVersion": "Versão do Chrome",
+      "nodeVersion": "Versão do Node",
+      "author": "Autor",
+      "license": "Licença",
+      "repository": "Repositório",
+      "support": "Suporte",
+      "updates": "Atualizações",
+      "checkForUpdates": "Verificar atualizações",
+      "updateAvailable": "Atualização disponível",
+      "upToDate": "A aplicação está atualizada"
+    }
+  },
+  "messages": {
+    "scrollToBottom": "Ir para o Final",
+    "pinMessage": "Fixar Mensagem",
+    "copyMessage": "Copiar Mensagem", 
+    "replyTo": "Responder a {{username}}",
+    "connecting": "Conectando ao Canal...",
+    "connected": "Conectado ao Canal",
+    "modAction": {
+      "permanentlyBanned": "baniu permanentemente",
+      "timedOut": "deu timeout em",
+      "unbanned": "desbaniu",
+      "removedTimeoutOn": "removeu timeout de",
+      "forDuration": " por {{duration}}"
+    },
+    "emoteUpdate": {
+      "personal": "Pessoal",
+      "channel": "Canal",
+      "added": "Adicionado",
+      "removed": "Removido",
+      "renamed": "Renomeado",
+      "madeBy": "Feito por: {{creator}}"
+    }
+  },
+  "chatInput": {
+    "placeholder": "Envie uma mensagem...",
+    "enterMessage": "Digite uma mensagem...",
+    "replyingTo": "Respondendo a",
+    "subscriber": "SUB"
+  },
+  "chatters": {
+    "title": "Usuários",
+    "total": "Total",
+    "showing": "Mostrando",
+    "of": "de",
+    "searchPlaceholder": "Pesquisar...",
+    "noResults": "Nenhum resultado encontrado",
+    "noTrackingYet": "Nenhum usuário rastreado ainda",
+    "trackingDescription": "Quando os usuários digitarem, seus nomes aparecerão aqui."
+  },
+  "streamerInfo": {
+    "liveFor": "Ao vivo há {{duration}} com {{viewers}} espectadores",
+    "refreshEmotes": "Atualizar Emotes 7TV",
+    "refreshKickEmotes": "Atualizar Emotes Kick",
+    "search": "Pesquisar",
+    "openStream": "Abrir Stream no Navegador",
+    "openPlayer": "Abrir Player no Navegador",
+    "openModView": "Abrir Visualização de Moderador no Navegador"
+  },
+  "search": {
+    "searchingHistory": "Pesquisando Histórico em",
+    "messages": "Mensagens",
+    "placeholder": "Pesquisar mensagens...",
+    "noResults": "Nenhuma mensagem encontrada"
+  },
+  "updater": {
+    "updateNow": "Atualizar Agora",
+    "retryUpdate": "Tentar Atualização Novamente",
+    "errorRetryUpdate": "Erro - Tentar Atualização Novamente"
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "apply": "Aplicar",
+    "reset": "Redefinir",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "remove": "Remover",
+    "enable": "Habilitar",
+    "disable": "Desabilitar",
+    "yes": "Sim",
+    "no": "Não",
+    "ok": "OK",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "warning": "Aviso",
+    "info": "Informação"
+  },
+  "loader": {
+    "createdBy": "Criado por",
+    "loading": "Carregando..."
+  }
+}

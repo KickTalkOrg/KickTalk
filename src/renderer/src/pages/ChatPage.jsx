@@ -1,5 +1,6 @@
 import "../assets/styles/pages/ChatPage.scss";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { useSettings } from "../providers/SettingsProvider";
 import useChatStore from "../providers/ChatProvider";
 import Chat from "../components/Chat";
@@ -8,6 +9,7 @@ import TitleBar from "../components/TitleBar";
 import Mentions from "../components/Dialogs/Mentions";
 
 const ChatPage = () => {
+  const { t } = useTranslation();
   const { settings, updateSettings } = useSettings();
   const setCurrentChatroom = useChatStore((state) => state.setCurrentChatroom);
 
@@ -41,7 +43,7 @@ const ChatPage = () => {
           ) : (
             <div className="chatroomsEmptyState">
               <h1>No Chatrooms</h1>
-              <p>Add a chatroom by using "CTRL"+"t" or clicking Add button</p>
+              <p>{t('chat.addChatroom')}</p>
             </div>
           )}
         </div>

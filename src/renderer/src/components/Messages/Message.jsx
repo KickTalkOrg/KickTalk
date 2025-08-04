@@ -1,5 +1,6 @@
 import "../../assets/styles/components/Chat/Message.scss";
 import { useCallback, useRef, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import ModActionMessage from "./ModActionMessage";
 import RegularMessage from "./RegularMessage";
 import EmoteUpdateMessage from "./EmoteUpdateMessage";
@@ -35,6 +36,7 @@ const Message = ({
   chatroomName,
   donators,
 }) => {
+  const { t } = useTranslation();
   const messageRef = useRef(null);
   const getDeleteMessage = useChatStore(useShallow((state) => state.getDeleteMessage));
   const [rightClickedEmote, setRightClickedEmote] = useState(null);
@@ -342,9 +344,9 @@ const Message = ({
       {message.type === "system" && (
         <span className="systemMessage">
           {message.content === "connection-pending"
-            ? "Connecting to Channel..."
+            ? t('messages.connecting')
             : message.content === "connection-success"
-              ? "Connected to Channel"
+              ? t('messages.connected')
               : message.content}
         </span>
       )}

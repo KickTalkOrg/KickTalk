@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import clsx from "clsx";
 import log from "electron-log";
 import downloadIcon from "../../src/assets/icons/cloud-arrow-down-fill.svg?asset";
 
 const Updater = () => {
+  const { t } = useTranslation();
   const [updateStatus, setUpdateStatus] = useState("idle");
   const [updateInfo, setUpdateInfo] = useState(null);
 
@@ -60,11 +62,11 @@ const Updater = () => {
   const getButtonConfig = () => {
     switch (updateStatus) {
       case "ready":
-        return { text: "Update Now", action: handleInstallUpdate, disabled: false, show: true };
+        return { text: t('updater.updateNow'), action: handleInstallUpdate, disabled: false, show: true };
       case "download-failed":
-        return { text: "Retry Update", action: handleDownloadUpdate, disabled: false, show: true };
+        return { text: t('updater.retryUpdate'), action: handleDownloadUpdate, disabled: false, show: true };
       case "error":
-        return { text: "Error - Retry Update", action: handleCheckForUpdate, disabled: false, show: true };
+        return { text: t('updater.errorRetryUpdate'), action: handleCheckForUpdate, disabled: false, show: true };
       default:
         return { show: false };
     }
