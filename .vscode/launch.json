@@ -13,7 +13,9 @@
             "runtimeArgs": ["--sourcemap"],
             "env": {
                 "REMOTE_DEBUGGING_PORT": "9222"
-            }
+            },
+            "preLaunchTask": "lgtm-up",
+            "postDebugTask": "lgtm-down"
         },
         {
             "name": "Debug Renderer Process",

@@ -1,0 +1,33 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "lgtm-up",
+      "type": "shell",
+      "command": "./run-lgtm.sh",
+      "options": {
+        "cwd": "${workspaceFolder}/.lgtm"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "lgtm-down",
+      "type": "shell",
+      "command": "docker stop lgtm && docker rm lgtm || true",
+      "options": {
+        "cwd": "${workspaceFolder}/.lgtm"
+      },
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    }
+  ]
+}

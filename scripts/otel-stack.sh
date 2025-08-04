@@ -1,8 +1,10 @@
 #!/bin/bash
-
-# KickTalk OpenTelemetry Stack Management Script (Podman Compatible)
-
-set -e
+# Deprecated - Local OTEL stack script removed.
+# Use Grafana's recommended LGTM quickstart instead:
+#   https://github.com/grafana/docker-otel-lgtm
+# Follow their README for docker compose commands.
+# This file is intentionally minimal to avoid local stack drift.
+exit 0
 
 # Detect container runtime (podman preferred, docker fallback)
 if command -v podman-compose &> /dev/null; then
