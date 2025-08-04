@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Switch } from "../../../Shared/Switch";
 import { Slider } from "../../../Shared/Slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../../Shared/Tooltip";
@@ -9,25 +10,38 @@ import ColorPicker from "../../../Shared/ColorPicker";
 import folderOpenIcon from "../../../../assets/icons/folder-open-fill.svg?asset";
 import playIcon from "../../../../assets/icons/play-fill.svg?asset";
 import NotificationFilePicker from "../../../Shared/NotificationFilePicker";
+import LanguageSelector from "../../../Shared/LanguageSelector";
 import clsx from "clsx";
 
 const GeneralSection = ({ settingsData, onChange }) => {
+  const { t } = useTranslation();
   return (
     <div className="settingsContentGeneral">
       <div className="settingsContentSection">
         <div className="settingsSectionHeader">
-          <h4>General</h4>
-          <p>Select what general app settings you want to change.</p>
+          <h4>{t('settings.general.title')}</h4>
+          <p>{t('settings.general.description')}</p>
         </div>
 
         <div className="settingsItems">
+          {/* Language Selection */}
+          <div className="settingsItem">
+            <div className="settingsSectionSubHeader">
+              <h5>{t('settings.language')}</h5>
+              <p>{t('settings.languageDescription')}</p>
+            </div>
+            <div className="settingsItemContent">
+              <LanguageSelector />
+            </div>
+          </div>
+
           <div className="settingsItem">
             <div
               className={clsx("settingSwitchItem", {
                 active: settingsData?.general?.alwaysOnTop,
               })}>
               <div className="settingsItemTitleWithInfo">
-                <span className="settingsItemTitle">Always on Top</span>
+                <span className="settingsItemTitle">{t('settings.general.alwaysOnTop')}</span>
                 <Tooltip delayDuration={100}>
                   <TooltipTrigger asChild>
                     <button className="settingsInfoIcon">

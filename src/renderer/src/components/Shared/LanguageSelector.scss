@@ -1,0 +1,144 @@
+.language-selector {
+  position: relative;
+  display: inline-block;
+
+  .language-selector-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+
+    &:hover {
+      background: var(--background-tertiary);
+      border-color: var(--border-hover);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--accent-primary);
+      box-shadow: 0 0 0 2px rgba(var(--accent-primary-rgb), 0.2);
+    }
+
+    .language-flag {
+      font-size: 16px;
+      line-height: 1;
+    }
+
+    .language-name {
+      min-width: 60px;
+      text-align: left;
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+      
+      &.rotated {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  .language-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--background-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+    z-index: 1000;
+    overflow: hidden;
+    margin-top: 4px;
+
+    .language-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+      font-size: 14px;
+
+      &:hover {
+        background: var(--background-tertiary);
+      }
+
+      &.active {
+        background: var(--accent-primary);
+        color: var(--text-on-accent);
+      }
+
+      .language-flag {
+        font-size: 16px;
+        line-height: 1;
+      }
+
+      .language-name {
+        flex: 1;
+        text-align: left;
+      }
+
+      .check-mark {
+        color: var(--success);
+        font-weight: bold;
+      }
+    }
+  }
+
+  &.compact {
+    .language-selector-button {
+      padding: 6px 8px;
+      min-width: auto;
+
+      .language-name {
+        min-width: 30px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+    }
+
+    .language-dropdown {
+      min-width: 120px;
+    }
+  }
+}
+
+/* Dark mode adjustments */
+[data-theme="dark"] {
+  .language-selector {
+    .language-selector-button {
+      background: var(--background-primary);
+      border-color: var(--border-dark);
+
+      &:hover {
+        background: var(--background-secondary);
+        border-color: var(--border-hover-dark);
+      }
+    }
+
+    .language-dropdown {
+      background: var(--background-primary);
+      border-color: var(--border-dark);
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+
+      .language-option {
+        &:hover {
+          background: var(--background-secondary);
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "auth": {
+    "signIn": "Entrar",
+    "signInWithKick": "Entre com sua conta do Kick",
+    "loginWithKick": "Entrar com Kick",
+    "loginWithGoogle": "Entrar com Google",
+    "loginWithApple": "Entrar com Apple",
+    "continueAnonymous": "Continuar anônimo",
+    "kickLoginDescription": "Usar nome de usuário e senha para login? Continue para Kick.com",
+    "googleAppleDescription": "Já tem uma conta Kick com login do Google ou Apple?",
+    "disclaimer": "NÃO salvamos nenhum email ou senha."
+  },
+  "titleBar": {
+    "loading": "Carregando...",
+    "settings": "Configurações",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Fechar"
+  },
+  "chat": {
+    "addChatroom": "Adicione uma sala de chat usando \"CTRL\"+\"t\" ou clicando no botão Adicionar",
+    "pinMessage": "Fixar Mensagem",
+    "copyMessage": "Copiar Mensagem",
+    "replyTo": "Responder para {{username}}"
+  },
+  "userDialog": {
+    "muteUser": "Silenciar Usuário",
+    "unmuteUser": "Desilenciar Usuário",
+    "openProfile": "Abrir Perfil",
+    "check": "Verificar",
+    "unban": "Desbanir",
+    "timeout1m": "1m",
+    "timeout5m": "5m",
+    "timeout10m": "10m",
+    "timeout30m": "30m",
+    "timeout1h": "1h",
+    "timeout3h": "3h",
+    "timeout6h": "6h",
+    "timeout12h": "12h",
+    "timeout24h": "24h",
+    "ban": "Banir"
+  },
+  "settings": {
+    "title": "Configurações",
+    "language": "Idioma",
+    "languageDescription": "Escolha seu idioma preferido",
+    "general": {
+      "title": "Geral",
+      "description": "Selecione quais configurações gerais do aplicativo você quer alterar.",
+      "alwaysOnTop": "Sempre no topo",
+      "alwaysOnTopDescription": "Manter o aplicativo sempre no topo de outras janelas",
+      "wrapChatroomsList": "Quebrar lista de salas",
+      "wrapChatroomsListDescription": "Mostrar lista de salas de chat em múltiplas linhas quando há muitas abas",
+      "showTabImages": "Mostrar imagens das abas",
+      "showTabImagesDescription": "Mostrar fotos de perfil dos streamers nas abas das salas de chat",
+      "timestampFormat": "Formato de horário",
+      "timestampFormatDescription": "Escolha como os horários são exibidos nas mensagens do chat",
+      "disabled": "Desabilitado"
+    },
+    "chatrooms": {
+      "title": "Salas de Chat",
+      "description": "Configure configurações específicas das salas de chat e comportamento.",
+      "autoScroll": "Rolagem automática",
+      "autoScrollDescription": "Rolar automaticamente para a última mensagem",
+      "showUserBadges": "Mostrar badges de usuário",
+      "showUserBadgesDescription": "Exibir badges ao lado dos nomes de usuário no chat",
+      "showEmotes": "Mostrar emotes",
+      "showEmotesDescription": "Exibir emotes e emoji nas mensagens do chat",
+      "messageBatching": "Agrupamento de mensagens",
+      "messageBatchingDescription": "Agrupar mensagens para melhorar performance",
+      "batchingInterval": "Intervalo de agrupamento (segundos)",
+      "batchingIntervalDescription": "Com que frequência agrupar mensagens"
+    },
+    "notifications": {
+      "title": "Notificações",
+      "description": "Configure configurações de notificações e alertas sonoros.",
+      "enabled": "Habilitar notificações",
+      "enabledDescription": "Mostrar notificações para mensagens destacadas",
+      "sound": "Notificações sonoras",
+      "soundDescription": "Tocar som ao receber notificações",
+      "phrases": "Frases destacadas",
+      "phrasesDescription": "Palavras ou frases que ativam notificações",
+      "addPhrase": "Adicionar frase",
+      "selectSound": "Selecionar som de notificação",
+      "uploadCustomSound": "Enviar som personalizado"
+    },
+    "cosmetics": {
+      "title": "Cosméticos",
+      "description": "Personalize a aparência e tema da aplicação.",
+      "theme": "Tema",
+      "themeDescription": "Escolha seu esquema de cores preferido",
+      "customTheme": "Tema personalizado",
+      "customThemeDescription": "Enviar ou selecionar um tema personalizado",
+      "chatBackground": "Fundo do chat",
+      "chatBackgroundDescription": "Personalizar o fundo da área de chat",
+      "messageAnimations": "Animações de mensagens",
+      "messageAnimationsDescription": "Habilitar animações suaves para novas mensagens"
+    },
+    "moderation": {
+      "title": "Moderação",
+      "description": "Configure ferramentas de moderação e filtros.",
+      "autoModeration": "Moderação automática",
+      "autoModerationDescription": "Moderar automaticamente o chat baseado em regras",
+      "wordFilter": "Filtro de palavras",
+      "wordFilterDescription": "Filtrar palavras inapropriadas",
+      "linkFilter": "Filtro de links",
+      "linkFilterDescription": "Filtrar mensagens contendo links",
+      "spamFilter": "Filtro de spam",
+      "spamFilterDescription": "Detectar e filtrar mensagens de spam"
+    },
+    "about": {
+      "title": "Sobre",
+      "version": "Versão",
+      "electronVersion": "Versão do Electron",
+      "chromeVersion": "Versão do Chrome",
+      "nodeVersion": "Versão do Node",
+      "author": "Autor",
+      "license": "Licença",
+      "repository": "Repositório",
+      "support": "Suporte",
+      "updates": "Atualizações",
+      "checkForUpdates": "Verificar atualizações",
+      "updateAvailable": "Atualização disponível",
+      "upToDate": "Aplicativo está atualizado"
+    }
+  },
+  "common": {
+    "save": "Salvar",
+    "cancel": "Cancelar",
+    "apply": "Aplicar",
+    "reset": "Redefinir",
+    "delete": "Excluir",
+    "edit": "Editar",
+    "add": "Adicionar",
+    "remove": "Remover",
+    "enable": "Habilitar",
+    "disable": "Desabilitar",
+    "yes": "Sim",
+    "no": "Não",
+    "ok": "OK",
+    "loading": "Carregando...",
+    "error": "Erro",
+    "success": "Sucesso",
+    "warning": "Aviso",
+    "info": "Informação"
+  },
+  "loader": {
+    "createdBy": "Criado por",
+    "loading": "Carregando..."
+  }
+}

@@ -1,0 +1,151 @@
+{
+  "auth": {
+    "signIn": "Iniciar Sesión",
+    "signInWithKick": "Inicia sesión con tu cuenta de Kick",
+    "loginWithKick": "Iniciar con Kick",
+    "loginWithGoogle": "Iniciar con Google",
+    "loginWithApple": "Iniciar con Apple",
+    "continueAnonymous": "Continuar anónimo",
+    "kickLoginDescription": "¿Usar nombre de usuario y contraseña para iniciar sesión? Continúa a Kick.com",
+    "googleAppleDescription": "¿Ya tienes una cuenta de Kick con inicio de sesión de Google o Apple?",
+    "disclaimer": "NO guardamos ningún correo electrónico o contraseña."
+  },
+  "titleBar": {
+    "loading": "Cargando...",
+    "settings": "Configuración",
+    "minimize": "Minimizar",
+    "maximize": "Maximizar",
+    "close": "Cerrar"
+  },
+  "chat": {
+    "addChatroom": "Agrega una sala de chat usando \"CTRL\"+\"t\" o haciendo clic en el botón Agregar",
+    "pinMessage": "Fijar Mensaje",
+    "copyMessage": "Copiar Mensaje",
+    "replyTo": "Responder a {{username}}"
+  },
+  "userDialog": {
+    "muteUser": "Silenciar Usuario",
+    "unmuteUser": "Desilenciar Usuario",
+    "openProfile": "Abrir Perfil",
+    "check": "Verificar",
+    "unban": "Desbanear",
+    "timeout1m": "1m",
+    "timeout5m": "5m",
+    "timeout10m": "10m",
+    "timeout30m": "30m",
+    "timeout1h": "1h",
+    "timeout3h": "3h",
+    "timeout6h": "6h",
+    "timeout12h": "12h",
+    "timeout24h": "24h",
+    "ban": "Banear"
+  },
+  "settings": {
+    "title": "Configuración",
+    "language": "Idioma",
+    "languageDescription": "Elige tu idioma preferido",
+    "general": {
+      "title": "General",
+      "description": "Selecciona qué configuraciones generales de la aplicación quieres cambiar.",
+      "alwaysOnTop": "Siempre encima",
+      "alwaysOnTopDescription": "Mantener la aplicación siempre encima de otras ventanas",
+      "wrapChatroomsList": "Envolver lista de salas",
+      "wrapChatroomsListDescription": "Mostrar la lista de salas de chat en múltiples filas cuando hay muchas pestañas",
+      "showTabImages": "Mostrar imágenes de pestañas",
+      "showTabImagesDescription": "Mostrar fotos de perfil de streamers en las pestañas de salas de chat",
+      "timestampFormat": "Formato de marca de tiempo",
+      "timestampFormatDescription": "Elige cómo se muestran las marcas de tiempo en los mensajes del chat",
+      "disabled": "Deshabilitado"
+    },
+    "chatrooms": {
+      "title": "Salas de Chat",
+      "description": "Configura ajustes específicos de salas de chat y comportamiento.",
+      "autoScroll": "Desplazamiento automático",
+      "autoScrollDescription": "Desplazarse automáticamente al último mensaje",
+      "showUserBadges": "Mostrar insignias de usuario",
+      "showUserBadgesDescription": "Mostrar insignias junto a los nombres de usuario en el chat",
+      "showEmotes": "Mostrar emotes",
+      "showEmotesDescription": "Mostrar emotes y emoji en los mensajes del chat",
+      "messageBatching": "Agrupación de mensajes",
+      "messageBatchingDescription": "Agrupar mensajes para mejorar el rendimiento",
+      "batchingInterval": "Intervalo de agrupación (segundos)",
+      "batchingIntervalDescription": "Con qué frecuencia agrupar mensajes"
+    },
+    "notifications": {
+      "title": "Notificaciones",
+      "description": "Configura ajustes de notificaciones y alertas de sonido.",
+      "enabled": "Habilitar notificaciones",
+      "enabledDescription": "Mostrar notificaciones para mensajes destacados",
+      "sound": "Notificaciones de sonido",
+      "soundDescription": "Reproducir sonido al recibir notificaciones",
+      "phrases": "Frases destacadas",
+      "phrasesDescription": "Palabras o frases que activan notificaciones",
+      "addPhrase": "Agregar frase",
+      "selectSound": "Seleccionar sonido de notificación",
+      "uploadCustomSound": "Subir sonido personalizado"
+    },
+    "cosmetics": {
+      "title": "Cosmética",
+      "description": "Personaliza la apariencia y tema de la aplicación.",
+      "theme": "Tema",
+      "themeDescription": "Elige tu esquema de colores preferido",
+      "customTheme": "Tema personalizado",
+      "customThemeDescription": "Subir o seleccionar un tema personalizado",
+      "chatBackground": "Fondo del chat",
+      "chatBackgroundDescription": "Personalizar el fondo del área de chat",
+      "messageAnimations": "Animaciones de mensajes",
+      "messageAnimationsDescription": "Habilitar animaciones suaves para nuevos mensajes"
+    },
+    "moderation": {
+      "title": "Moderación",
+      "description": "Configura herramientas de moderación y filtros.",
+      "autoModeration": "Moderación automática",
+      "autoModerationDescription": "Moderar automáticamente el chat basado en reglas",
+      "wordFilter": "Filtro de palabras",
+      "wordFilterDescription": "Filtrar palabras inapropiadas",
+      "linkFilter": "Filtro de enlaces",
+      "linkFilterDescription": "Filtrar mensajes que contengan enlaces",
+      "spamFilter": "Filtro de spam",
+      "spamFilterDescription": "Detectar y filtrar mensajes de spam"
+    },
+    "about": {
+      "title": "Acerca de",
+      "version": "Versión",
+      "electronVersion": "Versión de Electron",
+      "chromeVersion": "Versión de Chrome",
+      "nodeVersion": "Versión de Node",
+      "author": "Autor",
+      "license": "Licencia",
+      "repository": "Repositorio",
+      "support": "Soporte",
+      "updates": "Actualizaciones",
+      "checkForUpdates": "Buscar actualizaciones",
+      "updateAvailable": "Actualización disponible",
+      "upToDate": "La aplicación está actualizada"
+    }
+  },
+  "common": {
+    "save": "Guardar",
+    "cancel": "Cancelar",
+    "apply": "Aplicar",
+    "reset": "Restablecer",
+    "delete": "Eliminar",
+    "edit": "Editar",
+    "add": "Agregar",
+    "remove": "Quitar",
+    "enable": "Habilitar",
+    "disable": "Deshabilitar",
+    "yes": "Sí",
+    "no": "No",
+    "ok": "OK",
+    "loading": "Cargando...",
+    "error": "Error",
+    "success": "Éxito",
+    "warning": "Advertencia",
+    "info": "Información"
+  },
+  "loader": {
+    "createdBy": "Creado por",
+    "loading": "Cargando..."
+  }
+}

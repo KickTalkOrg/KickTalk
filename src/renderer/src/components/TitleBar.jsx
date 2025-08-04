@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 import Minus from "../assets/icons/minus-bold.svg?asset";
 import Square from "../assets/icons/square-bold.svg?asset";
@@ -8,8 +9,10 @@ import GearIcon from "../assets/icons/gear-fill.svg?asset";
 import "../assets/styles/components/TitleBar.scss";
 import clsx from "clsx";
 import Updater from "./Updater";
+import LanguageSelector from "./Shared/LanguageSelector";
 
 const TitleBar = () => {
+  const { t } = useTranslation();
   const [userData, setUserData] = useState(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [appInfo, setAppInfo] = useState({});
@@ -60,14 +63,14 @@ const TitleBar = () => {
                 userData,
               })
             }>
-            <span className="titleBarUsername">{userData?.username || "Loading..."}</span>
+            <span className="titleBarUsername">{userData?.username || t('titleBar.loading')}</span>
             <div className="titleBarDivider" />
-            <img className="titleBarSettingsIcon" src={GearIcon} width={16} height={16} alt="Settings" />
+            <img className="titleBarSettingsIcon" src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
           </button>
         ) : (
           <div className="titleBarLoginBtn">
             <button className="titleBarSignInBtn" onClick={handleAuthBtn}>
-              Sign In
+              {t('auth.signIn')}
             </button>
             <div className="titleBarDivider" />
             <button
@@ -77,7 +80,7 @@ const TitleBar = () => {
                   userData,
                 })
               }>
-              <img src={GearIcon} width={16} height={16} alt="Settings" />
+              <img src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
             </button>
           </div>
         )}
@@ -88,17 +91,21 @@ const TitleBar = () => {
       </div>
 
       <Updater />
+      
+      <div className="titleBarLanguage">
+        <LanguageSelector compact={true} />
+      </div>
 
       <div className="titleBarRight">
         <div className="titleBarControls">
           <button className="minimize" onClick={() => window.app.minimize()}>
-            <img src={Minus} width={12} height={12} alt="Minimize" />
+            <img src={Minus} width={12} height={12} alt={t('titleBar.minimize')} />
           </button>
           <button className="maximize" onClick={() => window.app.maximize()}>
-            <img src={Square} width={12} height={12} alt="Maximize" />
+            <img src={Square} width={12} height={12} alt={t('titleBar.maximize')} />
           </button>
           <button className="close" onClick={() => window.app.close()}>
-            <img src={X} width={14} height={14} alt="Close" />
+            <img src={X} width={14} height={14} alt={t('titleBar.close')} />
           </button>
         </div>
       </div>

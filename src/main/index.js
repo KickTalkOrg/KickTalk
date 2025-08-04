@@ -9,7 +9,53 @@ import dotenv from "dotenv";
 dotenv.config();
 
 const isDev = process.env.NODE_ENV === "development";
-const iconPath = join(__dirname, "../../resources/icons/win/KickTalk_v1.ico");
+
+// Suppress GPU-related warnings on macOS
+if (process.platform === 'darwin') {
+  app.commandLine.appendSwitch('--disable-gpu-sandbox');
+  app.commandLine.appendSwitch('--no-sandbox');
+  app.commandLine.appendSwitch('--disable-dev-shm-usage');
+  app.commandLine.appendSwitch('--disable-extensions-except');
+  app.commandLine.appendSwitch('--disable-extensions');
+  
+  // Suppress specific OpenGL/EGL warnings
+  process.env.ELECTRON_DISABLE_SECURITY_WARNINGS = 'true';
+}
+
+// Platform-specific icon paths
+const getIconPath = () => {
+  try {
+    const iconPaths = {
+      'darwin': join(__dirname, "../../resources/icons/mac/KickTalk_v1.png"),
+      'linux': join(__dirname, "../../resources/icons/linux/KickTalk_v1.png"),
+      'win32': join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
+    };
+    
+    const iconPath = iconPaths[process.platform] || iconPaths['win32'];
+    
+    // Check if file exists (in production build)
+    const fs = require('fs');
+    if (fs.existsSync(iconPath)) {
+      return iconPath;
+    } else {
+      console.warn(`[Icon]: Icon file not found at ${iconPath}, using fallback`);
+      // Try to find any available icon as fallback
+      for (const [platform, path] of Object.entries(iconPaths)) {
+        if (fs.existsSync(path)) {
+          console.log(`[Icon]: Using ${platform} icon as fallback`);
+          return path;
+        }
+      }
+      console.warn(`[Icon]: No icon files found, app will use default icon`);
+      return null;
+    }
+  } catch (error) {
+    console.error('[Icon]: Error loading icon:', error);
+    return null;
+  }
+};
+
+const iconPath = getIconPath();
 
 const authStore = new Store({
   fileExtension: "env",
@@ -426,7 +472,7 @@ const setAlwaysOnTop = (window) => {
 };
 
 const createWindow = () => {
-  mainWindow = new BrowserWindow({
+  const windowOptions = {
     width: store.get("lastMainWindowState.width"),
     height: store.get("lastMainWindowState.height"),
     x: store.get("lastMainWindowState.x"),
@@ -438,7 +484,7 @@ const createWindow = () => {
     autoHideMenuBar: true,
     titleBarStyle: "hidden",
     roundedCorners: true,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       devTools: true,
       nodeIntegration: false,
@@ -446,12 +492,22 @@ const createWindow = () => {
       preload: join(__dirname, "../preload/index.js"),
       sandbox: false,
       backgroundThrottling: false,
+      webSecurity: !isDev,
+      allowRunningInsecureContent: false,
+      experimentalFeatures: false,
+      enableRemoteModule: false,
+      ...(process.platform === 'darwin' && {
+        hardwareAcceleration: false,
+        offscreen: false
+      })
     },
-  });
+  };
+
+  mainWindow = new BrowserWindow(windowOptions);
 
   mainWindow.setThumbarButtons([
     {
-      icon: join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"),
+      ...(iconPath && { icon: iconPath }),
       click: () => {
         mainWindow.show();
       },
@@ -463,6 +519,18 @@ const createWindow = () => {
   mainWindow.once("ready-to-show", async () => {
     mainWindow.show();
     setAlwaysOnTop(mainWindow);
+
+    // Suppress GPU/EGL console warnings
+    if (process.platform === 'darwin') {
+      mainWindow.webContents.on('console-message', (event, level, message) => {
+        if (message.includes('EGL Driver message') || 
+            message.includes('eglQueryDeviceAttribEXT') ||
+            message.includes('Bad attribute') ||
+            message.includes('GL_INVALID_OPERATION')) {
+          event.preventDefault();
+        }
+      });
+    }
 
     if (isDev) {
       mainWindow.webContents.openDevTools({ mode: "detach" });
@@ -519,7 +587,7 @@ const loginToKick = async (method) => {
       autoHideMenuBar: true,
       parent: authDialog,
       roundedCorners: true,
-      icon: iconPath,
+      ...(iconPath && { icon: iconPath }),
       webPreferences: {
         autoplayPolicy: "user-gesture-required",
         nodeIntegration: false,
@@ -653,8 +721,21 @@ const setupLocalShortcuts = () => {
 // initialization and is ready to create browser windows.
 // Some APIs can only be used after this event occurs.
 app.whenReady().then(() => {
-  tray = new Tray(join(__dirname, "../../resources/icons/win/KickTalk_v1.ico"));
-  tray.setToolTip("KickTalk");
+  // Disable GPU acceleration on macOS to prevent EGL errors
+  if (process.platform === 'darwin') {
+    app.commandLine.appendSwitch('--disable-gpu-sandbox');
+    app.commandLine.appendSwitch('--disable-software-rasterizer');
+    app.commandLine.appendSwitch('--disable-background-timer-throttling');
+    app.commandLine.appendSwitch('--disable-backgrounding-occluded-windows');
+    app.commandLine.appendSwitch('--disable-renderer-backgrounding');
+  }
+
+  if (iconPath) {
+    tray = new Tray(iconPath);
+    tray.setToolTip("KickTalk");
+  } else {
+    console.warn("[Tray]: No icon available for tray");
+  }
 
   // Set the icon for the app
   if (process.platform === "win32") {
@@ -821,7 +902,7 @@ ipcMain.handle("authDialog:open", (e) => {
     transparent: true,
     roundedCorners: true,
     parent: mainWindow,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       devtools: true,
       nodeIntegration: false,
@@ -942,7 +1023,7 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
     transparent: true,
     roundedCorners: true,
     parent: mainWindow,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       devtools: true,
       nodeIntegration: false,
@@ -1010,7 +1091,7 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
     transparent: true,
     roundedCorners: true,
     parent: mainWindow,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       devtools: true,
       nodeIntegration: false,
@@ -1088,7 +1169,7 @@ ipcMain.handle("settingsDialog:open", async (e, { data }) => {
     backgroundColor: "#020a05",
     roundedCorners: true,
     parent: mainWindow,
-    icon: iconPath,
+    ...(iconPath && { icon: iconPath }),
     webPreferences: {
       devtools: true,
       nodeIntegration: false,
@@ -1209,4 +1290,15 @@ ipcMain.handle("replyThreadDialog:close", () => {
     console.error("[Reply Thread Dialog]: Error closing dialog:", error);
     replyThreadDialog = null;
   }
+});
+
+// Global error handlers
+process.on('unhandledRejection', (reason, promise) => {
+  console.error('Unhandled Promise Rejection at:', promise, 'reason:', reason);
+  // Don't crash the app, just log the error
+});
+
+process.on('uncaughtException', (error) => {
+  console.error('Uncaught Exception:', error);
+  // Don't crash the app, just log the error
 });

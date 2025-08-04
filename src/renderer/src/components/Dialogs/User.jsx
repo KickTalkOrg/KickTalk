@@ -1,5 +1,6 @@
 import "../../assets/styles/dialogs/UserDialog.scss";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
 import clsx from "clsx";
 import Message from "../Messages/Message";
@@ -17,6 +18,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../Sha
 // TODO: Add Slider/Custom Timeout to User Dialog
 
 const User = () => {
+  const { t } = useTranslation();
   const [dialogData, setDialogData] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [userLogs, setUserLogs] = useState([]);
@@ -230,9 +232,9 @@ const User = () => {
                   !kickUsername
                 }
                 onClick={silenceUser}>
-                <span>{isUserSilenced ? "Unmute User" : "Mute User"}</span>
+                <span>{isUserSilenced ? t('userDialog.unmuteUser') : t('userDialog.muteUser')}</span>
                 <div className="checkBox">
-                  <img src={Check} width={14} height={14} alt="Check" />
+                  <img src={Check} width={14} height={14} alt={t('userDialog.check')} />
                 </div>
               </button>
               <button
