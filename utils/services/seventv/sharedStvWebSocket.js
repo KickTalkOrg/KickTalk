@@ -193,6 +193,14 @@ class SharedStvWebSocket extends EventTarget {
       console.log(`[Shared7TV]: WebSocket error:`, event);
       this.connectionState = 'disconnected';
       this.handleConnectionError();
+
+      // Telemetry: record connection error + reconnection intent for all chatrooms
+      try {
+        for (const [chatroomId] of this.chatrooms) {
+          window.app?.telemetry?.recordConnectionError?.(chatroomId, 'stv_ws_error');
+          window.app?.telemetry?.recordReconnection?.(chatroomId, 'stv_ws_error');
+        }
+      } catch (_) {}
     };
 
     this.chat.onclose = (event) => {
@@ -200,11 +208,21 @@ class SharedStvWebSocket extends EventTarget {
       this.connectionState = 'disconnected';
       this.subscribedEvents.clear();
       this.userEventSubscribed = false;
+
+      // Telemetry: mark disconnected and maybe reconnection
+      try {
+        for (const [chatroomId] of this.chatrooms) {
+          window.app?.telemetry?.recordWebSocketConnection?.(chatroomId, null, false, `stv_${chatroomId}`);
+          if (this.shouldReconnect) {
+            window.app?.telemetry?.recordReconnection?.(chatroomId, 'stv_ws_close');
+          }
+        }
+      } catch (_) {}
       
       // Don't reconnect if we're getting persistent Invalid Payload errors
       if (event.code === 1008 && event.reason === "Invalid Payload") {
         console.log(`[Shared7TV]: Invalid Payload error - checking for valid 7TV data before reconnecting`);
-        const hasValidData = Array.from(this.chatrooms.values()).some(data => 
+        const hasValidData = Array.from(this.chatrooms.values()).some(data =>
           data.stvId && data.stvId !== "0" && data.stvId !== INVALID_7TV_NULL_ID
         );
         if (!hasValidData) {
@@ -220,6 +238,13 @@ class SharedStvWebSocket extends EventTarget {
       console.log(`[Shared7TV]: Connection opened successfully`);
       this.connectionState = 'connected';
       this.reconnectAttempts = 0;
+
+      // Telemetry: mark connected for all chatrooms
+      try {
+        for (const [chatroomId] of this.chatrooms) {
+          window.app?.telemetry?.recordWebSocketConnection?.(chatroomId, null, true, `stv_${chatroomId}`);
+        }
+      } catch (_) {}
 
       await this.delay(1000);
 

@@ -74,9 +74,18 @@ class SharedKickPusher extends EventTarget {
       }),
     );
 
-    this.chat.addEventListener("open", () => {
+    this.chat.addEventListener("open", async () => {
       console.log("[SharedKickPusher] Connected to Kick WebSocket");
       this.reconnectAttempts = 0;
+
+      // Telemetry: mark each chatroom as connected
+      try {
+        for (const [chatroomId, info] of this.chatrooms) {
+          const streamerId = info?.streamerId ?? null;
+          const streamerName = info?.chatroomData?.streamerData?.user?.username || `chatroom_${chatroomId}`;
+          await window.app?.telemetry?.recordWebSocketConnection?.(chatroomId, streamerId, true, streamerName);
+        }
+      } catch (_) {}
       
       // Wait for connection_established event before subscribing
     });
@@ -85,14 +94,34 @@ class SharedKickPusher extends EventTarget {
       console.log(`[SharedKickPusher] Error occurred: ${error.message}`);
       this.connectionState = 'disconnected';
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
+
+      // Telemetry: record connection error and reconnection attempts
+      try {
+        for (const [chatroomId] of this.chatrooms) {
+          window.app?.telemetry?.recordConnectionError?.(chatroomId, 'kick_ws_error');
+          window.app?.telemetry?.recordReconnection?.(chatroomId, 'kick_ws_error');
+        }
+      } catch (_) {}
     });
 
-    this.chat.addEventListener("close", () => {
+    this.chat.addEventListener("close", (ev) => {
       console.log("[SharedKickPusher] Connection closed");
       this.connectionState = 'disconnected';
       this.socketId = null;
       this.userEventsSubscribed = false;
       this.subscribedChannels.clear();
+
+      // Telemetry: mark each chatroom as disconnected and note reconnection intent
+      try {
+        for (const [chatroomId, info] of this.chatrooms) {
+          const streamerId = info?.streamerId ?? null;
+          const streamerName = info?.chatroomData?.streamerData?.user?.username || `chatroom_${chatroomId}`;
+          window.app?.telemetry?.recordWebSocketConnection?.(chatroomId, streamerId, false, streamerName);
+          if (this.shouldReconnect) {
+            window.app?.telemetry?.recordReconnection?.(chatroomId, 'kick_ws_close');
+          }
+        }
+      } catch (_) {}
 
       this.dispatchEvent(new Event("close"));
 
@@ -120,6 +149,15 @@ class SharedKickPusher extends EventTarget {
 
           // Subscribe to all chatroom channels
           await this.subscribeToAllChannels();
+
+          // Telemetry: after full establishment ensure connected state per chatroom
+          try {
+            for (const [chatroomId, info] of this.chatrooms) {
+              const streamerId = info?.streamerId ?? null;
+              const streamerName = info?.chatroomData?.streamerData?.user?.username || `chatroom_${chatroomId}`;
+              window.app?.telemetry?.recordWebSocketConnection?.(chatroomId, streamerId, true, streamerName);
+            }
+          } catch (_) {}
 
           this.dispatchEvent(
             new CustomEvent("connection", {

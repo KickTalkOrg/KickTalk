@@ -59,11 +59,6 @@ const checkTelemetrySettings = () => {
 
 try {
   // Legacy telemetry disabled: NodeSDK bootstrap runs at file start
-  // Legacy bootstrap removed entirely
-  // const telemetryModule = require("../telemetry/index.js");
-  // initTelemetry = telemetryModule.initTelemetry;
-  // shutdownTelemetry = telemetryModule.shutdownTelemetry;
-
   // Override the telemetry enabled check with our main process version
   isTelemetryEnabled = checkTelemetrySettings;
 
@@ -74,9 +69,33 @@ try {
 }
 
 const isDev = process.env.NODE_ENV === "development";
-const iconPath = process.platform === "win32" 
+const iconPath = process.platform === "win32"
   ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
   : join(__dirname, "../../resources/icons/KickTalk_v1.png");
+
+// Ensure service.version is set from Electron app version or package.json
+try {
+  const { app: electronAppRef } = require('electron');
+  const version = electronAppRef?.getVersion?.() || require('../../package.json')?.version;
+  if (version) {
+    // Append or set service.version on OTEL_RESOURCE_ATTRIBUTES without clobbering existing attrs
+    const existing = process.env.OTEL_RESOURCE_ATTRIBUTES || '';
+    const attrs = existing
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .filter((kv) => !/^service\.version=/.test(kv)); // remove any existing service.version
+    attrs.push(`service.version=${version}`);
+    process.env.OTEL_RESOURCE_ATTRIBUTES = attrs.join(',');
+    // Also set service.name if provided via MAIN_VITE or env
+    const svcName = process.env.MAIN_VITE_OTEL_SERVICE_NAME || process.env.OTEL_SERVICE_NAME || 'kicktalk';
+    if (!attrs.some((kv) => kv.startsWith('service.name='))) {
+      process.env.OTEL_RESOURCE_ATTRIBUTES = `service.name=${svcName},${process.env.OTEL_RESOURCE_ATTRIBUTES}`;
+    }
+  }
+} catch (e) {
+  console.warn('[Telemetry]: Failed to set service.version from package/app version:', e?.message || e);
+}
 
 // Load metrics with fallback
 let metrics = null;
@@ -90,6 +109,8 @@ try {
     recordError: metricsModule.MetricsHelper?.recordConnectionError || (() => {}),
     recordMessageSent: metricsModule.MetricsHelper?.recordMessageSent || (() => {}),
     recordMessageSendDuration: metricsModule.MetricsHelper?.recordMessageSendDuration || (() => {}),
+    // API metrics
+    recordAPIRequest: metricsModule.MetricsHelper?.recordAPIRequest || (() => {}),
     recordMessageReceived: metricsModule.MetricsHelper?.recordMessageReceived || (() => {}),
     recordRendererMemory: metricsModule.MetricsHelper?.recordRendererMemory || (() => {}),
     recordDomNodeCount: metricsModule.MetricsHelper?.recordDomNodeCount || (() => {}),
@@ -107,6 +128,8 @@ try {
     recordError: () => {},
     recordMessageSent: () => {},
     recordMessageSendDuration: () => {},
+    // API metrics no-op
+    recordAPIRequest: () => {},
     recordMessageReceived: () => {},
     recordRendererMemory: () => {},
     recordDomNodeCount: () => {},

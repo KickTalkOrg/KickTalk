@@ -12,6 +12,53 @@ import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
 
+// Lightweight renderer health reporter (behind telemetry.enabled)
+const startRendererHealthReporting = (intervalMs = 30000) => {
+  let timer = null;
+
+  const getMemory = () => {
+    try {
+      // Chromium exposes performance.memory in some builds
+      // Fall back to zeros if unavailable
+      const mem = performance && performance.memory ? performance.memory : null;
+      return {
+        jsHeapUsedSize: mem?.usedJSHeapSize || 0,
+        jsHeapTotalSize: mem?.totalJSHeapSize || 0
+      };
+    } catch {
+      return { jsHeapUsedSize: 0, jsHeapTotalSize: 0 };
+    }
+  };
+
+  const getDomNodeCount = () => {
+    try {
+      return document.querySelectorAll("*").length;
+    } catch {
+      return 0;
+    }
+  };
+
+  const tick = async () => {
+    try {
+      const mem = getMemory();
+      const dom = getDomNodeCount();
+      // Send via preload IPC -> main (main will gate via isTelemetryEnabled)
+      await window.app?.telemetry?.recordRendererMemory?.(mem);
+      await window.app?.telemetry?.recordDomNodeCount?.(dom);
+    } catch {
+      // no-op
+    }
+  };
+
+  // Start immediately then on interval
+  tick();
+  timer = setInterval(tick, intervalMs);
+
+  return () => {
+    if (timer) clearInterval(timer);
+  };
+};
+
 // Migration constants
 const STORAGE_VERSION = 2;
 
@@ -2619,6 +2666,34 @@ const useChatStore = create((set, get) => ({
 if (window.location.pathname === "/" || window.location.pathname.endsWith("index.html")) {
   // Initialize connections when the store is created
   useChatStore.getState().initializeConnections();
+
+  // Renderer telemetry health reporter (gated by settings.telemetry.enabled)
+  (async () => {
+    try {
+      const settings = await window.app?.store?.get?.('settings');
+      const enabled = !!settings?.telemetry?.enabled;
+      if (enabled) {
+        const stop = startRendererHealthReporting(30000);
+        // Stop reporter on unload
+        window.addEventListener('beforeunload', () => {
+          try { stop && stop(); } catch {}
+        });
+      }
+      // React to settings changes
+      window.app?.store?.onUpdate?.((data) => {
+        if (data && Object.prototype.hasOwnProperty.call(data, 'settings')) {
+          (async () => {
+            const s = await window.app?.store?.get?.('settings');
+            const en = !!s?.telemetry?.enabled;
+            if (!en) {
+              // forcing a reload will clear intervals if previously enabled
+              // or we could track stop handle in closure; keeping simple here
+            }
+          })();
+        }
+      });
+    } catch {}
+  })();
 
   // Initialize presence updates when the store is created
   let presenceUpdatesInterval = null;
