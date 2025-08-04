@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { applyTheme } from "../../../../utils/themeUtils";
+import i18n from "../utils/i18n";
 
 const SettingsContext = createContext({});
 
@@ -35,6 +36,11 @@ const SettingsProvider = ({ children }) => {
         if (settings?.customTheme?.current) {
           applyTheme(settings.customTheme);
         }
+
+        // Apply language if stored
+        if (settings?.language && settings.language !== i18n.language) {
+          await i18n.changeLanguage(settings.language);
+        }
       } catch (error) {
         console.error("[SettingsProvider]: Error loading settings:", error);
       }
@@ -65,6 +71,11 @@ const SettingsProvider = ({ children }) => {
               applyTheme(data.customTheme);
             }
 
+            // Apply language if changed
+            if (data.language && data.language !== i18n.language) {
+              i18n.changeLanguage(data.language);
+            }
+
             return newSettings;
           });
         });
@@ -92,6 +103,11 @@ const SettingsProvider = ({ children }) => {
 
       if (key === "customTheme" && value?.current) {
         applyTheme(value);
+      }
+
+      // Handle language changes
+      if (key === "language" && value !== i18n.language) {
+        await i18n.changeLanguage(value);
       }
     } catch (error) {
       console.error(`Error updating setting ${key}:`, error);

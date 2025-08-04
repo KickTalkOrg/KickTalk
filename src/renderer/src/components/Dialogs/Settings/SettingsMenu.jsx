@@ -1,8 +1,12 @@
+import { useTranslation } from "react-i18next";
 import KickTalkLogo from "../../../assets/logos/KickTalkLogo.svg?asset";
 import SignOut from "../../../assets/icons/sign-out-bold.svg?asset";
 import clsx from "clsx";
 
-const SettingsMenu = ({ activeSection, setActiveSection, onLogout }) => (
+const SettingsMenu = ({ activeSection, setActiveSection, onLogout }) => {
+  const { t } = useTranslation();
+    
+  return (
   <div className="settingsMenu">
     <div className="settingsMenuItems">
       <div className="settingsMenuSection">
@@ -12,34 +16,34 @@ const SettingsMenu = ({ activeSection, setActiveSection, onLogout }) => (
               active: activeSection === "info",
             })}
             onClick={() => setActiveSection("info")}>
-            <span>About KickTalk</span>
+            <span>{t('settings.menu.aboutKickTalk')}</span>
             <img src={KickTalkLogo} width={16} height={16} alt="KickTalk Logo" />
           </button>
         </div>
       </div>
       <div className="settingsMenuSection">
         <div className="settingsMenuSectionHeader">
-          <h5>General</h5>
+          <h5>{t('settings.menu.general')}</h5>
         </div>
 
         <div className="settingsMenuSectionItem">
           <button
             className={clsx("settingsMenuSectionItemBtn", { active: activeSection === "general" })}
             onClick={() => setActiveSection("general")}>
-            General
+            {t('settings.menu.general')}
           </button>
         </div>
       </div>
       <div className="settingsMenuSection">
         <div className="settingsMenuSectionHeader">
-          <h5>Chat</h5>
+          <h5>{t('settings.menu.chat')}</h5>
         </div>
 
         <div className="settingsMenuSectionItem">
           <button
             className={clsx("settingsMenuSectionItemBtn", { active: activeSection === "moderation" })}
             onClick={() => setActiveSection("moderation")}>
-            Moderation
+            {t('settings.menu.moderation')}
           </button>
           {/* <button
             disabled
@@ -59,11 +63,12 @@ const SettingsMenu = ({ activeSection, setActiveSection, onLogout }) => (
 
     <div className="settingsMenuFooter">
       <button className="settingsMenuFooterBtn" onClick={onLogout}>
-        <span>Sign Out</span>
+        <span>{t('settings.menu.signOut')}</span>
         <img src={SignOut} width={16} height={16} alt="Sign Out" />
       </button>
     </div>
   </div>
-);
+  );
+};
 
 export default SettingsMenu;

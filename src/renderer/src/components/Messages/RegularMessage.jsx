@@ -1,4 +1,5 @@
 import { memo, useCallback, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { MessageParser } from "../../utils/MessageParser";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import { getTimestampFormat } from "../../utils/ChatUtils";
@@ -26,6 +27,7 @@ const RegularMessage = memo(
     isSearch = false,
     settings,
   }) => {
+    const { t } = useTranslation();
     const getPinMessage = useChatStore((state) => state.getPinMessage);
 
     const canModerate = useMemo(
@@ -129,18 +131,18 @@ const RegularMessage = memo(
         <div className="chatMessageActions">
           {canModerate && !message?.deleted && (
             <button onClick={handlePinMessage} className="chatMessageActionButton">
-              <img src={Pin} alt="Pin Message" width={16} height={16} loading="lazy" />
+              <img src={Pin} alt={t('messages.pinMessage')} width={16} height={16} loading="lazy" />
             </button>
           )}
 
           {!message?.deleted && (
             <button onClick={handleReply} className="chatMessageActionButton">
-              <img src={ReplyIcon} alt={`Reply to ${message?.sender?.username}`} width={16} height={16} loading="lazy" />
+              <img src={ReplyIcon} alt={t('messages.replyTo', { username: message?.sender?.username })} width={16} height={16} loading="lazy" />
             </button>
           )}
 
           <button onClick={handleCopyMessage} className="chatMessageActionButton">
-            <img src={CopyIcon} alt="Copy Message" width={16} height={16} loading="lazy" />
+            <img src={CopyIcon} alt={t('messages.copyMessage')} width={16} height={16} loading="lazy" />
           </button>
         </div>
       </span>

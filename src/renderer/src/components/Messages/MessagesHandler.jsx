@@ -1,5 +1,6 @@
 import { memo, useMemo, useEffect, useState, useRef, useCallback } from "react";
 import { Virtuoso } from "react-virtuoso";
+import { useTranslation } from "react-i18next";
 import useChatStore from "../../providers/ChatProvider";
 import Message from "./Message";
 import MouseScroll from "../../assets/icons/mouse-scroll-fill.svg?asset";
@@ -18,6 +19,7 @@ const MessagesHandler = memo(
     userId,
     donators,
   }) => {
+    const { t } = useTranslation();
     const virtuosoRef = useRef(null);
     const chatContainerRef = useRef(null);
     const [silencedUserIds, setSilencedUserIds] = useState(new Set());
@@ -180,8 +182,8 @@ const MessagesHandler = memo(
 
         {!atBottom && (
           <div className="scrollToBottomBtn" onClick={togglePause}>
-            Scroll To Bottom
-            <img src={MouseScroll} width={24} height={24} alt="Scroll To Bottom" />
+            {t('messages.scrollToBottom')}
+            <img src={MouseScroll} width={24} height={24} alt={t('messages.scrollToBottom')} />
           </div>
         )}
       </div>

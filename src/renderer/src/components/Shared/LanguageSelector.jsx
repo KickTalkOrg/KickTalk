@@ -1,21 +1,34 @@
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLanguage } from '../../utils/useLanguage';
+import { useSettings } from '../../providers/SettingsProvider';
 import clsx from 'clsx';
 import './LanguageSelector.scss';
 
 const LanguageSelector = ({ className, showFlags = true, compact = false }) => {
   const { t } = useTranslation();
   const { changeLanguage, getCurrentLanguage, getAvailableLanguages } = useLanguage();
+  const { updateSettings } = useSettings();
   const [isOpen, setIsOpen] = useState(false);
 
   const languages = getAvailableLanguages();
   const currentLanguage = getCurrentLanguage();
   const currentLangData = languages.find(lang => lang.code === currentLanguage);
 
-  const handleLanguageChange = (languageCode) => {
-    changeLanguage(languageCode);
-    setIsOpen(false);
+  const handleLanguageChange = async (languageCode) => {
+    try {
+      // Change language using the hook
+      await changeLanguage(languageCode);
+      
+      // Also persist in settings store
+      await updateSettings('language', languageCode);
+      
+      setIsOpen(false);
+      
+      console.log(`Language successfully changed to: ${languageCode}`);
+    } catch (error) {
+      console.error('Error changing language:', error);
+    }
   };
 
   return (

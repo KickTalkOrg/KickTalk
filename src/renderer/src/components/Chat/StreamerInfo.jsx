@@ -1,4 +1,5 @@
 import { useState, useEffect, memo, useMemo } from "react";
+import { useTranslation } from "react-i18next";
 import { useShallow } from "zustand/shallow";
 import clsx from "clsx";
 import useChatStore from "../../providers/ChatProvider";
@@ -19,6 +20,7 @@ import {
 
 const StreamerInfo = memo(
   ({ streamerData, isStreamerLive, chatroomId, userChatroomInfo, settings, updateSettings, handleSearch }) => {
+    const { t } = useTranslation();
     const [showPinnedMessage, setShowPinnedMessage] = useState(true);
     // const [showPollMessage, setShowPollMessage] = useState(false);
     const [showStreamerCard, setShowStreamerCard] = useState(false);
@@ -109,8 +111,10 @@ const StreamerInfo = memo(
                     <div className="chatStreamerCardBody">
                       <span className="chatStreamerCardTitle">{streamerData?.livestream?.session_title}</span>
                       <p>
-                        Live for {convertDateToHumanReadable(streamerData?.livestream?.created_at)} with{" "}
-                        {streamerData?.livestream?.viewer_count?.toLocaleString() || 0} viewers
+                        {t('streamerInfo.liveFor', { 
+                          duration: convertDateToHumanReadable(streamerData?.livestream?.created_at),
+                          viewers: streamerData?.livestream?.viewer_count?.toLocaleString() || 0
+                        })}
                       </p>
                     </div>
                   </div>
@@ -150,19 +154,19 @@ const StreamerInfo = memo(
         </ContextMenuTrigger>
 
         <ContextMenuContent>
-          <ContextMenuItem onSelect={handleRefresh7TV}>Refresh 7TV Emotes</ContextMenuItem>
-          <ContextMenuItem onSelect={handleRefreshKickEmotes}>Refresh Kick Emotes</ContextMenuItem>
-          <ContextMenuItem onSelect={handleSearch}>Search</ContextMenuItem>
+          <ContextMenuItem onSelect={handleRefresh7TV}>{t('streamerInfo.refreshEmotes')}</ContextMenuItem>
+          <ContextMenuItem onSelect={handleRefreshKickEmotes}>{t('streamerInfo.refreshKickEmotes')}</ContextMenuItem>
+          <ContextMenuItem onSelect={handleSearch}>{t('streamerInfo.search')}</ContextMenuItem>
           <ContextMenuSeparator />
           <ContextMenuItem onSelect={() => window.open(`https://kick.com/${streamerData?.slug}`, "_blank")}>
-            Open Stream in Browser
+            {t('streamerInfo.openStream')}
           </ContextMenuItem>
           <ContextMenuItem onSelect={() => window.open(`https://player.kick.com/${streamerData?.slug}`, "_blank")}>
-            Open Player in Browser
+            {t('streamerInfo.openPlayer')}
           </ContextMenuItem>
           {canModerate && (
             <ContextMenuItem onSelect={() => window.open(`https://kick.com/${streamerData?.slug}/moderator`, "_blank")}>
-              Open Mod View in Browser
+              {t('streamerInfo.openModView')}
             </ContextMenuItem>
           )}
         </ContextMenuContent>

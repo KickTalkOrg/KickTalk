@@ -1,16 +1,31 @@
 import { useTranslation } from 'react-i18next';
+import { useCallback, useEffect, useState } from 'react';
+import languageSync from './languageSync';
 
 export const useLanguage = () => {
   const { i18n } = useTranslation();
+  const [currentLanguage, setCurrentLanguage] = useState(languageSync.getCurrentLanguage());
 
-  const changeLanguage = (language) => {
-    i18n.changeLanguage(language);
-    localStorage.setItem('kicktalk-language', language);
-  };
+  useEffect(() => {
+    // Listen for language changes from sync utility
+    const unsubscribe = languageSync.addListener((language) => {
+      setCurrentLanguage(language);
+    });
 
-  const getCurrentLanguage = () => {
-    return i18n.language || 'en';
-  };
+    return unsubscribe;
+  }, []);
+
+  const changeLanguage = useCallback(async (language) => {
+    const success = await languageSync.changeLanguage(language);
+    if (success) {
+      setCurrentLanguage(language);
+    }
+    return success;
+  }, []);
+
+  const getCurrentLanguage = useCallback(() => {
+    return currentLanguage;
+  }, [currentLanguage]);
 
   const getAvailableLanguages = () => {
     return [
@@ -24,6 +39,6 @@ export const useLanguage = () => {
     changeLanguage,
     getCurrentLanguage,
     getAvailableLanguages,
-    currentLanguage: getCurrentLanguage()
+    currentLanguage
   };
 };

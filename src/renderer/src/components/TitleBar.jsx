@@ -9,12 +9,10 @@ import GearIcon from "../assets/icons/gear-fill.svg?asset";
 import "../assets/styles/components/TitleBar.scss";
 import clsx from "clsx";
 import Updater from "./Updater";
-import LanguageSelector from "./Shared/LanguageSelector";
 
 const TitleBar = () => {
   const { t } = useTranslation();
   const [userData, setUserData] = useState(null);
-  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [appInfo, setAppInfo] = useState({});
 
   useEffect(() => {
@@ -54,7 +52,7 @@ const TitleBar = () => {
         <span>KickTalk {appInfo.appVersion}</span>
       </div>
 
-      <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
+      <div className="titleBarSettings">
         {userData?.id ? (
           <button
             className="titleBarSettingsBtn"
@@ -84,17 +82,9 @@ const TitleBar = () => {
             </button>
           </div>
         )}
-
-        {settingsModalOpen && (
-          <Settings settingsModalOpen={settingsModalOpen} setSettingsModalOpen={setSettingsModalOpen} appInfo={appInfo} />
-        )}
       </div>
 
       <Updater />
-      
-      <div className="titleBarLanguage">
-        <LanguageSelector compact={true} />
-      </div>
 
       <div className="titleBarRight">
         <div className="titleBarControls">

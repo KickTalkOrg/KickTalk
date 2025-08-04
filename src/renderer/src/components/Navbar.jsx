@@ -1,6 +1,7 @@
 import "../assets/styles/components/Navbar.scss";
 import clsx from "clsx";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import useChatStore from "../providers/ChatProvider";
 import Plus from "../assets/icons/plus-bold.svg?asset";
 import X from "../assets/icons/x-bold.svg?asset";
@@ -13,6 +14,7 @@ import ChatroomTab from "./Navbar/ChatroomTab";
 import MentionsTab from "./Navbar/MentionsTab";
 
 const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
+  const { t } = useTranslation();
   const { settings } = useSettings();
   const connections = useChatStore((state) => state.connections);
   const addChatroom = useChatStore((state) => state.addChatroom);
@@ -262,35 +264,35 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
                 <button
                   onClick={() => setActiveSection("chatroom")}
                   className={clsx("navbarDialogOptionBtn", activeSection === "chatroom" && "active")}>
-                  <img src={MessageIcon} width={24} height={24} alt="Add chatroom" />
-                  <span>Chatroom</span>
+                  <img src={MessageIcon} width={24} height={24} alt={t('navbar.addChatroom')} />
+                  <span>{t('navbar.chatroom')}</span>
                 </button>
                 <button
                   onClick={() => setActiveSection("mentions")}
                   className={clsx("navbarDialogOptionBtn", activeSection === "mentions" && "active")}>
-                  <img src={NotificationIcon} width={24} height={24} alt="Notifications" />
-                  <span>Mentions</span>
+                  <img src={NotificationIcon} width={24} height={24} alt={t('navbar.mentions')} />
+                  <span>{t('navbar.mentions')}</span>
                 </button>
               </div>
 
-              <button className="navbarDialogClose" onClick={() => setShowNavbarDialog(false)} aria-label="Close Add Mentions">
-                <img src={X} width={16} height={16} alt="Close Add Mentions" />
+              <button className="navbarDialogClose" onClick={() => setShowNavbarDialog(false)} aria-label={t('navbar.closeAddMentions')}>
+                <img src={X} width={16} height={16} alt={t('navbar.closeAddMentions')} />
               </button>
             </div>
 
             <div className={clsx("navbarAddChatroomDialog", activeSection === "chatroom" && "active")}>
               <div className="navbarAddChatroomDialogHead">
                 <div className="navbarAddChatroomDialogHeadInfo">
-                  <h2>Add Chatroom</h2>
-                  <p>Enter a channel name to add a new chatroom</p>
+                  <h2>{t('navbar.addChatroom')}</h2>
+                  <p>{t('navbar.addChatroomDescription')}</p>
                 </div>
               </div>
               <form onSubmit={handleSubmit} className="navbarAddForm">
                 <div>
-                  <input ref={inputRef} placeholder="Enter streamer name..." disabled={isConnecting} />
+                  <input ref={inputRef} placeholder={t('navbar.enterStreamerName')} disabled={isConnecting} />
                 </div>
                 <button className="navbarAddChatroomBtn navbarDialogBtn" type="submit" disabled={isConnecting}>
-                  {isConnecting ? "Connecting..." : isSubmitError ? isSubmitError?.message : "Add Chatroom"}
+                  {isConnecting ? t('navbar.connecting') : isSubmitError ? isSubmitError?.message : t('navbar.addChatroom')}
                 </button>
               </form>
             </div>
@@ -298,12 +300,12 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
             <div className={clsx("navbarAddMentionsDialog", activeSection === "mentions" && "active")}>
               <div className="navbarAddMentionsDialogHead">
                 <div className="navbarAddMentionsDialogHeadInfo">
-                  <h2>Add Mentions Tab</h2>
-                  <p>Add a tab to view all your mentions & highlights in all chats in one place</p>
+                  <h2>{t('navbar.addMentionsTab')}</h2>
+                  <p>{t('navbar.addMentionsDescription')}</p>
                 </div>
                 <div className="navbarAddMentionsForm">
                   <button className="navbarAddMentionsBtn navbarDialogBtn" onClick={handleAddMentions}>
-                    Add Mentions Tab
+                    {t('navbar.addMentionsTab')}
                   </button>
                 </div>
               </div>
@@ -327,8 +329,8 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
                 }
               }}
               disabled={isConnecting}>
-              Add
-              <img src={Plus} width={16} height={16} alt="Add chatroom" />
+              {t('common.add')}
+              <img src={Plus} width={16} height={16} alt={t('navbar.addChatroom')} />
             </button>
           </div>
         )}

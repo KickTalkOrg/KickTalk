@@ -198,7 +198,7 @@ const User = () => {
 
               <div className="dialogHeaderUserDates">
                 <div className="dialogHeaderDate">
-                  <p>Following since:</p>
+                  <p>{t('userDialog.followingSince')}:</p>
                   <span>
                     {userProfile?.following_since
                       ? new Date(userProfile?.following_since).toLocaleDateString(undefined, {
@@ -211,11 +211,11 @@ const User = () => {
                 </div>
 
                 <div className="dialogHeaderDate">
-                  <p>Subscribed for</p>
+                  <p>{t('userDialog.subscribedFor')}</p>
                   <span>
                     {userProfile?.subscribed_for > 1 || userProfile?.subscribed_for < 1
-                      ? `${userProfile?.subscribed_for} months`
-                      : `${userProfile?.subscribed_for} month`}
+                      ? t('userDialog.monthsPlural', { count: userProfile?.subscribed_for })
+                      : t('userDialog.monthsSingular', { count: userProfile?.subscribed_for })}
                     .
                   </span>
                 </div>
@@ -244,7 +244,7 @@ const User = () => {
                   const transformedUsername = dialogData?.sender?.username.toLowerCase();
                   window.open(`https://kick.com/${transformedUsername}`, "_blank", "noopener,noreferrer");
                 }}>
-                Open Channel <img src={ArrowUpRight} width={18} height={18} />
+                {t('userDialog.openProfile')} <img src={ArrowUpRight} width={18} height={18} />
               </button>
             </div>
 
@@ -261,27 +261,27 @@ const User = () => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Unban User</p>
+                    <p>{t('userDialog.unban')}</p>
                   </TooltipContent>
                 </Tooltip>
                 <div className="dialogHeaderModActionsTimeout">
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(1)}>
-                    1m
+                    {t('userDialog.timeout1m')}
                   </button>
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(5)}>
-                    5m
+                    {t('userDialog.timeout5m')}
                   </button>
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(30)}>
-                    30m
+                    {t('userDialog.timeout30m')}
                   </button>
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(60)}>
-                    1h
+                    {t('userDialog.timeout1h')}
                   </button>
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(1440)}>
-                    1d
+                    {t('userDialog.timeout24h')}
                   </button>
                   <button className="dialogHeaderModActionsTimeoutBtn" onClick={() => handleTimeoutUser(10080)}>
-                    1w
+                    {t('userDialog.timeout1w')}
                   </button>
                   {/* <div className="dialogHeaderModActionsTimeoutCustom">
                 <input type="number" placeholder="Custom" />
@@ -298,7 +298,7 @@ const User = () => {
                     </button>
                   </TooltipTrigger>
                   <TooltipContent>
-                    <p>Ban User</p>
+                    <p>{t('userDialog.ban')}</p>
                   </TooltipContent>
                 </Tooltip>
               </div>

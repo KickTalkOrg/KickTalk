@@ -1,9 +1,11 @@
 import { useCallback } from "react";
+import { useTranslation } from "react-i18next";
 import { convertMinutesToHumanReadable } from "../../utils/ChatUtils";
 import useCosmeticsStore from "../../providers/CosmeticsProvider";
 import { useShallow } from "zustand/react/shallow";
 
 const ModActionMessage = ({ message, chatroomId, allStvEmotes, subscriberBadges, chatroomName, userChatroomInfo }) => {
+  const { t } = useTranslation();
   const { modAction, modActionDetails } = message;
   const getUserStyle = useCosmeticsStore(useShallow((state) => state.getUserStyle));
 
@@ -51,14 +53,20 @@ const ModActionMessage = ({ message, chatroomId, allStvEmotes, subscriberBadges,
         {isBanAction ? (
           <>
             <button onClick={() => handleOpenUserDialog(moderator)}>{moderator}</button>{" "}
-            {modAction === "banned" ? "permanently banned " : "timed out "}
+            {modAction === "banned" 
+              ? t('messages.modAction.permanentlyBanned')
+              : t('messages.modAction.timedOut')
+            }{" "}
             <button onClick={() => handleOpenUserDialog(username)}>{username}</button>{" "}
-            {modAction === "ban_temporary" && ` for ${convertMinutesToHumanReadable(duration)}`}
+            {modAction === "ban_temporary" && t('messages.modAction.forDuration', { duration: convertMinutesToHumanReadable(duration) })}
           </>
         ) : (
           <>
             <button onClick={() => handleOpenUserDialog(moderator)}>{moderator}</button>{" "}
-            {modAction === "unbanned" ? "unbanned" : "removed timeout on"}{" "}
+            {modAction === "unbanned" 
+              ? t('messages.modAction.unbanned') 
+              : t('messages.modAction.removedTimeoutOn')
+            }{" "}
             <button onClick={() => handleOpenUserDialog(username)}>{username}</button>
           </>
         )}

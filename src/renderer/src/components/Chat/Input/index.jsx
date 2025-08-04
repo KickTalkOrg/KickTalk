@@ -20,6 +20,7 @@ import {
   $getNodeByKey,
 } from "lexical";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
 import { LexicalComposer } from "@lexical/react/LexicalComposer";
 import { PlainTextPlugin } from "@lexical/react/LexicalPlainTextPlugin";
@@ -797,13 +798,15 @@ const initialConfig = {
 };
 
 const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData }) => {
+  const { t } = useTranslation();
+  
   return (
     <>
       {replyInputData && (
         <div className={clsx("replyInputContainer", replyInputData?.sender?.id && "show")}>
           <div className="replyInputBoxHead">
             <span>
-              Replying to <b>@{replyInputData?.sender?.username}</b>
+              {t('chatInput.replyingTo')} <b>@{replyInputData?.sender?.username}</b>
             </span>
 
             <button className="replyInputCloseButton" onClick={() => setReplyInputData(null)}>
@@ -821,6 +824,7 @@ const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData }) => {
 
 const ChatInput = memo(
   ({ chatroomId, isReplyThread = false, replyMessage = {}, settings }) => {
+    const { t } = useTranslation();
     const sendMessage = useChatStore((state) => state.sendMessage);
     const sendReply = useChatStore((state) => state.sendReply);
     const chatroom = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)));
@@ -939,8 +943,8 @@ const ChatInput = memo(
                     <ContentEditable
                       className="chatInput"
                       enterKeyHint="send"
-                      aria-placeholder={"Enter message..."}
-                      placeholder={<div className="chatInputPlaceholder">Send a message...</div>}
+                      aria-placeholder={t('chatInput.enterMessage')}
+                      placeholder={<div className="chatInputPlaceholder">{t('chatInput.placeholder')}</div>}
                       spellCheck={false}
                     />
                   </div>
