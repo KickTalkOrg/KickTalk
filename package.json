@@ -101,6 +101,7 @@
     "@electron-toolkit/eslint-config": "^2.0.0",
     "@electron-toolkit/eslint-config-prettier": "^3.0.0",
     "@eslint/js": "^9.33.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.53.0",
     "@opentelemetry/exporter-prometheus": "^0.203.0",
     "@vitejs/plugin-react": "^4.3.4",
     "cross-env": "^7.0.3",
