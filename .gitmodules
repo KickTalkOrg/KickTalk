@@ -1,3 +1,0 @@
-[submodule ".lgtm"]
-	path = .lgtm
-	url = https://github.com/grafana/docker-otel-lgtm

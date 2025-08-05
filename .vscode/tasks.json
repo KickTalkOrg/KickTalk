@@ -2,12 +2,13 @@
   "version": "2.0.0",
   "tasks": [
     {
-      "label": "lgtm-up",
+      "label": "LGTM: Start (detached)",
       "type": "shell",
-      "command": "./run-lgtm.sh",
-      "options": {
-        "cwd": "${workspaceFolder}/.lgtm"
-      },
+      "command": "bash",
+      "args": [
+        "-lc",
+        "set -e; docker pull grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; docker rm -f lgtm >/dev/null 2>&1 || true; docker run --name lgtm -d -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki' -e GF_PATHS_DATA=/data/grafana grafana/otel-lgtm:latest; echo \"LGTM started on 3000/4317/4318\""
+      ],
       "presentation": {
         "reveal": "always",
         "panel": "dedicated",
@@ -16,14 +17,45 @@
       "problemMatcher": []
     },
     {
-      "label": "lgtm-down",
+      "label": "LGTM: Start (provisioned)",
       "type": "shell",
-      "command": "docker stop lgtm && docker rm lgtm || true",
-      "options": {
-        "cwd": "${workspaceFolder}/.lgtm"
-      },
+      "command": "bash",
+      "args": [
+        "-lc",
+        "set -e; docker pull grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; docker rm -f lgtm >/dev/null 2>&1 || true; docker run --name lgtm -d --add-host=prometheus:127.0.0.1 --add-host=tempo:127.0.0.1 --add-host=loki:127.0.0.1 -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki' -v '${workspaceFolder}/otel/grafana/provisioning:/provisioning' -v '${workspaceFolder}/otel/grafana/dashboards:/dashboards' -e GF_PATHS_DATA=/data/grafana -e GF_PATHS_PROVISIONING=/provisioning -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/dashboards/kicktalk-overview.json grafana/otel-lgtm:latest; echo \"LGTM (provisioned) started with provisioning mounted\""
+      ],
       "presentation": {
         "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "LGTM: Stop",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "docker rm -f lgtm || true; echo \"LGTM stopped\""
+      ],
+      "presentation": {
+        "reveal": "always",
+        "panel": "dedicated",
+        "clear": true
+      },
+      "problemMatcher": []
+    },
+    {
+      "label": "LGTM: Clean data",
+      "type": "shell",
+      "command": "bash",
+      "args": [
+        "-lc",
+        "rm -rf '${workspaceFolder}/.lgtm-data'/* || true; echo \"LGTM data cleaned (.lgtm-data)\""
+      ],
+      "presentation": {
+        "reveal": "never",
         "panel": "dedicated",
         "clear": true
       },

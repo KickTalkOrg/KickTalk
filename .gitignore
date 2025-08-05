@@ -67,6 +67,9 @@ typings/
 *.tgz
 
 # Yarn Integrity file
+
+# Local LGTM persistent data (dev-only)
+.lgtm-data/
 .yarn-integrity
 
 # dotenv environment variables file
