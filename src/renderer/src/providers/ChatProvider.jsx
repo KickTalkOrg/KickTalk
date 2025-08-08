@@ -12,6 +12,38 @@ import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
 
+// Renderer tracing helpers (no direct imports to avoid ESM/CSP issues)
+const getRendererTracer = () =>
+  (typeof window !== 'undefined' && (window.__KT_TRACER__ || window.__KT_TRACE_API__?.trace?.getTracer?.('kicktalk-renderer'))) || null;
+
+const startSpan = (name, attributes = {}) => {
+  try {
+    const tracer = getRendererTracer();
+    if (!tracer || typeof tracer.startSpan !== 'function') return null;
+    const span = tracer.startSpan(name);
+    try {
+      if (span && attributes && typeof attributes === 'object') {
+        Object.entries(attributes).forEach(([k, v]) => {
+          try { span.setAttribute(k, v); } catch {}
+        });
+      }
+    } catch {}
+    return span;
+  } catch {
+    return null;
+  }
+};
+
+const endSpanOk = (span) => {
+  try { span?.setStatus?.({ code: 1 }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
+const endSpanError = (span, err) => {
+  try { span?.setStatus?.({ code: 2, message: (err && (err.message || String(err))) || '' }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
 // Lightweight renderer health reporter (behind telemetry.enabled)
 const startRendererHealthReporting = (intervalMs = 30000) => {
   let timer = null;
@@ -420,9 +452,14 @@ const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (chatroomId, content) => {
+    const opSpan = startSpan('chat.send', {
+      'chat.id': chatroomId,
+      'message.length': (content || '').trim().length
+    });
     const startTime = Date.now();
     const chatroom = get().chatrooms.find(room => room.id === chatroomId);
     const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    try { opSpan?.setAttribute?.('streamer.name', streamerName); } catch {}
     console.log(`[Telemetry] sendMessage - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
     
     try {
@@ -448,6 +485,9 @@ const useChatStore = create((set, get) => ({
       // Create and immediately add optimistic message (should be instant now!)
       const optimisticMessage = createOptimisticMessage(chatroomId, message, currentUser);
       get().addMessage(chatroomId, optimisticMessage);
+      try {
+        opSpan?.addEvent?.('optimistic.add', { 'message.temp_id': optimisticMessage.tempId });
+      } catch {}
 
       // Set timeout to mark message as failed if not confirmed within 30 seconds
       const timeoutId = setTimeout(() => {
@@ -464,7 +504,13 @@ const useChatStore = create((set, get) => ({
 
       // Send message to server
       const apiStartTime = Date.now();
+      const apiSpan = startSpan('chat.api.sendMessage', {
+        'http.method': 'POST',
+        'api.endpoint': 'kick_send_message'
+      });
       const response = await window.app.kick.sendMessage(chatroomId, message);
+      try { apiSpan?.setAttribute?.('http.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+      endSpanOk(apiSpan);
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
@@ -497,11 +543,13 @@ const useChatStore = create((set, get) => ({
       // Record successful message send
       const duration = (Date.now() - startTime) / 1000;
       window.app?.telemetry?.recordMessageSent(chatroomId, 'regular', duration, true, streamerName);
+      endSpanOk(opSpan);
 
       // Message sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       console.error('[Send Message]: Error sending message:', error);
+      endSpanError(opSpan, error);
 
       // Record failed message send with error details
       const duration = (Date.now() - startTime) / 1000;
@@ -528,9 +576,14 @@ const useChatStore = create((set, get) => ({
   },
 
   sendReply: async (chatroomId, content, metadata = {}) => {
+    const opSpan = startSpan('chat.reply', {
+      'chat.id': chatroomId,
+      'message.length': (content || '').trim().length
+    });
     const startTime = Date.now();
     const chatroom = get().chatrooms.find(room => room.id === chatroomId);
     const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    try { opSpan?.setAttribute?.('streamer.name', streamerName); } catch {}
     console.log(`[Telemetry] sendReply - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
     
     try {
@@ -555,6 +608,7 @@ const useChatStore = create((set, get) => ({
       // Create and immediately add optimistic reply (should be instant now!)
       const optimisticReply = createOptimisticReply(chatroomId, message, currentUser, metadata);
       get().addMessage(chatroomId, optimisticReply);
+      try { opSpan?.addEvent?.('optimistic.add', { 'message.temp_id': optimisticReply.tempId }); } catch {}
 
       // Set timeout to mark reply as failed if not confirmed within 30 seconds
       const timeoutId = setTimeout(() => {
@@ -571,7 +625,13 @@ const useChatStore = create((set, get) => ({
 
       // Send reply to server
       const apiStartTime = Date.now();
+      const apiSpan = startSpan('chat.api.sendReply', {
+        'http.method': 'POST',
+        'api.endpoint': 'kick_send_reply'
+      });
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
+      try { apiSpan?.setAttribute?.('http.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+      endSpanOk(apiSpan);
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
@@ -604,11 +664,13 @@ const useChatStore = create((set, get) => ({
       // Record successful reply send
       const duration = (Date.now() - startTime) / 1000;
       window.app?.telemetry?.recordMessageSent(chatroomId, 'reply', duration, true, streamerName);
+      endSpanOk(opSpan);
 
       // Reply sent successfully - it will be confirmed when we receive it back via WebSocket
       return true;
     } catch (error) {
       console.error('[Send Reply]: Error sending reply:', error);
+      endSpanError(opSpan, error);
 
       // Record failed reply send with error details
       const duration = (Date.now() - startTime) / 1000;
@@ -681,33 +743,39 @@ const useChatStore = create((set, get) => ({
     stvSocket.connect();
 
     stvSocket.addEventListener("message", (event) => {
+      const evtSpan = startSpan('7tv.ws.event', {
+        'chat.id': chatroom.id,
+        'ws.provider': '7tv'
+      });
       const SevenTVEvent = event.detail;
       const { type, body } = SevenTVEvent;
+      try { evtSpan?.setAttribute?.('event.type', type || 'unknown'); } catch {}
 
       switch (type) {
         case "connection_established":
-          break;
+          endSpanOk(evtSpan); break;
         case "emote_set.update":
           get().handleEmoteSetUpdate(chatroom.id, body);
-          break;
+          endSpanOk(evtSpan); break;
         case "cosmetic.create":
           useCosmeticsStore?.getState()?.addCosmetics(body);
-          break;
+          endSpanOk(evtSpan); break;
         case "entitlement.create":
           const username = body?.object?.user?.connections?.find((c) => c.platform === "KICK")?.username;
           const transformedUsername = username?.replaceAll("-", "_").toLowerCase();
 
           useCosmeticsStore?.getState()?.addUserStyle(transformedUsername, body);
-          break;
+          endSpanOk(evtSpan); break;
 
         default:
-          break;
+          endSpanOk(evtSpan); break;
       }
     });
 
     storeStvId = localStorage.getItem("stvId");
 
     stvSocket.addEventListener("open", () => {
+      const s = startSpan('7tv.ws.connect', { 'chat.id': chatroom.id });
       console.log("7TV WebSocket connected for chatroom:", chatroom.id);
 
       setTimeout(() => {
@@ -719,11 +787,14 @@ const useChatStore = create((set, get) => ({
           console.log("[7tv Presence]: No STV ID or auth tokens available for WebSocket presence update");
         }
       }, 2000);
+      endSpanOk(s);
     });
 
     stvSocket.addEventListener("close", () => {
+      const s = startSpan('7tv.ws.close', { 'chat.id': chatroom.id });
       console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
       stvPresenceUpdates.delete(chatroom.streamerData.user_id);
+      endSpanOk(s);
     });
   },
 
@@ -733,6 +804,7 @@ const useChatStore = create((set, get) => ({
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {
+      const s = startSpan('kick.ws.connect', { 'chat.id': chatroom.id });
       console.info("Connected to chatroom:", chatroom.id);
       get().addMessage(chatroom.id, {
         id: crypto.randomUUID(),
@@ -740,45 +812,48 @@ const useChatStore = create((set, get) => ({
         ...event?.detail,
         timestamp: new Date().toISOString(),
       });
+      endSpanOk(s);
       return;
     });
 
     // Channel Events
     pusher.addEventListener("channel", (event) => {
+      const s = startSpan('kick.ws.channel', { 'chat.id': chatroom.id, 'event.type': event?.detail?.event });
       const parsedEvent = JSON.parse(event.detail.data);
       switch (event.detail.event) {
         case "App\\Events\\LivestreamUpdated":
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\ChatroomUpdatedEvent":
           get().handleChatroomUpdated(chatroom.id, parsedEvent);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\StreamerIsLive":
           console.log("Streamer is live", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\StopStreamBroadcast":
           console.log("Streamer is offline", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, false);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\PinnedMessageCreatedEvent":
           get().handlePinnedMessageCreated(chatroom.id, parsedEvent);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\PinnedMessageDeletedEvent":
           get().handlePinnedMessageDeleted(chatroom.id);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\PollUpdateEvent":
           console.log("Poll update event:", parsedEvent);
           get().handlePollUpdate(chatroom.id, parsedEvent?.poll);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\PollDeleteEvent":
           get().handlePollDelete(chatroom.id);
-          break;
+          endSpanOk(s); break;
       }
     });
 
     // Message Events
     pusher.addEventListener("message", async (event) => {
+      const s = startSpan('kick.ws.message', { 'chat.id': chatroom.id, 'event.type': event?.detail?.event });
       const parsedEvent = JSON.parse(event.detail.data);
 
       switch (event.detail.event) {
@@ -870,10 +945,10 @@ const useChatStore = create((set, get) => ({
             }
           }
 
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\MessageDeletedEvent":
           get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\UserBannedEvent":
           get().handleUserBanned(chatroom.id, parsedEvent);
           get().addMessage(chatroom.id, {
@@ -884,8 +959,7 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
-
-          break;
+          endSpanOk(s); break;
         case "App\\Events\\UserUnbannedEvent":
           get().handleUserUnbanned(chatroom.id, parsedEvent);
           get().addMessage(chatroom.id, {
@@ -896,7 +970,7 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
-          break;
+          endSpanOk(s); break;
       }
     });
 

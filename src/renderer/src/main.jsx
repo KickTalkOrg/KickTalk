@@ -1,3 +1,4 @@
+import './telemetry/webTracing';
 import "./assets/styles/main.scss";
 
 import React from "react";

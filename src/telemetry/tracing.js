@@ -8,11 +8,12 @@ try {
  require('dotenv').config();
 } catch {}
 
-const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
-const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
+  const { NodeSDK } = require('@opentelemetry/sdk-node');
+  const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
+  const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
+  const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
+  const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
+  const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 
 (async () => {
  try {
@@ -21,10 +22,30 @@ const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
      diag.setLogger(new DiagConsoleLogger(), level);
    }
 
+   const exporterEndpoint = process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+     || process.env.OTEL_EXPORTER_OTLP_ENDPOINT
+     || '';
+
    const sdk = new NodeSDK({
      traceExporter: new OTLPTraceExporter(),
      metricExporter: new OTLPMetricExporter(),
-     instrumentations: [],
+     instrumentations: [
+       getNodeAutoInstrumentations({
+         '@opentelemetry/instrumentation-http': {
+           ignoreOutgoingRequestHook: (request) => {
+             try {
+               const host = request?.headers?.host || request?.hostname || '';
+               const path = request?.path || '';
+               const protocol = request?.protocol || 'https:';
+               const url = host ? `${protocol}//${host}${path}` : '';
+               if (host.includes('otlp-gateway')) return true;
+               if (exporterEndpoint && url && url.startsWith(exporterEndpoint.replace(/\/$/, ''))) return true;
+             } catch {}
+             return false;
+           }
+         }
+       })
+     ],
      traceSampler: new AlwaysOnSampler()
    });
 

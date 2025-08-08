@@ -31,6 +31,26 @@ try {
 // Start NodeSDK (driven by OTEL_* envs)
 require('../telemetry/tracing.js');
 
+// Create a quick manual span to verify traces flow at startup
+try {
+  const { trace } = require('@opentelemetry/api');
+  const tracer = trace.getTracer('kicktalk-main');
+  const span = tracer.startSpan('main_startup_boot');
+  span.setAttribute('process.type', 'electron-main');
+  span.setAttribute('node.env', process.env.NODE_ENV || 'unknown');
+  span.addEvent('main_startup_boot:begin');
+
+  // End the span on next tick to ensure it gets exported even on fast startup
+  process.nextTick(() => {
+    try {
+      span.addEvent('main_startup_boot:end');
+      span.end();
+    } catch {}
+  });
+} catch (e) {
+  console.warn('[Telemetry]: Failed to create startup span:', e?.message || e);
+}
+
 const { app, shell, BrowserWindow, ipcMain, screen, session, Tray, Menu, dialog } = require("electron");
 import { join, basename } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
@@ -138,6 +158,42 @@ try {
     recordConnectionError: () => {},
     recordReconnection: () => {}
   };
+}
+
+// Force-sampled parent span around a real outbound HTTP call to ensure children http.client spans are recorded
+try {
+  const { trace, context } = require('@opentelemetry/api');
+  const tracer = trace.getTracer('kicktalk-main');
+  const https = require('https');
+
+  const parent = tracer.startSpan('kicktalk.validation_http_probe', {
+    attributes: {
+      'probe.target': 'kick_health',
+      'probe.kind': 'startup_validation'
+    }
+  });
+
+  // Run a simple HTTPS GET under the parent span's context
+  context.with(trace.setSpan(context.active(), parent), () => {
+    const req = https.request(
+      // lightweight, fast endpoint; replace with a Kick/7tv endpoint if desired
+      { method: 'GET', hostname: 'api.github.com', path: '/octocat', headers: { 'User-Agent': 'kicktalk' } },
+      (res) => {
+        res.on('data', () => {});
+        res.on('end', () => {
+          try { parent.setAttribute('probe.status_code', res.statusCode || 0); } catch {}
+          try { parent.end(); } catch {}
+        });
+      }
+    );
+    req.on('error', (e) => {
+      try { parent.recordException?.(e); parent.setStatus?.({ code: 2, message: e.message }); } catch {}
+      try { parent.end(); } catch {}
+    });
+    req.end();
+  });
+} catch (e) {
+  console.warn('[Telemetry]: HTTP probe span failed:', e?.message || e);
 }
 
 const authStore = new Store({
@@ -465,6 +521,254 @@ ipcMain.handle("notificationSounds:getSoundUrl", (e, { soundFile }) => {
 ipcMain.handle("store:get", async (e, { key }) => {
   if (!key) return store.store;
   return store.get(key);
+});
+
+/**
+ * A2: Provide OTLP config to renderer via preload bridge (no secrets bundled)
+ * Uses MAIN_VITE_* mapped to OTEL_* at startup to build traces endpoint + headers.
+ */
+ipcMain.handle("otel:get-config", async () => {
+  try {
+    const env = process.env;
+    const base =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+      "";
+    const endpoint =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      (base ? `${base.replace(/\/$/, "")}/v1/traces` : "");
+
+    const headers =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_HEADERS ||
+      "";
+
+    const deploymentEnv =
+      env.MAIN_VITE_OTEL_DEPLOYMENT_ENV ||
+      env.OTEL_DEPLOYMENT_ENV ||
+      env.NODE_ENV ||
+      "development";
+
+    if (!endpoint || !headers) {
+      return { ok: false, reason: "missing_endpoint_or_headers" };
+    }
+    return { ok: true, endpoint, headers, deploymentEnv };
+  } catch (e) {
+    return { ok: false, reason: e?.message || "unknown_error" };
+  }
+});
+
+/**
+ * A3: IPC relay for renderer OTLP export to avoid browser CORS.
+ * Accepts raw protobuf bytes (ArrayBuffer) and forwards to Grafana Cloud OTLP.
+ * Logs key request details for verification.
+ */
+ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
+  const startedAt = Date.now();
+  try {
+    try {
+      const len = arrayBuffer instanceof ArrayBuffer ? arrayBuffer.byteLength : 0;
+      console.debug(`[OTEL Relay] handler invoked: payloadLen=${len}B at ${new Date(startedAt).toISOString()} (protobuf)`);
+    } catch {}
+    const env = process.env;
+    const base =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+      "";
+    const endpoint =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      (base ? `${base.replace(/\/$/, "")}/v1/traces` : "");
+    const headersRaw =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_HEADERS ||
+      "";
+
+    if (!endpoint || !headersRaw) {
+      console.warn(`[OTEL Relay] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
+      return { ok: false, reason: "missing_endpoint_or_headers" };
+    }
+
+    // Parse "Key=Value,Key2=Value2" header string
+    const headers = {};
+    headersRaw.split(",").forEach((kv) => {
+      const idx = kv.indexOf("=");
+      if (idx > 0) {
+        const k = kv.slice(0, idx).trim();
+        const v = kv.slice(idx + 1).trim();
+        if (k && v) headers[k] = v;
+      }
+    });
+
+    // Normalize ArrayBuffer to Buffer
+    const buf =
+      arrayBuffer instanceof ArrayBuffer
+        ? Buffer.from(new Uint8Array(arrayBuffer))
+        : Buffer.from([]);
+
+    const https = require("https");
+    const url = new URL(endpoint);
+
+    const options = {
+      method: "POST",
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname + (url.search || ""),
+      headers: Object.assign(
+        {
+          "Content-Type": "application/x-protobuf",
+          "Content-Length": buf.length,
+          // Do not log Authorization value; only presence
+        },
+        headers
+      )
+    };
+
+    // Log request meta (no secrets)
+    console.log(
+      `[OTEL Relay] → POST ${url.hostname}${options.path} (protobuf) len=${buf.length} auth=${'Authorization' in headers} start=${new Date(
+        startedAt
+      ).toISOString()}`
+    );
+
+    const status = await new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        const chunks = [];
+        res.on("data", (c) => chunks.push(c));
+        res.on("end", () => {
+          const ms = Date.now() - startedAt;
+          const body = Buffer.concat(chunks).toString("utf8");
+          console.log(
+            `[OTEL Relay] ← ${res.statusCode} (${ms}ms) from ${url.hostname}${options.path} bodyLen=${body.length} (protobuf)`
+          );
+          resolve(res.statusCode || 0);
+        });
+      });
+      req.on("error", (err) => {
+        console.warn(`[OTEL Relay] request error: ${err?.message || err}`);
+        reject(err);
+      });
+      req.write(buf);
+      req.end();
+    });
+
+    // Grafana OTLP often returns 200/204 on success
+    if (status >= 200 && status < 300) {
+      return { ok: true, status };
+    }
+    return { ok: false, status, reason: "upstream_non_2xx" };
+  } catch (e) {
+    console.warn(`[OTEL Relay] failure: ${e?.message || e}`);
+    return { ok: false, reason: e?.message || "export_failed" };
+  }
+});
+/**
+ * A4: IPC relay for OTLP JSON (renderer → main) to bypass CSP/transport limits.
+ * Accepts ExportTraceServiceRequest (JSON) and posts to Grafana Cloud using application/json without protobuf conversion.
+ * Grafana OTLP HTTP supports JSON; ensure endpoint is /v1/traces.
+ */
+ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
+  const startedAt = Date.now();
+  try {
+    // Extract span names for logging
+    let spanNames = [];
+    try {
+      const rss = exportJson?.resourceSpans || [];
+      for (const rs of rss) {
+        const scopes = rs?.scopeSpans || rs?.instrumentationLibrarySpans || [];
+        for (const sc of scopes) {
+          const spans = sc?.spans || [];
+          for (const sp of spans) {
+            if (sp?.name) spanNames.push(sp.name);
+          }
+        }
+      }
+    } catch {}
+    const env = process.env;
+    const base =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_ENDPOINT ||
+      "";
+    const endpoint =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT ||
+      (base ? `${base.replace(/\/$/, "")}/v1/traces` : "");
+    const headersRaw =
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_TRACES_HEADERS ||
+      env.OTEL_EXPORTER_OTLP_HEADERS ||
+      "";
+
+    if (!endpoint || !headersRaw) {
+      console.warn(`[OTEL Relay JSON] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
+      return { ok: false, reason: "missing_endpoint_or_headers" };
+    }
+
+    // Parse "Key=Value,Key2=Value2"
+    const headers = {};
+    headersRaw.split(",").forEach((kv) => {
+      const idx = kv.indexOf("=");
+      if (idx > 0) {
+        const k = kv.slice(0, idx).trim();
+        const v = kv.slice(idx + 1).trim();
+        if (k && v) headers[k] = v;
+      }
+    });
+
+    const https = require("https");
+    const url = new URL(endpoint);
+    const body = Buffer.from(JSON.stringify(exportJson), "utf8");
+
+    const options = {
+      method: "POST",
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname + (url.search || ""),
+      headers: Object.assign(
+        {
+          "Content-Type": "application/json",
+          "Content-Length": body.length,
+        },
+        headers
+      ),
+    };
+
+    console.log(
+      `[OTEL Relay JSON] → POST ${url.hostname}${options.path} (json) len=${body.length} auth=${"Authorization" in headers} start=${new Date(
+        startedAt
+      ).toISOString()} names=${spanNames.slice(0,5).join(', ')}${spanNames.length>5?` (+${spanNames.length-5} more)`:''}`
+    );
+
+    const status = await new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        res.on("data", () => {});
+        res.on("end", () => {
+          const ms = Date.now() - startedAt;
+          try {
+            console.log(
+              `[OTEL Relay JSON] ← ${res.statusCode} (${ms}ms) from ${url.hostname}${options.path} names=${spanNames.slice(0,5).join(', ')}${spanNames.length>5?` (+${spanNames.length-5} more)`:''}`
+            );
+          } catch {}
+          resolve(res.statusCode || 0);
+        });
+      });
+      req.on("error", reject);
+      req.write(body);
+      req.end();
+    });
+
+    if (status >= 200 && status < 300) return { ok: true, status };
+    return { ok: false, status, reason: "upstream_non_2xx" };
+  } catch (e) {
+    console.warn(`[OTEL Relay JSON] failure: ${e?.message || e}`);
+    return { ok: false, reason: e?.message || "export_failed" };
+  }
 });
 
 ipcMain.handle("store:set", (e, { key, value }) => {

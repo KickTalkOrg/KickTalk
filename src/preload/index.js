@@ -180,6 +180,32 @@ initializePreload();
 
 if (process.contextIsolated) {
   try {
+    // A2: expose telemetry bridge to fetch OTLP config from main (without bundling secrets)
+    contextBridge.exposeInMainWorld("telemetry", {
+      getOtelConfig: () => ipcRenderer.invoke("otel:get-config"),
+      // Relay OTLP traces via IPC to avoid browser CORS; accepts ArrayBuffer (protobuf bytes)
+      exportTraces: (buffer) => {
+        try {
+          const ab = buffer instanceof ArrayBuffer ? buffer : buffer?.buffer;
+          if (!ab) return Promise.resolve({ ok: false, reason: 'invalid_buffer' });
+          return ipcRenderer.invoke('otel:trace-export', ab);
+        } catch (e) {
+          return Promise.resolve({ ok: false, reason: e?.message || 'ipc_invoke_failed' });
+        }
+      },
+      // Relay OTLP JSON ExportTraceServiceRequest for CSP-safe verification path
+      exportTracesJson: (payload) => {
+        try {
+          if (!payload || typeof payload !== 'object') {
+            return Promise.resolve({ ok: false, reason: 'invalid_json' });
+          }
+          return ipcRenderer.invoke('otel:trace-export-json', payload);
+        } catch (e) {
+          return Promise.resolve({ ok: false, reason: e?.message || 'ipc_invoke_failed' });
+        }
+      }
+    });
+
     contextBridge.exposeInMainWorld("app", {
       minimize: () => ipcRenderer.send("minimize"),
       maximize: () => ipcRenderer.send("maximize"),
