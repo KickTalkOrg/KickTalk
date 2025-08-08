@@ -364,12 +364,14 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
                 return BigInt(Date.now()) * 1000000n;
               }
               
-              // hr is [seconds, nanoseconds] from hrtime - these ARE Unix epoch seconds
+              // hr is [seconds, nanoseconds] relative to performance.timeOrigin.
+              // Convert to epoch nanoseconds by adding performance.timeOrigin (ms) converted to ns.
               const sec = BigInt(hr[0]);
               const ns = BigInt(hr[1]);
+              const originNs = BigInt(Math.trunc(performance.timeOrigin * 1000000)); // ms -> ns
               
-              // Convert Unix epoch seconds + nanoseconds to total nanoseconds
-              return sec * 1000000000n + ns;
+              // Total = originNs + (seconds * 1e9 + nanos)
+              return originNs + (sec * 1000000000n + ns);
             } catch {
               // Fallback to current time in nanoseconds
               return BigInt(Date.now()) * 1000000n;

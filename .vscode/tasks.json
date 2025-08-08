@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "set -e; podman pull docker.io/grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana:Z' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus:Z' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki:Z' -e GF_PATHS_DATA=/data/grafana docker.io/grafana/otel-lgtm:latest; echo \"LGTM started on 3000/4317/4318 (podman)\""
+        "set -e; IMAGE_TAG=\"${OTEL_LGTM_IMAGE_TAG:-latest}\"; IMAGE=\"docker.io/grafana/otel-lgtm:${IMAGE_TAG}\"; if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then Z=':Z'; else Z=''; fi; podman pull \"$IMAGE\"; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d --userns=keep-id -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana'\"$Z\" -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus'\"$Z\" -v '${workspaceFolder}/.lgtm-data/loki:/data/loki'\"$Z\" -e GF_PATHS_DATA=/data/grafana \"$IMAGE\"; echo \"LGTM started on 3000/4317/4318 (podman)\"; if command -v curl >/dev/null 2>&1; then printf 'Waiting for Grafana readiness'; for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then echo ' - ready'; break; else sleep 1; printf '.'; fi; done; echo; fi" 
       ],
       "presentation": {
         "reveal": "always",
@@ -22,7 +22,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "set -e; podman pull docker.io/grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d --add-host=prometheus:127.0.0.1 --add-host=tempo:127.0.0.1 --add-host=loki:127.0.0.1 -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana:Z' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus:Z' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki:Z' -v '${workspaceFolder}/otel/grafana/provisioning:/provisioning:Z' -v '${workspaceFolder}/otel/grafana/dashboards:/dashboards:Z' -e GF_PATHS_DATA=/data/grafana -e GF_PATHS_PROVISIONING=/provisioning -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/dashboards/kicktalk-overview.json docker.io/grafana/otel-lgtm:latest; echo \"LGTM (provisioned) started with provisioning mounted (podman)\""
+        "set -e; IMAGE_TAG=\"${OTEL_LGTM_IMAGE_TAG:-latest}\"; IMAGE=\"docker.io/grafana/otel-lgtm:${IMAGE_TAG}\"; if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then Z=':Z'; else Z=''; fi; podman pull \"$IMAGE\"; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d --userns=keep-id --add-host=prometheus:127.0.0.1 --add-host=tempo:127.0.0.1 --add-host=loki:127.0.0.1 -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana'\"$Z\" -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus'\"$Z\" -v '${workspaceFolder}/.lgtm-data/loki:/data/loki'\"$Z\" -v '${workspaceFolder}/otel/grafana/provisioning:/provisioning'\"$Z\" -v '${workspaceFolder}/otel/grafana/dashboards:/dashboards'\"$Z\" -e GF_PATHS_DATA=/data/grafana -e GF_PATHS_PROVISIONING=/provisioning -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/dashboards/kicktalk-overview.json \"$IMAGE\"; echo \"LGTM (provisioned) started with provisioning mounted (podman)\"; if command -v curl >/dev/null 2>&1; then printf 'Waiting for Grafana readiness'; for i in $(seq 1 60); do if curl -fsS http://127.0.0.1:3000/api/health >/dev/null 2>&1; then echo ' - ready'; break; else sleep 1; printf '.'; fi; done; echo; fi"
       ],
       "presentation": {
         "reveal": "always",
@@ -37,7 +37,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "podman rm -f lgtm || true; echo \"LGTM stopped (podman)\""
+        "podman rm -f lgtm >/dev/null 2>&1 || true; echo \"LGTM stopped (podman)\""
       ],
       "presentation": {
         "reveal": "always",

@@ -58,6 +58,19 @@ import { update } from "./utils/update";
 import Store from "electron-store";
 import store from "../../utils/config";
 import fs from "fs";
+import { randomUUID, randomBytes } from "crypto";
+
+// Reusable crypto-grade request ID generator
+const genRequestId = () => {
+  try {
+    if (typeof randomUUID === 'function') return randomUUID();
+  } catch {}
+  try {
+    return randomBytes(16).toString('hex');
+  } catch {}
+  // Fallback (should rarely be used)
+  return Math.random().toString(36).substring(2, 10);
+};
 
 // Initialize telemetry early if enabled
 let initTelemetry = null;
@@ -568,7 +581,7 @@ ipcMain.handle("otel:get-config", async () => {
  */
 ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
   const startedAt = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 8);
+  const requestId = genRequestId();
   
   try {
     const len = arrayBuffer instanceof ArrayBuffer ? arrayBuffer.byteLength : 0;
@@ -638,7 +651,8 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
           "Content-Length": buf.length,
         },
         headers
-      )
+      ),
+      timeout: 15000
     };
 
     console.log(`[OTEL Relay Protobuf][${requestId}] → POST ${url.hostname}${options.path}`, {
@@ -651,6 +665,10 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
     });
 
     const result = await new Promise((resolve, reject) => {
+      let settled = false;
+      const safeResolve = (v) => { if (settled) return; settled = true; resolve(v); };
+      const safeReject = (e) => { if (settled) return; settled = true; reject(e); };
+
       const req = https.request(options, (res) => {
         const chunks = [];
         res.on("data", (chunk) => chunks.push(chunk));
@@ -674,7 +692,7 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
             console.log(`[OTEL Relay Protobuf][${requestId}] Response body (truncated):`, responseBody.substring(0, 500) + '...');
           }
           
-          resolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
+          safeResolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
         });
       });
       
@@ -684,7 +702,18 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
           error: err.message,
           duration: `${Date.now() - startedAt}ms`
         });
-        reject(err);
+        safeReject(err);
+      });
+
+      // Timeout safeguard
+      const TIMEOUT_MS = 15000;
+      req.setTimeout(TIMEOUT_MS, () => {
+        console.error(`[OTEL Relay Protobuf][${requestId}] Request timeout after ${TIMEOUT_MS}ms`, {
+          requestId,
+          duration: `${Date.now() - startedAt}ms`
+        });
+        try { req.destroy(new Error('request_timeout')); } catch {}
+        safeReject(new Error('request_timeout'));
       });
       
       req.write(buf);
@@ -772,11 +801,12 @@ const extractTraceInfo = (exportJson) => {
  */
 ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
   const startedAt = Date.now();
-  const requestId = Math.random().toString(36).substring(2, 8);
+  const requestId = genRequestId();
   
   try {
     // Extract comprehensive trace information
     const traceInfo = extractTraceInfo(exportJson);
+    const isDebug = ((process.env.OTEL_DIAG_LOG_LEVEL || '') + '').toUpperCase() === 'DEBUG';
     
     console.log(`[OTEL Relay JSON][${requestId}] Processing export request:`, {
       requestId,
@@ -791,14 +821,22 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
       resourceAttributes: traceInfo.resourceAttributes
     });
     
-    // Detailed payload analysis for debugging
-    console.log(`[OTEL Relay JSON][${requestId}] Full payload analysis:`, {
-      requestId,
-      fullPayload: JSON.stringify(exportJson, null, 2)
-    });
+    // Detailed payload analysis for debugging (only in DEBUG and trimmed)
+    if (isDebug) {
+      const MAX_LOG_CHARS = 2000;
+      let payloadStr;
+      try { payloadStr = JSON.stringify(exportJson); } catch { payloadStr = '[unserializable]'; }
+      const trimmed = payloadStr && payloadStr.length > MAX_LOG_CHARS ? payloadStr.slice(0, MAX_LOG_CHARS) + '... [truncated]' : payloadStr;
+      console.log(`[OTEL Relay JSON][${requestId}] Full payload analysis (trimmed):`, {
+        requestId,
+        fullPayload: trimmed,
+        length: payloadStr ? payloadStr.length : 0,
+        truncated: !!(payloadStr && payloadStr.length > MAX_LOG_CHARS)
+      });
+    }
     
-    // Enhanced span-level analysis for debugging partialSuccess rejections
-    if (exportJson?.resourceSpans) {
+    // Enhanced span-level analysis for debugging partialSuccess rejections (DEBUG only)
+    if (isDebug && exportJson?.resourceSpans) {
       exportJson.resourceSpans.forEach((rs, rsIdx) => {
         console.log(`[OTEL Relay JSON][${requestId}] ResourceSpan[${rsIdx}] resource:`, rs.resource);
         
@@ -877,6 +915,7 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
         },
         headers
       ),
+      timeout: 15000,
     };
 
     console.log(`[OTEL Relay JSON][${requestId}] → POST ${url.hostname}${options.path}`, {
@@ -891,6 +930,10 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
     });
 
     const result = await new Promise((resolve, reject) => {
+      let settled = false;
+      const safeResolve = (v) => { if (settled) return; settled = true; resolve(v); };
+      const safeReject = (e) => { if (settled) return; settled = true; reject(e); };
+
       const req = https.request(options, (res) => {
         const chunks = [];
         res.on("data", (chunk) => chunks.push(chunk));
@@ -930,7 +973,7 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
             console.log(`[OTEL Relay JSON][${requestId}] Response body (truncated):`, responseBody.substring(0, 500) + '...');
           }
           
-          resolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
+          safeResolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
         });
       });
       
@@ -941,7 +984,19 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
           traceIds: traceInfo.traceIds,
           duration: `${Date.now() - startedAt}ms`
         });
-        reject(err);
+        safeReject(err);
+      });
+
+      // Timeout safeguard
+      const TIMEOUT_MS = 15000;
+      req.setTimeout(TIMEOUT_MS, () => {
+        console.error(`[OTEL Relay JSON][${requestId}] Request timeout after ${TIMEOUT_MS}ms`, {
+          requestId,
+          traceIds: traceInfo.traceIds,
+          duration: `${Date.now() - startedAt}ms`
+        });
+        try { req.destroy(new Error('request_timeout')); } catch {}
+        safeReject(new Error('request_timeout'));
       });
       
       req.write(body);

@@ -512,9 +512,15 @@ const useChatStore = create((set, get) => ({
         'url.full': url,
         'api.endpoint': 'kick_send_message'
       });
-      const response = await window.app.kick.sendMessage(chatroomId, message);
-      try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
-      endSpanOk(apiSpan);
+      let response;
+      try {
+        response = await window.app.kick.sendMessage(chatroomId, message);
+        try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+        endSpanOk(apiSpan);
+      } catch (err) {
+        endSpanError(apiSpan, err);
+        throw err;
+      }
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
@@ -637,9 +643,15 @@ const useChatStore = create((set, get) => ({
         'url.full': url,
         'api.endpoint': 'kick_send_reply'
       });
-      const response = await window.app.kick.sendReply(chatroomId, message, metadata);
-      try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
-      endSpanOk(apiSpan);
+      let response;
+      try {
+        response = await window.app.kick.sendReply(chatroomId, message, metadata);
+        try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+        endSpanOk(apiSpan);
+      } catch (err) {
+        endSpanError(apiSpan, err);
+        throw err;
+      }
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
       // Clear timeout if request completes (success or known failure)
