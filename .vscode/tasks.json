@@ -7,7 +7,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "set -e; docker pull grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; docker rm -f lgtm >/dev/null 2>&1 || true; docker run --name lgtm -d -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki' -e GF_PATHS_DATA=/data/grafana grafana/otel-lgtm:latest; echo \"LGTM started on 3000/4317/4318\""
+        "set -e; podman pull docker.io/grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana:Z' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus:Z' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki:Z' -e GF_PATHS_DATA=/data/grafana docker.io/grafana/otel-lgtm:latest; echo \"LGTM started on 3000/4317/4318 (podman)\""
       ],
       "presentation": {
         "reveal": "always",
@@ -22,7 +22,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "set -e; docker pull grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; docker rm -f lgtm >/dev/null 2>&1 || true; docker run --name lgtm -d --add-host=prometheus:127.0.0.1 --add-host=tempo:127.0.0.1 --add-host=loki:127.0.0.1 -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki' -v '${workspaceFolder}/otel/grafana/provisioning:/provisioning' -v '${workspaceFolder}/otel/grafana/dashboards:/dashboards' -e GF_PATHS_DATA=/data/grafana -e GF_PATHS_PROVISIONING=/provisioning -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/dashboards/kicktalk-overview.json grafana/otel-lgtm:latest; echo \"LGTM (provisioned) started with provisioning mounted\""
+        "set -e; podman pull docker.io/grafana/otel-lgtm:latest; mkdir -p '${workspaceFolder}/.lgtm-data/grafana' '${workspaceFolder}/.lgtm-data/prometheus' '${workspaceFolder}/.lgtm-data/loki'; podman rm -f lgtm >/dev/null 2>&1 || true; podman run --name lgtm -d --add-host=prometheus:127.0.0.1 --add-host=tempo:127.0.0.1 --add-host=loki:127.0.0.1 -p 3000:3000 -p 4317:4317 -p 4318:4318 -v '${workspaceFolder}/.lgtm-data/grafana:/data/grafana:Z' -v '${workspaceFolder}/.lgtm-data/prometheus:/data/prometheus:Z' -v '${workspaceFolder}/.lgtm-data/loki:/data/loki:Z' -v '${workspaceFolder}/otel/grafana/provisioning:/provisioning:Z' -v '${workspaceFolder}/otel/grafana/dashboards:/dashboards:Z' -e GF_PATHS_DATA=/data/grafana -e GF_PATHS_PROVISIONING=/provisioning -e GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH=/dashboards/kicktalk-overview.json docker.io/grafana/otel-lgtm:latest; echo \"LGTM (provisioned) started with provisioning mounted (podman)\""
       ],
       "presentation": {
         "reveal": "always",
@@ -37,7 +37,7 @@
       "command": "bash",
       "args": [
         "-lc",
-        "docker rm -f lgtm || true; echo \"LGTM stopped\""
+        "podman rm -f lgtm || true; echo \"LGTM stopped (podman)\""
       ],
       "presentation": {
         "reveal": "always",

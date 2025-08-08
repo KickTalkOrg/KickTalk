@@ -568,11 +568,19 @@ ipcMain.handle("otel:get-config", async () => {
  */
 ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
   const startedAt = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 8);
+  
   try {
-    try {
-      const len = arrayBuffer instanceof ArrayBuffer ? arrayBuffer.byteLength : 0;
-      console.debug(`[OTEL Relay] handler invoked: payloadLen=${len}B at ${new Date(startedAt).toISOString()} (protobuf)`);
-    } catch {}
+    const len = arrayBuffer instanceof ArrayBuffer ? arrayBuffer.byteLength : 0;
+    
+    console.log(`[OTEL Relay Protobuf][${requestId}] Processing export request:`, {
+      requestId,
+      startTime: new Date(startedAt).toISOString(),
+      payloadSize: len,
+      payloadType: 'protobuf',
+      isValidBuffer: arrayBuffer instanceof ArrayBuffer
+    });
+    
     const env = process.env;
     const base =
       env.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT ||
@@ -590,8 +598,8 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
       "";
 
     if (!endpoint || !headersRaw) {
-      console.warn(`[OTEL Relay] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
-      return { ok: false, reason: "missing_endpoint_or_headers" };
+      console.warn(`[OTEL Relay Protobuf][${requestId}] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
+      return { ok: false, reason: "missing_endpoint_or_headers", requestId };
     }
 
     // Parse "Key=Value,Key2=Value2" header string
@@ -611,6 +619,11 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
         ? Buffer.from(new Uint8Array(arrayBuffer))
         : Buffer.from([]);
 
+    if (buf.length === 0) {
+      console.warn(`[OTEL Relay Protobuf][${requestId}] Empty buffer received`);
+      return { ok: false, reason: "empty_buffer", requestId };
+    }
+
     const https = require("https");
     const url = new URL(endpoint);
 
@@ -623,50 +636,135 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
         {
           "Content-Type": "application/x-protobuf",
           "Content-Length": buf.length,
-          // Do not log Authorization value; only presence
         },
         headers
       )
     };
 
-    // Log request meta (no secrets)
-    console.log(
-      `[OTEL Relay] → POST ${url.hostname}${options.path} (protobuf) len=${buf.length} auth=${'Authorization' in headers} start=${new Date(
-        startedAt
-      ).toISOString()}`
-    );
+    console.log(`[OTEL Relay Protobuf][${requestId}] → POST ${url.hostname}${options.path}`, {
+      requestId,
+      method: 'POST',
+      contentType: 'application/x-protobuf',
+      bodySize: buf.length,
+      hasAuth: 'Authorization' in headers,
+      bufferFirstBytes: buf.length > 0 ? Array.from(buf.slice(0, 8)).map(b => b.toString(16).padStart(2, '0')).join(' ') : 'empty'
+    });
 
-    const status = await new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       const req = https.request(options, (res) => {
         const chunks = [];
-        res.on("data", (c) => chunks.push(c));
+        res.on("data", (chunk) => chunks.push(chunk));
         res.on("end", () => {
           const ms = Date.now() - startedAt;
-          const body = Buffer.concat(chunks).toString("utf8");
-          console.log(
-            `[OTEL Relay] ← ${res.statusCode} (${ms}ms) from ${url.hostname}${options.path} bodyLen=${body.length} (protobuf)`
-          );
-          resolve(res.statusCode || 0);
+          const responseBody = Buffer.concat(chunks).toString("utf8");
+          
+          console.log(`[OTEL Relay Protobuf][${requestId}] ← ${res.statusCode} (${ms}ms)`, {
+            requestId,
+            statusCode: res.statusCode,
+            duration: `${ms}ms`,
+            responseBodyLength: responseBody.length,
+            responseHeaders: res.headers,
+            success: res.statusCode >= 200 && res.statusCode < 300
+          });
+          
+          // Log response body if present and not too large
+          if (responseBody && responseBody.length > 0 && responseBody.length < 1000) {
+            console.log(`[OTEL Relay Protobuf][${requestId}] Response body:`, responseBody);
+          } else if (responseBody && responseBody.length >= 1000) {
+            console.log(`[OTEL Relay Protobuf][${requestId}] Response body (truncated):`, responseBody.substring(0, 500) + '...');
+          }
+          
+          resolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
         });
       });
+      
       req.on("error", (err) => {
-        console.warn(`[OTEL Relay] request error: ${err?.message || err}`);
+        console.error(`[OTEL Relay Protobuf][${requestId}] Request error:`, {
+          requestId,
+          error: err.message,
+          duration: `${Date.now() - startedAt}ms`
+        });
         reject(err);
       });
+      
       req.write(buf);
       req.end();
     });
 
-    // Grafana OTLP often returns 200/204 on success
-    if (status >= 200 && status < 300) {
-      return { ok: true, status };
+    const success = result.statusCode >= 200 && result.statusCode < 300;
+    console.log(`[OTEL Relay Protobuf][${requestId}] Final result:`, {
+      requestId,
+      success,
+      statusCode: result.statusCode,
+      payloadSize: buf.length,
+      totalDuration: `${Date.now() - startedAt}ms`
+    });
+
+    if (success) {
+      return { ok: true, status: result.statusCode, requestId };
     }
-    return { ok: false, status, reason: "upstream_non_2xx" };
+    return { ok: false, status: result.statusCode, reason: "upstream_non_2xx", requestId, responseBody: result.responseBody };
   } catch (e) {
-    console.warn(`[OTEL Relay] failure: ${e?.message || e}`);
-    return { ok: false, reason: e?.message || "export_failed" };
+    console.error(`[OTEL Relay Protobuf][${requestId}] Export failure:`, {
+      requestId,
+      error: e?.message || e,
+      stack: e?.stack,
+      duration: `${Date.now() - startedAt}ms`
+    });
+    return { ok: false, reason: e?.message || "export_failed", requestId };
   }
 });
+// Helper function to extract detailed trace information from OTLP JSON payload
+const extractTraceInfo = (exportJson) => {
+  const info = {
+    traceIds: [],
+    spanIds: [], 
+    spanNames: [],
+    serviceNames: [],
+    resourceAttributes: {},
+    spanCount: 0,
+    resourceCount: 0
+  };
+  
+  try {
+    const rss = exportJson?.resourceSpans || [];
+    info.resourceCount = rss.length;
+    
+    for (const rs of rss) {
+      // Extract resource attributes
+      try {
+        if (rs.resource?.attributes) {
+          for (const attr of rs.resource.attributes) {
+            if (attr.key && attr.value) {
+              const value = attr.value.stringValue || attr.value.intValue || attr.value.doubleValue || attr.value.boolValue;
+              info.resourceAttributes[attr.key] = value;
+              if (attr.key === 'service.name') {
+                info.serviceNames.push(value);
+              }
+            }
+          }
+        }
+      } catch {}
+      
+      const scopes = rs?.scopeSpans || rs?.instrumentationLibrarySpans || [];
+      for (const sc of scopes) {
+        const spans = sc?.spans || [];
+        info.spanCount += spans.length;
+        
+        for (const sp of spans) {
+          if (sp?.name) info.spanNames.push(sp.name);
+          if (sp?.traceId && !info.traceIds.includes(sp.traceId)) {
+            info.traceIds.push(sp.traceId);
+          }
+          if (sp?.spanId) info.spanIds.push(sp.spanId);
+        }
+      }
+    }
+  } catch {}
+  
+  return info;
+};
+
 /**
  * A4: IPC relay for OTLP JSON (renderer → main) to bypass CSP/transport limits.
  * Accepts ExportTraceServiceRequest (JSON) and posts to Grafana Cloud using application/json without protobuf conversion.
@@ -674,21 +772,63 @@ ipcMain.handle("otel:trace-export", async (_e, arrayBuffer) => {
  */
 ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
   const startedAt = Date.now();
+  const requestId = Math.random().toString(36).substring(2, 8);
+  
   try {
-    // Extract span names for logging
-    let spanNames = [];
-    try {
-      const rss = exportJson?.resourceSpans || [];
-      for (const rs of rss) {
-        const scopes = rs?.scopeSpans || rs?.instrumentationLibrarySpans || [];
-        for (const sc of scopes) {
-          const spans = sc?.spans || [];
-          for (const sp of spans) {
-            if (sp?.name) spanNames.push(sp.name);
-          }
+    // Extract comprehensive trace information
+    const traceInfo = extractTraceInfo(exportJson);
+    
+    console.log(`[OTEL Relay JSON][${requestId}] Processing export request:`, {
+      requestId,
+      startTime: new Date(startedAt).toISOString(),
+      payloadSize: JSON.stringify(exportJson).length,
+      resourceCount: traceInfo.resourceCount,
+      spanCount: traceInfo.spanCount,
+      traceIds: traceInfo.traceIds,
+      spanIds: traceInfo.spanIds.slice(0, 3), // First 3 span IDs
+      spanNames: traceInfo.spanNames,
+      serviceNames: traceInfo.serviceNames,
+      resourceAttributes: traceInfo.resourceAttributes
+    });
+    
+    // Detailed payload analysis for debugging
+    console.log(`[OTEL Relay JSON][${requestId}] Full payload analysis:`, {
+      requestId,
+      fullPayload: JSON.stringify(exportJson, null, 2)
+    });
+    
+    // Enhanced span-level analysis for debugging partialSuccess rejections
+    if (exportJson?.resourceSpans) {
+      exportJson.resourceSpans.forEach((rs, rsIdx) => {
+        console.log(`[OTEL Relay JSON][${requestId}] ResourceSpan[${rsIdx}] resource:`, rs.resource);
+        
+        if (rs.scopeSpans) {
+          rs.scopeSpans.forEach((ss, ssIdx) => {
+            console.log(`[OTEL Relay JSON][${requestId}] ScopeSpan[${ssIdx}] scope:`, ss.scope);
+            
+            if (ss.spans) {
+              ss.spans.forEach((span, spanIdx) => {
+                console.log(`[OTEL Relay JSON][${requestId}] Span[${spanIdx}] details:`, {
+                  traceId: span.traceId,
+                  spanId: span.spanId,
+                  parentSpanId: span.parentSpanId,
+                  name: span.name,
+                  kind: span.kind,
+                  startTimeUnixNano: span.startTimeUnixNano,
+                  endTimeUnixNano: span.endTimeUnixNano,
+                  attributeCount: span.attributes?.length || 0,
+                  attributes: span.attributes,
+                  status: span.status,
+                  events: span.events?.length || 0,
+                  links: span.links?.length || 0
+                });
+              });
+            }
+          });
         }
-      }
-    } catch {}
+      });
+    }
+    
     const env = process.env;
     const base =
       env.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT ||
@@ -706,8 +846,8 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
       "";
 
     if (!endpoint || !headersRaw) {
-      console.warn(`[OTEL Relay JSON] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
-      return { ok: false, reason: "missing_endpoint_or_headers" };
+      console.warn(`[OTEL Relay JSON][${requestId}] Missing endpoint/headers. endpoint=${!!endpoint} headers=${!!headersRaw}`);
+      return { ok: false, reason: "missing_endpoint_or_headers", requestId };
     }
 
     // Parse "Key=Value,Key2=Value2"
@@ -739,35 +879,98 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
       ),
     };
 
-    console.log(
-      `[OTEL Relay JSON] → POST ${url.hostname}${options.path} (json) len=${body.length} auth=${"Authorization" in headers} start=${new Date(
-        startedAt
-      ).toISOString()} names=${spanNames.slice(0,5).join(', ')}${spanNames.length>5?` (+${spanNames.length-5} more)`:''}`
-    );
+    console.log(`[OTEL Relay JSON][${requestId}] → POST ${url.hostname}${options.path}`, {
+      requestId,
+      method: 'POST',
+      contentType: 'application/json',
+      bodySize: body.length,
+      hasAuth: 'Authorization' in headers,
+      traceIds: traceInfo.traceIds,
+      spanCount: traceInfo.spanCount,
+      serviceNames: traceInfo.serviceNames
+    });
 
-    const status = await new Promise((resolve, reject) => {
+    const result = await new Promise((resolve, reject) => {
       const req = https.request(options, (res) => {
-        res.on("data", () => {});
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
         res.on("end", () => {
           const ms = Date.now() - startedAt;
-          try {
-            console.log(
-              `[OTEL Relay JSON] ← ${res.statusCode} (${ms}ms) from ${url.hostname}${options.path} names=${spanNames.slice(0,5).join(', ')}${spanNames.length>5?` (+${spanNames.length-5} more)`:''}`
-            );
-          } catch {}
-          resolve(res.statusCode || 0);
+          const responseBody = Buffer.concat(chunks).toString("utf8");
+          
+          console.log(`[OTEL Relay JSON][${requestId}] ← ${res.statusCode} (${ms}ms)`, {
+            requestId,
+            statusCode: res.statusCode,
+            duration: `${ms}ms`,
+            responseBodyLength: responseBody.length,
+            responseHeaders: res.headers,
+            traceIds: traceInfo.traceIds,
+            success: res.statusCode >= 200 && res.statusCode < 300
+          });
+          
+          // Log response body if present and not too large
+          if (responseBody && responseBody.length > 0 && responseBody.length < 1000) {
+            console.log(`[OTEL Relay JSON][${requestId}] Response body:`, responseBody);
+            
+            // Parse and analyze partialSuccess responses
+            try {
+              const parsed = JSON.parse(responseBody);
+              if (parsed.partialSuccess) {
+                console.warn(`[OTEL Relay JSON][${requestId}] Grafana partialSuccess detected:`, {
+                  requestId,
+                  traceIds: traceInfo.traceIds,
+                  partialSuccess: parsed.partialSuccess,
+                  rejectedSpans: parsed.partialSuccess.rejectedSpans || 'unknown',
+                  errorMessage: parsed.partialSuccess.errorMessage || 'no error message',
+                  warning: 'Spans may have been dropped by Grafana due to validation issues'
+                });
+              }
+            } catch {}
+          } else if (responseBody && responseBody.length >= 1000) {
+            console.log(`[OTEL Relay JSON][${requestId}] Response body (truncated):`, responseBody.substring(0, 500) + '...');
+          }
+          
+          resolve({ statusCode: res.statusCode || 0, responseBody, responseHeaders: res.headers });
         });
       });
-      req.on("error", reject);
+      
+      req.on("error", (err) => {
+        console.error(`[OTEL Relay JSON][${requestId}] Request error:`, {
+          requestId,
+          error: err.message,
+          traceIds: traceInfo.traceIds,
+          duration: `${Date.now() - startedAt}ms`
+        });
+        reject(err);
+      });
+      
       req.write(body);
       req.end();
     });
 
-    if (status >= 200 && status < 300) return { ok: true, status };
-    return { ok: false, status, reason: "upstream_non_2xx" };
+    const success = result.statusCode >= 200 && result.statusCode < 300;
+    console.log(`[OTEL Relay JSON][${requestId}] Final result:`, {
+      requestId,
+      success,
+      statusCode: result.statusCode,
+      traceIds: traceInfo.traceIds,
+      spanCount: traceInfo.spanCount,
+      serviceNames: traceInfo.serviceNames,
+      totalDuration: `${Date.now() - startedAt}ms`
+    });
+
+    if (success) {
+      return { ok: true, status: result.statusCode, requestId, traceIds: traceInfo.traceIds };
+    }
+    return { ok: false, status: result.statusCode, reason: "upstream_non_2xx", requestId, responseBody: result.responseBody };
   } catch (e) {
-    console.warn(`[OTEL Relay JSON] failure: ${e?.message || e}`);
-    return { ok: false, reason: e?.message || "export_failed" };
+    console.error(`[OTEL Relay JSON][${requestId}] Export failure:`, {
+      requestId,
+      error: e?.message || e,
+      stack: e?.stack,
+      duration: `${Date.now() - startedAt}ms`
+    });
+    return { ok: false, reason: e?.message || "export_failed", requestId };
   }
 });
 

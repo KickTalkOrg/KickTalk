@@ -267,32 +267,112 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         constructor(serviceName, deploymentEnv) {
           this.serviceName = serviceName;
           this.deploymentEnv = deploymentEnv || 'development';
+          this.exportCount = 0;
         }
         async export(spans, resultCallback) {
+          const exportId = Math.random().toString(36).substring(2, 8);
+          const startTime = performance.now();
+          this.exportCount++;
+          
           try {
-            try { console.debug('[Renderer OTEL] IPC exporter: exporting', Array.isArray(spans) ? spans.length : 0, 'spans'); } catch {}
+            const spanArray = Array.isArray(spans) ? spans : [];
+            
+            // Extract trace information for logging
+            const traceInfo = {
+              traceIds: [],
+              spanIds: [],
+              spanNames: [],
+              parentSpanIds: []
+            };
+            
+            for (const span of spanArray) {
+              try {
+                const ctx = span.spanContext();
+                if (ctx?.traceId && !traceInfo.traceIds.includes(ctx.traceId)) {
+                  traceInfo.traceIds.push(ctx.traceId);
+                }
+                if (ctx?.spanId) traceInfo.spanIds.push(ctx.spanId);
+                if (span.name) traceInfo.spanNames.push(span.name);
+                if (span.parentSpanId) traceInfo.parentSpanIds.push(span.parentSpanId);
+              } catch {}
+            }
+            
+            console.log(`[Renderer OTEL][${exportId}] IPCSpanExporter.export() called:`, {
+              exportId,
+              exportCount: this.exportCount,
+              spanCount: spanArray.length,
+              serviceName: this.serviceName,
+              deploymentEnv: this.deploymentEnv,
+              traceIds: traceInfo.traceIds,
+              spanIds: traceInfo.spanIds.slice(0, 3), // First 3 span IDs  
+              spanNames: traceInfo.spanNames,
+              parentSpanIds: traceInfo.parentSpanIds.slice(0, 3)
+            });
+            
             const req = this._toOtlpJson(spans);
+            const reqSize = JSON.stringify(req).length;
+            
+            console.log(`[Renderer OTEL][${exportId}] Converted to OTLP JSON:`, {
+              exportId,
+              requestSize: reqSize,
+              resourceSpansCount: req.resourceSpans?.length || 0,
+              traceIds: traceInfo.traceIds,
+              actualTraceIds: traceInfo.traceIds,
+              traceIdLengths: traceInfo.traceIds.map(id => id?.length || 0)
+            });
+            
             const res = await window.telemetry.exportTracesJson(req);
+            const duration = performance.now() - startTime;
+            
             const ok = !!res?.ok && (!res.status || (res.status >= 200 && res.status < 300));
+            
+            console.log(`[Renderer OTEL][${exportId}] IPC export result:`, {
+              exportId,
+              success: ok,
+              duration: `${Math.round(duration)}ms`,
+              responseStatus: res?.status,
+              responseOk: res?.ok,
+              requestId: res?.requestId,
+              traceIds: traceInfo.traceIds,
+              returnedTraceIds: res?.traceIds
+            });
+            
             resultCallback({ code: ok ? 0 : 1 });
           } catch (e) {
+            const duration = performance.now() - startTime;
+            console.error(`[Renderer OTEL][${exportId}] Export error:`, {
+              exportId,
+              error: e?.message || e,
+              stack: e?.stack,
+              duration: `${Math.round(duration)}ms`
+            });
             try { resultCallback({ code: 1, error: e }); } catch {}
           }
         }
-        async shutdown() {}
+        async shutdown() {
+          console.log('[Renderer OTEL] IPCSpanExporter.shutdown() called', {
+            serviceName: this.serviceName,
+            totalExports: this.exportCount
+          });
+        }
         _toOtlpJson(spans) {
           // Helpers
           const toEpochNanos = (hr) => {
             try {
-              const sec = BigInt(hr?.[0] ?? 0);
-              const ns = BigInt(hr?.[1] ?? 0);
-              const originMs = Number.isFinite(performance?.timeOrigin)
-                ? Math.floor(performance.timeOrigin)
-                : Math.floor(Date.now() - (performance?.now?.() || 0));
-              const originNs = BigInt(originMs) * 1000000n;
-              return originNs + sec * 1000000000n + ns;
+              if (!hr || !Array.isArray(hr) || hr.length < 2) {
+                // Fallback to current time in nanoseconds
+                return BigInt(Date.now()) * 1000000n;
+              }
+              
+              // hr is [seconds, nanoseconds] from hrtime - these ARE Unix epoch seconds
+              const sec = BigInt(hr[0]);
+              const ns = BigInt(hr[1]);
+              
+              // Convert Unix epoch seconds + nanoseconds to total nanoseconds
+              return sec * 1000000000n + ns;
             } catch {
-              return 0n;
+              // Fallback to current time in nanoseconds
+              return BigInt(Date.now()) * 1000000n;
             }
           };
           const toAnyValue = (v) => {
@@ -321,16 +401,95 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               // ensure positive duration
               endNs = startNs + 1000000n; // +1ms
             }
+            // OTLP JSON format actually uses hex strings, not base64 (despite spec confusion)
+            // Test spans use hex and work, so let's use hex with proper validation
+            const traceId = (ctx?.traceId || '0'.repeat(32)).padStart(32, '0');
+            const spanId = (ctx?.spanId || '0'.repeat(16)).padStart(16, '0');
+            const parentSpanId = s.parentSpanId ? s.parentSpanId.padStart(16, '0') : '';
+            
+              // Enhanced timestamp debugging
+            const nowMs = Date.now();
+            const nowNs = BigInt(nowMs) * 1000000n;
+            const startDate = new Date(Number(startNs) / 1e6);
+            const endDate = new Date(Number(endNs) / 1e6);
+            
+            // Debug timestamp conversion step by step
+            const rawSec = BigInt(s.startTime?.[0] ?? 0);
+            const rawNs = BigInt(s.startTime?.[1] ?? 0);
+            const directConversion = rawSec * 1000000000n + rawNs;
+            const directDate = new Date(Number(directConversion) / 1e6);
+            
+            console.log(`[Renderer OTEL] Span validation debug:`, {
+              traceId,
+              traceIdLength: traceId.length,
+              spanId,
+              spanIdLength: spanId.length,
+              parentSpanId,
+              parentSpanIdLength: parentSpanId.length,
+              startTimeUnixNano: startNs.toString(),
+              endTimeUnixNano: endNs.toString(),
+              startDate: startDate.toISOString(),
+              endDate: endDate.toISOString(),
+              startYear: startDate.getFullYear(),
+              endYear: endDate.getFullYear(),
+              isStartTimeReasonable: startDate.getFullYear() >= 2020 && startDate.getFullYear() <= 2030,
+              isEndTimeReasonable: endDate.getFullYear() >= 2020 && endDate.getFullYear() <= 2030,
+              duration: (endNs - startNs).toString() + ' nanos',
+              durationMs: Number(endNs - startNs) / 1e6,
+              kind: Number(s.kind) || 0,
+              name: s.name || 'span',
+              nowMs,
+              nowNs: nowNs.toString(),
+              timeDiffFromNow: Number(nowNs - startNs),
+              statusCode: s.status?.code,
+              statusMessage: s.status?.message,
+              statusWillBeIncluded: !!(s.status?.code && s.status.code > 0),
+              statusExists: !!s.status,
+              statusCodeType: typeof s.status?.code,
+              // Raw hrtime debugging
+              rawStartTime: s.startTime,
+              rawEndTime: s.endTime,
+              performanceTimeOrigin: performance?.timeOrigin,
+              performanceNow: performance?.now?.(),
+              // Step-by-step conversion debugging
+              rawSecBigInt: rawSec.toString(),
+              rawNsBigInt: rawNs.toString(),
+              directConversion: directConversion.toString(),
+              directDate: directDate.toISOString(),
+              directYear: directDate.getFullYear(),
+              directVsCalculated: directConversion.toString() === startNs.toString()
+            });
+            
+            // Per OTLP spec for HTTP, span status should be UNSET (omitted) for success.
+            // Only include status if it is an error.
+            const statusCode = s.status?.code;
+            const isError = statusCode === 2; // SpanStatusCode.ERROR
+            
+            const statusObject = {};
+            if (isError) {
+              statusObject.status = {
+                code: 2, // ERROR
+                message: s.status.message || ''
+              };
+            }
+            
+            console.log(`[Renderer OTEL] Status filtering debug:`, {
+              originalStatusCode: statusCode,
+              originalStatusMessage: s.status?.message,
+              isError,
+              willAddStatus: isError
+            });
+            
             return {
-              traceId: ctx?.traceId || '0'.repeat(32),
-              spanId: ctx?.spanId || '0'.repeat(16),
-              parentSpanId: s.parentSpanId || '',
+              traceId,
+              spanId,
+              parentSpanId,
               name: s.name || 'span',
               kind: Number(s.kind) || 0,
               startTimeUnixNano: startNs.toString(),
               endTimeUnixNano: endNs.toString(),
               attributes: attrs,
-              status: { code: Number(s.status?.code ?? 0), message: s.status?.message || '' },
+              ...statusObject
             };
           };
           // Group all spans under a single scope
@@ -363,16 +522,65 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
 
       // Custom minimal span processor to avoid any bundling/ESM mismatches
       class IPCSimpleSpanProcessor {
-        constructor(exp) { this._exporter = exp; }
-        onStart(_span, _context) {}
-        onEnd(span) {
+        constructor(exp) { 
+          this._exporter = exp;
+          this.processedSpans = 0;
+        }
+        onStart(span, context) {
           try {
-            try { console.debug('[Renderer OTEL] span ended → exporting via IPC'); } catch {}
-            this._exporter.export([span], () => {}, () => {});
+            const ctx = span.spanContext();
+            console.log('[Renderer OTEL] Span started:', {
+              name: span.name,
+              traceId: ctx?.traceId,
+              spanId: ctx?.spanId,
+              parentSpanId: span.parentSpanId,
+              startTime: span.startTime,
+              kind: span.kind
+            });
           } catch {}
         }
-        async forceFlush() {}
-        async shutdown() {}
+        onEnd(span) {
+          this.processedSpans++;
+          try {
+            const ctx = span.spanContext();
+            const duration = span.endTime && span.startTime ? 
+              (Number(span.endTime[0]) * 1000 + Number(span.endTime[1]) / 1e6) - 
+              (Number(span.startTime[0]) * 1000 + Number(span.startTime[1]) / 1e6) : null;
+              
+            console.log('[Renderer OTEL] Span ended → exporting via IPC:', {
+              name: span.name,
+              traceId: ctx?.traceId,
+              spanId: ctx?.spanId,
+              parentSpanId: span.parentSpanId,
+              duration: duration ? `${Math.round(duration)}ms` : 'unknown',
+              processedCount: this.processedSpans,
+              status: span.status,
+              attributes: span.attributes
+            });
+            
+            this._exporter.export([span], (result) => {
+              console.log('[Renderer OTEL] Span export callback:', {
+                name: span.name,
+                traceId: ctx?.traceId,
+                spanId: ctx?.spanId,
+                result: result?.code === 0 ? 'success' : 'error',
+                error: result?.error?.message || result?.error
+              });
+            }, () => {});
+          } catch (e) {
+            console.error('[Renderer OTEL] Error in onEnd:', e);
+          }
+        }
+        async forceFlush() {
+          console.log('[Renderer OTEL] IPCSimpleSpanProcessor.forceFlush() called', {
+            processedSpans: this.processedSpans
+          });
+        }
+        async shutdown() {
+          console.log('[Renderer OTEL] IPCSimpleSpanProcessor.shutdown() called', {
+            totalProcessedSpans: this.processedSpans
+          });
+        }
       }
 
       if (typeof provider.addSpanProcessor === 'function') {
@@ -528,24 +736,6 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               socket.addEventListener('error', (err) => {
                 try { span.addEvent('error'); span.recordException?.(err); } catch {}
               });
-              socket.addEventListener('message', (msg) => {
-                const m = wsTracer.startSpan('websocket.message', { parent: trace.setSpan(context.active(), span) });
-                try {
-                  const size = typeof msg?.data === 'string' ? msg.data.length : (msg?.data?.byteLength ?? 0);
-                  m.setAttribute('ws.message.size', size);
-                } catch {}
-                try { m.end(); } catch {}
-              });
-              const origSend = socket.send;
-              socket.send = function patchedSend(data) {
-                const s = wsTracer.startSpan('websocket.send', { parent: trace.setSpan(context.active(), span) });
-                try {
-                  const size = typeof data === 'string' ? data.length : (data?.byteLength ?? 0);
-                  s.setAttribute('ws.send.size', size);
-                } catch {}
-                try { return origSend.apply(this, arguments); }
-                finally { try { s.end(); } catch {} }
-              };
             } catch {}
             return socket;
           };
@@ -647,37 +837,90 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
           enumerable: false,
           writable: false,
           value: async () => {
+            const testId = Math.random().toString(36).substring(2, 8);
+            const startTime = performance.now();
+            
             try {
-              console.debug('[Renderer OTEL] emitRendererTestSpan: creating span');
+              console.log(`[Renderer OTEL][${testId}] emitRendererTestSpan: START`);
+              
               const t = window.__KT_TRACER__ || trace.getTracer('kicktalk-renderer');
               const s = t.startSpan('renderer_manual_test', {
                 attributes: {
                   'service.name': 'kicktalk-renderer',
                   'deployment.environment': deploymentEnv || 'development',
-                  'otel.helper': 'emitRendererTestSpan'
+                  'otel.helper': 'emitRendererTestSpan',
+                  'test.id': testId
                 }
               });
-              s.addEvent('manual_test_invoked');
+              
+              const spanCtx = s.spanContext();
+              console.log(`[Renderer OTEL][${testId}] Span created:`, {
+                testId,
+                name: 'renderer_manual_test',
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                parentSpanId: s.parentSpanId
+              });
+              
+              s.addEvent('manual_test_invoked', { timestamp: Date.now() });
               s.end();
-              console.debug('[Renderer OTEL] emitRendererTestSpan: span ended, forcing flush...');
+              
+              const spanEndTime = performance.now();
+              console.log(`[Renderer OTEL][${testId}] Span ended, forcing flush...`, {
+                testId,
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                spanDuration: `${Math.round(spanEndTime - startTime)}ms`
+              });
+              
               // Try to force flush if provider exposes it
               try {
                 const prov = (trace.getTracerProvider && trace.getTracerProvider()) || provider;
                 if (prov && typeof prov.forceFlush === 'function') {
+                  const flushStart = performance.now();
                   await prov.forceFlush();
-                  console.debug('[Renderer OTEL] emitRendererTestSpan: forceFlush done');
+                  const flushDuration = performance.now() - flushStart;
+                  console.log(`[Renderer OTEL][${testId}] forceFlush completed:`, {
+                    testId,
+                    traceId: spanCtx?.traceId,
+                    flushDuration: `${Math.round(flushDuration)}ms`,
+                    totalDuration: `${Math.round(performance.now() - startTime)}ms`
+                  });
                 } else {
                   // queue microtask to allow exporter to run
                   await Promise.resolve();
-                  console.debug('[Renderer OTEL] emitRendererTestSpan: microtask tick complete (no forceFlush available)');
+                  console.log(`[Renderer OTEL][${testId}] microtask tick complete (no forceFlush available):`, {
+                    testId,
+                    traceId: spanCtx?.traceId,
+                    totalDuration: `${Math.round(performance.now() - startTime)}ms`
+                  });
                 }
               } catch (ffErr) {
-                console.debug('[Renderer OTEL] emitRendererTestSpan: forceFlush error', ffErr?.message || ffErr);
+                console.error(`[Renderer OTEL][${testId}] forceFlush error:`, {
+                  testId,
+                  traceId: spanCtx?.traceId,
+                  error: ffErr?.message || ffErr,
+                  totalDuration: `${Math.round(performance.now() - startTime)}ms`
+                });
               }
-              return true;
+              
+              console.log(`[Renderer OTEL][${testId}] emitRendererTestSpan: COMPLETE`, {
+                testId,
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                success: true,
+                totalDuration: `${Math.round(performance.now() - startTime)}ms`
+              });
+              
+              return { success: true, testId, traceId: spanCtx?.traceId, spanId: spanCtx?.spanId };
             } catch (err) {
-              console.warn('[Renderer OTEL]: emitRendererTestSpan error:', err?.message || err);
-              return false;
+              console.error(`[Renderer OTEL][${testId}] emitRendererTestSpan error:`, {
+                testId,
+                error: err?.message || err,
+                stack: err?.stack,
+                totalDuration: `${Math.round(performance.now() - startTime)}ms`
+              });
+              return { success: false, testId, error: err?.message || err };
             }
           }
         });
@@ -687,18 +930,89 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
           enumerable: false,
           writable: false,
           value: async () => {
+            const testId = Math.random().toString(36).substring(2, 8);
+            const startTime = performance.now();
+            
             try {
+              console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanIPC: START`);
+              
               const t = window.__KT_TRACER__ || trace.getTracer('kicktalk-renderer');
               const s = t.startSpan('renderer_manual_test_ipc', {
-                attributes: { 'service.name': 'kicktalk-renderer', 'otel.helper': 'emitRendererTestSpanIPC' }
+                attributes: { 
+                  'service.name': 'kicktalk-renderer', 
+                  'otel.helper': 'emitRendererTestSpanIPC',
+                  'test.id': testId
+                }
               });
+              
+              const spanCtx = s.spanContext();
+              console.log(`[Renderer OTEL][${testId}] Span created for direct IPC test:`, {
+                testId,
+                name: 'renderer_manual_test_ipc',
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                parentSpanId: s.parentSpanId
+              });
+              
               s.end();
-              try { window.__KT_IPC_EXPORTER__?.export?.([s], () => {}, () => {}); } catch {}
-              await window.__KT_OTEL_PROVIDER__?.forceFlush?.();
-              return true;
+              
+              console.log(`[Renderer OTEL][${testId}] Directly calling IPC exporter:`, {
+                testId,
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                exporterAvailable: !!window.__KT_IPC_EXPORTER__
+              });
+              
+              // Direct call to IPC exporter
+              if (window.__KT_IPC_EXPORTER__?.export) {
+                const exportStart = performance.now();
+                await new Promise((resolve) => {
+                  window.__KT_IPC_EXPORTER__.export([s], (result) => {
+                    const exportDuration = performance.now() - exportStart;
+                    console.log(`[Renderer OTEL][${testId}] Direct IPC export callback:`, {
+                      testId,
+                      traceId: spanCtx?.traceId,
+                      spanId: spanCtx?.spanId,
+                      result: result?.code === 0 ? 'success' : 'error',
+                      error: result?.error?.message || result?.error,
+                      exportDuration: `${Math.round(exportDuration)}ms`
+                    });
+                    resolve();
+                  }, () => {});
+                });
+              } else {
+                console.warn(`[Renderer OTEL][${testId}] IPC exporter not available`);
+              }
+              
+              // Force flush provider
+              if (window.__KT_OTEL_PROVIDER__?.forceFlush) {
+                const flushStart = performance.now();
+                await window.__KT_OTEL_PROVIDER__.forceFlush();
+                const flushDuration = performance.now() - flushStart;
+                console.log(`[Renderer OTEL][${testId}] Provider forceFlush completed:`, {
+                  testId,
+                  traceId: spanCtx?.traceId,
+                  flushDuration: `${Math.round(flushDuration)}ms`
+                });
+              }
+              
+              console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanIPC: COMPLETE`, {
+                testId,
+                traceId: spanCtx?.traceId,
+                spanId: spanCtx?.spanId,
+                success: true,
+                totalDuration: `${Math.round(performance.now() - startTime)}ms`
+              });
+              
+              return { success: true, testId, traceId: spanCtx?.traceId, spanId: spanCtx?.spanId };
             } catch (e) {
-              console.warn('[Renderer OTEL]: emitRendererTestSpanIPC error:', e?.message || e);
-              return false;
+              console.error(`[Renderer OTEL][${testId}] emitRendererTestSpanIPC error:`, {
+                testId,
+                error: e?.message || e,
+                stack: e?.stack,
+                totalDuration: `${Math.round(performance.now() - startTime)}ms`
+              });
+              return { success: false, testId, error: e?.message || e };
             }
           }
         });
@@ -767,15 +1081,30 @@ try {
       enumerable: false,
       writable: false,
       value: async () => {
+        const testId = Math.random().toString(36).substring(2, 8);
+        const startTime = performance.now();
+        
         try {
+          console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanJson: START`);
+          
           const { trace } = await import('@opentelemetry/api');
           const tracer = trace.getTracer('kicktalk-renderer');
           const span = tracer.startSpan('renderer_manual_test_json', {
             attributes: {
               'service.name': 'kicktalk-renderer',
-              'otel.helper': 'emitRendererTestSpanJson'
+              'otel.helper': 'emitRendererTestSpanJson',
+              'test.id': testId
             }
           });
+          
+          const spanCtx = span.spanContext();
+          console.log(`[Renderer OTEL][${testId}] Span created for JSON test:`, {
+            testId,
+            name: 'renderer_manual_test_json',
+            traceId: spanCtx?.traceId,
+            spanId: spanCtx?.spanId
+          });
+          
           span.addEvent('manual_test_json_invoked');
           span.end();
 
@@ -783,13 +1112,18 @@ try {
           const nowMs = Date.now();
           const seconds = Math.floor(nowMs / 1000);
           const nanos = (nowMs % 1000) * 1e6;
+          const fixedTraceId = '00000000000000000000000000000001';
+          const fixedSpanId = '0000000000000001';
 
           const req = {
             resourceSpans: [
               {
                 resource: {
                   attributes: [
-                    { key: 'service.name', value: { stringValue: 'kicktalk-renderer' } }
+                    { key: 'service.name', value: { stringValue: 'kicktalk-renderer' } },
+                    { key: 'service.namespace', value: { stringValue: 'kicktalk' } },
+                    { key: 'deployment.environment', value: { stringValue: 'development' } },
+                    { key: 'test.id', value: { stringValue: testId } }
                   ]
                 },
                 scopeSpans: [
@@ -797,14 +1131,15 @@ try {
                     scope: { name: 'kicktalk-renderer' },
                     spans: [
                       {
-                        traceId: '00000000000000000000000000000001',
-                        spanId: '0000000000000001',
+                        traceId: fixedTraceId,
+                        spanId: fixedSpanId,
                         name: 'renderer_manual_test_json',
                         kind: 1,
                         startTimeUnixNano: String(BigInt(seconds) * 1000000000n + BigInt(nanos)),
                         endTimeUnixNano: String(BigInt(seconds) * 1000000000n + BigInt(nanos + 1000000)),
                         attributes: [
-                          { key: 'otel.helper', value: { stringValue: 'emitRendererTestSpanJson' } }
+                          { key: 'otel.helper', value: { stringValue: 'emitRendererTestSpanJson' } },
+                          { key: 'test.id', value: { stringValue: testId } }
                         ]
                       }
                     ]
@@ -814,14 +1149,250 @@ try {
             ]
           };
 
+          console.log(`[Renderer OTEL][${testId}] Sending minimal OTLP JSON payload:`, {
+            testId,
+            payloadSize: JSON.stringify(req).length,
+            traceId: fixedTraceId,
+            spanId: fixedSpanId,
+            resourceSpansCount: req.resourceSpans.length
+          });
+
           const res = await window.telemetry?.exportTracesJson?.(req);
-          console.debug('[Renderer OTEL] emitRendererTestSpanJson: IPC relay response', res);
-          return !!res?.ok;
+          const duration = performance.now() - startTime;
+          
+          console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanJson: COMPLETE`, {
+            testId,
+            traceId: fixedTraceId,
+            spanId: fixedSpanId,
+            success: !!res?.ok,
+            responseStatus: res?.status,
+            responseRequestId: res?.requestId,
+            returnedTraceIds: res?.traceIds,
+            totalDuration: `${Math.round(duration)}ms`
+          });
+          
+          return { success: !!res?.ok, testId, traceId: fixedTraceId, spanId: fixedSpanId, response: res };
         } catch (e) {
-          console.warn('[Renderer OTEL] emitRendererTestSpanJson error:', e?.message || e);
-          return false;
+          console.error(`[Renderer OTEL][${testId}] emitRendererTestSpanJson error:`, {
+            testId,
+            error: e?.message || e,
+            stack: e?.stack,
+            totalDuration: `${Math.round(performance.now() - startTime)}ms`
+          });
+          return { success: false, testId, error: e?.message || e };
         }
       }
     });
   }
+} catch {}
+
+// Dev-only helper: Test real instrumentation span but with fixed trace ID to isolate trace ID vs other issues
+try {
+  Object.defineProperty(window, 'emitRendererTestSpanHybrid', {
+    configurable: true,
+    enumerable: false,
+    writable: false,
+    value: async () => {
+      const testId = Math.random().toString(36).substring(2, 8);
+      const startTime = performance.now();
+      
+      try {
+        console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanHybrid: START`);
+        
+        const { trace } = await import('@opentelemetry/api');
+        const tracer = trace.getTracer('kicktalk-renderer');
+        
+        // Get deployment env from config or fallback
+        const cfg = await window?.telemetry?.getOtelConfig?.();
+        const env = cfg?.deploymentEnv || 'development';
+        
+        // Create a real span first
+        const realSpan = tracer.startSpan('renderer_hybrid_test', {
+          attributes: {
+            'service.name': 'kicktalk-renderer',
+            'deployment.environment': env,
+            'otel.helper': 'emitRendererTestSpanHybrid',
+            'test.id': testId
+          }
+        });
+        
+        const realSpanCtx = realSpan.spanContext();
+        console.log(`[Renderer OTEL][${testId}] Real span created:`, {
+          testId,
+          name: 'renderer_hybrid_test',
+          traceId: realSpanCtx?.traceId,
+          spanId: realSpanCtx?.spanId,
+          parentSpanId: realSpan.parentSpanId
+        });
+        
+        realSpan.addEvent('hybrid_test_invoked');
+        realSpan.end();
+        
+        // Now create OTLP payload using real span data but with working trace ID
+        const nowMs = Date.now();
+        const seconds = Math.floor(nowMs / 1000);
+        const nanos = (nowMs % 1000) * 1e6;
+        
+        // Use the trace ID that we know works
+        const workingTraceId = '00000000000000000000000000000001';
+        const workingSpanId = '0000000000000002'; // Different span ID
+        
+        const hybridReq = {
+          resourceSpans: [
+            {
+              resource: {
+                attributes: [
+                  { key: 'service.name', value: { stringValue: 'kicktalk-renderer' } },
+                  { key: 'service.namespace', value: { stringValue: 'kicktalk' } },
+                  { key: 'deployment.environment', value: { stringValue: env } },
+                  { key: 'test.id', value: { stringValue: testId } },
+                  { key: 'test.type', value: { stringValue: 'hybrid' } }
+                ]
+              },
+              scopeSpans: [
+                {
+                  scope: { name: 'kicktalk-renderer' },
+                  spans: [
+                    {
+                      traceId: workingTraceId,  // Use working trace ID
+                      spanId: workingSpanId,    // But different span ID
+                      name: 'renderer_hybrid_test',
+                      kind: Number(realSpan.kind) || 1,
+                      startTimeUnixNano: String(BigInt(seconds) * 1000000000n + BigInt(nanos)),
+                      endTimeUnixNano: String(BigInt(seconds) * 1000000000n + BigInt(nanos + 1000000)),
+                      attributes: Object.entries(realSpan.attributes || {}).map(([key, value]) => ({
+                        key,
+                        value: typeof value === 'string' ? { stringValue: value } :
+                               typeof value === 'number' ? Number.isInteger(value) ? { intValue: value } : { doubleValue: value } :
+                               typeof value === 'boolean' ? { boolValue: value } :
+                               { stringValue: String(value) }
+                      })).concat([
+                        { key: 'test.type', value: { stringValue: 'hybrid' } },
+                        { key: 'original.traceId', value: { stringValue: realSpanCtx?.traceId || 'unknown' } }
+                      ]),
+                      status: { code: Number(realSpan.status?.code ?? 0), message: realSpan.status?.message || '' }
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        };
+        
+        console.log(`[Renderer OTEL][${testId}] Sending hybrid payload (real span + working trace ID):`, {
+          testId,
+          payloadSize: JSON.stringify(hybridReq).length,
+          workingTraceId,
+          workingSpanId,
+          originalTraceId: realSpanCtx?.traceId,
+          originalSpanId: realSpanCtx?.spanId,
+          resourceAttributeCount: hybridReq.resourceSpans[0].resource.attributes.length,
+          spanAttributeCount: hybridReq.resourceSpans[0].scopeSpans[0].spans[0].attributes.length
+        });
+        
+        const res = await window.telemetry?.exportTracesJson?.(hybridReq);
+        const duration = performance.now() - startTime;
+        
+        console.log(`[Renderer OTEL][${testId}] emitRendererTestSpanHybrid: COMPLETE`, {
+          testId,
+          workingTraceId,
+          originalTraceId: realSpanCtx?.traceId,
+          success: !!res?.ok,
+          responseStatus: res?.status,
+          responseRequestId: res?.requestId,
+          totalDuration: `${Math.round(duration)}ms`,
+          recommendation: res?.ok ? 'Check Grafana for hybrid trace with working trace ID' : 'IPC relay failed'
+        });
+        
+        return { 
+          success: !!res?.ok, 
+          testId, 
+          workingTraceId, 
+          originalTraceId: realSpanCtx?.traceId,
+          originalSpanId: realSpanCtx?.spanId,
+          response: res 
+        };
+      } catch (e) {
+        console.error(`[Renderer OTEL][${testId}] emitRendererTestSpanHybrid error:`, {
+          testId,
+          error: e?.message || e,
+          stack: e?.stack,
+          totalDuration: `${Math.round(performance.now() - startTime)}ms`
+        });
+        return { success: false, testId, error: e?.message || e };
+      }
+    }
+  });
+  
+  // Payload comparison helper to identify differences between working and failing traces
+  Object.defineProperty(window, 'compareOTLPPayloads', {
+    configurable: true,
+    enumerable: false, 
+    writable: false,
+    value: (payload1, payload2, label1 = 'Payload 1', label2 = 'Payload 2') => {
+      try {
+        const compare = (obj1, obj2, path = '') => {
+          const diffs = [];
+          
+          if (typeof obj1 !== typeof obj2) {
+            diffs.push(`${path}: type mismatch (${typeof obj1} vs ${typeof obj2})`);
+            return diffs;
+          }
+          
+          if (Array.isArray(obj1) !== Array.isArray(obj2)) {
+            diffs.push(`${path}: array mismatch`);
+            return diffs;
+          }
+          
+          if (Array.isArray(obj1)) {
+            if (obj1.length !== obj2.length) {
+              diffs.push(`${path}: array length (${obj1.length} vs ${obj2.length})`);
+            }
+            const maxLen = Math.max(obj1.length, obj2.length);
+            for (let i = 0; i < maxLen; i++) {
+              diffs.push(...compare(obj1[i], obj2[i], `${path}[${i}]`));
+            }
+            return diffs;
+          }
+          
+          if (typeof obj1 === 'object' && obj1 !== null && obj2 !== null) {
+            const keys1 = Object.keys(obj1);
+            const keys2 = Object.keys(obj2);
+            const allKeys = new Set([...keys1, ...keys2]);
+            
+            for (const key of allKeys) {
+              if (!(key in obj1)) {
+                diffs.push(`${path}.${key}: missing in ${label1}`);
+              } else if (!(key in obj2)) {
+                diffs.push(`${path}.${key}: missing in ${label2}`);
+              } else {
+                diffs.push(...compare(obj1[key], obj2[key], `${path}.${key}`));
+              }
+            }
+            return diffs;
+          }
+          
+          if (obj1 !== obj2) {
+            diffs.push(`${path}: value mismatch ("${obj1}" vs "${obj2}")`);
+          }
+          
+          return diffs;
+        };
+        
+        const differences = compare(payload1, payload2);
+        console.log('OTLP Payload Comparison:', {
+          label1,
+          label2,
+          differences: differences.length ? differences : ['No differences found'],
+          payload1Size: JSON.stringify(payload1).length,
+          payload2Size: JSON.stringify(payload2).length
+        });
+        
+        return differences;
+      } catch (e) {
+        console.error('compareOTLPPayloads error:', e);
+        return [`Error during comparison: ${e.message}`];
+      }
+    }
+  });
 } catch {}

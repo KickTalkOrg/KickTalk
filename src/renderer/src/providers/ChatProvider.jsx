@@ -35,7 +35,7 @@ const startSpan = (name, attributes = {}) => {
 };
 
 const endSpanOk = (span) => {
-  try { span?.setStatus?.({ code: 1 }); } catch {}
+  try { span?.setStatus?.({ code: 0 }); } catch {}
   try { span?.end?.(); } catch {}
 };
 
@@ -504,12 +504,16 @@ const useChatStore = create((set, get) => ({
 
       // Send message to server
       const apiStartTime = Date.now();
+      const url = `https://kick.com/api/v2/messages/send/${chatroomId}`;
       const apiSpan = startSpan('chat.api.sendMessage', {
-        'http.method': 'POST',
+        'http.request.method': 'POST',
+        'server.address': 'kick.com',
+        'server.port': 443,
+        'url.full': url,
         'api.endpoint': 'kick_send_message'
       });
       const response = await window.app.kick.sendMessage(chatroomId, message);
-      try { apiSpan?.setAttribute?.('http.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+      try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
       endSpanOk(apiSpan);
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
@@ -625,12 +629,16 @@ const useChatStore = create((set, get) => ({
 
       // Send reply to server
       const apiStartTime = Date.now();
+      const url = `https://kick.com/api/v2/messages/send/${chatroomId}`;
       const apiSpan = startSpan('chat.api.sendReply', {
-        'http.method': 'POST',
+        'http.request.method': 'POST',
+        'server.address': 'kick.com',
+        'server.port': 443,
+        'url.full': url,
         'api.endpoint': 'kick_send_reply'
       });
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
-      try { apiSpan?.setAttribute?.('http.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
+      try { apiSpan?.setAttribute?.('http.response.status_code', response?.status || response?.data?.status?.code || 200); } catch {}
       endSpanOk(apiSpan);
       const apiDuration = (Date.now() - apiStartTime) / 1000;
 
