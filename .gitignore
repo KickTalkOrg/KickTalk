@@ -2,6 +2,9 @@
 dist
 settings.json
 
+# LGTM stack data
+.lgtm-data/
+
 # Logs
 logs
 *.log*
