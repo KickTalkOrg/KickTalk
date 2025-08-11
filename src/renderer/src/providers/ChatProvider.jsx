@@ -763,32 +763,27 @@ const useChatStore = create((set, get) => ({
     stvSocket.connect();
 
     stvSocket.addEventListener("message", (event) => {
-      const evtSpan = startSpan('7tv.ws.event', {
-        'chat.id': chatroom.id,
-        'ws.provider': '7tv'
-      });
       const SevenTVEvent = event.detail;
       const { type, body } = SevenTVEvent;
-      try { evtSpan?.setAttribute?.('event.type', type || 'unknown'); } catch {}
 
       switch (type) {
         case "connection_established":
-          endSpanOk(evtSpan); break;
+          break;
         case "emote_set.update":
           get().handleEmoteSetUpdate(chatroom.id, body);
-          endSpanOk(evtSpan); break;
+          break;
         case "cosmetic.create":
           useCosmeticsStore?.getState()?.addCosmetics(body);
-          endSpanOk(evtSpan); break;
+          break;
         case "entitlement.create":
           const username = body?.object?.user?.connections?.find((c) => c.platform === "KICK")?.username;
           const transformedUsername = username?.replaceAll("-", "_").toLowerCase();
 
           useCosmeticsStore?.getState()?.addUserStyle(transformedUsername, body);
-          endSpanOk(evtSpan); break;
+          break;
 
         default:
-          endSpanOk(evtSpan); break;
+          break;
       }
     });
 
@@ -838,42 +833,40 @@ const useChatStore = create((set, get) => ({
 
     // Channel Events
     pusher.addEventListener("channel", (event) => {
-      const s = startSpan('kick.ws.channel', { 'chat.id': chatroom.id, 'event.type': event?.detail?.event });
       const parsedEvent = JSON.parse(event.detail.data);
       switch (event.detail.event) {
         case "App\\Events\\LivestreamUpdated":
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\ChatroomUpdatedEvent":
           get().handleChatroomUpdated(chatroom.id, parsedEvent);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\StreamerIsLive":
           console.log("Streamer is live", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\StopStreamBroadcast":
           console.log("Streamer is offline", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, false);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\PinnedMessageCreatedEvent":
           get().handlePinnedMessageCreated(chatroom.id, parsedEvent);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\PinnedMessageDeletedEvent":
           get().handlePinnedMessageDeleted(chatroom.id);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\PollUpdateEvent":
           console.log("Poll update event:", parsedEvent);
           get().handlePollUpdate(chatroom.id, parsedEvent?.poll);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\PollDeleteEvent":
           get().handlePollDelete(chatroom.id);
-          endSpanOk(s); break;
+          break;
       }
     });
 
     // Message Events
     pusher.addEventListener("message", async (event) => {
-      const s = startSpan('kick.ws.message', { 'chat.id': chatroom.id, 'event.type': event?.detail?.event });
       const parsedEvent = JSON.parse(event.detail.data);
 
       switch (event.detail.event) {
@@ -965,10 +958,10 @@ const useChatStore = create((set, get) => ({
             }
           }
 
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\MessageDeletedEvent":
           get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\UserBannedEvent":
           get().handleUserBanned(chatroom.id, parsedEvent);
           get().addMessage(chatroom.id, {
@@ -979,7 +972,7 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
-          endSpanOk(s); break;
+          break;
         case "App\\Events\\UserUnbannedEvent":
           get().handleUserUnbanned(chatroom.id, parsedEvent);
           get().addMessage(chatroom.id, {
@@ -990,7 +983,7 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
-          endSpanOk(s); break;
+          break;
       }
     });
 

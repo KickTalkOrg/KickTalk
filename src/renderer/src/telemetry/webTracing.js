@@ -152,6 +152,59 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
             } catch {}
             return origFetch(input, init);
           };
+          // Sanitize AnyValue tree for collector limits and JSON mapping correctness
+          const sanitizeAnyValue = (av) => {
+            try {
+              if (!av || typeof av !== 'object') return { stringValue: '' };
+              if (Object.prototype.hasOwnProperty.call(av, 'stringValue')) {
+                const s = String(av.stringValue ?? '');
+                return { stringValue: s.length > 4096 ? s.slice(0, 4096) : s };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'intValue')) {
+                // Ensure string form for int64
+                return { intValue: String(av.intValue) };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'doubleValue')) {
+                const n = Number(av.doubleValue);
+                return { doubleValue: Number.isFinite(n) ? n : 0 };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'boolValue')) {
+                return { boolValue: !!av.boolValue };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'arrayValue')) {
+                const vals = Array.isArray(av.arrayValue?.values) ? av.arrayValue.values : [];
+                const capped = vals.slice(0, 64).map(sanitizeAnyValue);
+                return { arrayValue: { values: capped } };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'kvlistValue')) {
+                // Not used by us; be safe
+                const list = Array.isArray(av.kvlistValue?.values) ? av.kvlistValue.values : [];
+                const sanitized = list.slice(0, 64).map((kv) => ({ key: String(kv.key).slice(0,128), value: sanitizeAnyValue(kv.value) }));
+                return { kvlistValue: { values: sanitized } };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'bytesValue')) {
+                // Leave as-is; not emitted in our code path
+                return av;
+              }
+              return { stringValue: '' };
+            } catch {
+              return { stringValue: '' };
+            }
+          };
+          const sanitizeAttributes = (kvs) => {
+            try {
+              const out = [];
+              const seen = new Set();
+              for (const kv of Array.isArray(kvs) ? kvs : []) {
+                const key = String(kv?.key ?? '').slice(0, 128);
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                out.push({ key, value: sanitizeAnyValue(kv?.value) });
+                if (out.length >= 128) break; // cap attribute count
+              }
+              return out;
+            } catch { return []; }
+          };
         } else {
           console.warn('[Renderer OTEL]: window.fetch not available; fetch interceptor skipped');
         }
@@ -363,32 +416,131 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
                 // Fallback to current time in nanoseconds
                 return BigInt(Date.now()) * 1000000n;
               }
-              
-              // hr is [seconds, nanoseconds] relative to performance.timeOrigin.
-              // Convert to epoch nanoseconds by adding performance.timeOrigin (ms) converted to ns.
               const sec = BigInt(hr[0]);
               const ns = BigInt(hr[1]);
-              const originNs = BigInt(Math.trunc(performance.timeOrigin * 1000000)); // ms -> ns
-              
-              // Total = originNs + (seconds * 1e9 + nanos)
+
+              // If hr looks like epoch seconds (>= 1e9), it's already epoch-based.
+              // Otherwise treat as relative to performance.timeOrigin.
+              if (sec >= 1000000000n) {
+                return sec * 1000000000n + ns;
+              }
+
+              const originMs = typeof performance?.timeOrigin === 'number' ? performance.timeOrigin : Date.now();
+              const originNs = BigInt(Math.trunc(originMs * 1000000)); // ms -> ns
               return originNs + (sec * 1000000000n + ns);
             } catch {
               // Fallback to current time in nanoseconds
               return BigInt(Date.now()) * 1000000n;
             }
           };
+          // Per proto3 JSON mapping, bytes fields map to base64 strings in JSON.
+          // Convert 32-hex (traceId) / 16-hex (spanId) strings to base64.
+          const hexToBase64 = (hex) => {
+            try {
+              if (!hex || typeof hex !== 'string') return '';
+              const clean = hex.trim().toLowerCase();
+              if (clean.length % 2 !== 0) return '';
+              const bytes = new Uint8Array(clean.length / 2);
+              for (let i = 0; i < clean.length; i += 2) {
+                const byte = parseInt(clean.slice(i, i + 2), 16);
+                if (Number.isNaN(byte)) return '';
+                bytes[i / 2] = byte;
+              }
+              // Browser-safe base64 from bytes
+              let bin = '';
+              for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+              // btoa is available in browsers/Electron renderers
+              return typeof btoa === 'function' ? btoa(bin) : '';
+            } catch {
+              return '';
+            }
+          };
           const toAnyValue = (v) => {
-            if (v == null) return { stringValue: '' };
-            switch (typeof v) {
-              case 'string': return { stringValue: v };
-              case 'number': return Number.isInteger(v) ? { intValue: v } : { doubleValue: v };
-              case 'boolean': return { boolValue: v };
-              default: return { stringValue: String(v) };
+            try {
+              if (v == null) return { stringValue: '' };
+              if (Array.isArray(v)) {
+                return { arrayValue: { values: v.map((el) => toAnyValue(el)) } };
+              }
+              switch (typeof v) {
+                case 'string': return { stringValue: v };
+                case 'number':
+                  return Number.isInteger(v)
+                    ? { intValue: String(v) } // int64 must be JSON string per proto3 mapping
+                    : { doubleValue: v };
+                case 'boolean': return { boolValue: v };
+                case 'bigint': return { stringValue: v.toString() };
+                default:
+                  // Avoid invalid nested objects; fall back to string
+                  return { stringValue: String(v) };
+              }
+            } catch {
+              return { stringValue: '' };
+            }
+          };
+          // Local sanitizers to ensure availability within _toOtlpJson scope
+          const sanitizeAnyValue = (av) => {
+            try {
+              if (!av || typeof av !== 'object') return { stringValue: '' };
+              if (Object.prototype.hasOwnProperty.call(av, 'stringValue')) {
+                const s = String(av.stringValue ?? '');
+                return { stringValue: s.length > 4096 ? s.slice(0, 4096) : s };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'intValue')) {
+                return { intValue: String(av.intValue) };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'doubleValue')) {
+                const n = Number(av.doubleValue);
+                return { doubleValue: Number.isFinite(n) ? n : 0 };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'boolValue')) {
+                return { boolValue: !!av.boolValue };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'arrayValue')) {
+                const vals = Array.isArray(av.arrayValue?.values) ? av.arrayValue.values : [];
+                const capped = vals.slice(0, 64).map(sanitizeAnyValue);
+                return { arrayValue: { values: capped } };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'kvlistValue')) {
+                const list = Array.isArray(av.kvlistValue?.values) ? av.kvlistValue.values : [];
+                const sanitized = list.slice(0, 64).map((kv) => ({ key: String(kv.key).slice(0,128), value: sanitizeAnyValue(kv.value) }));
+                return { kvlistValue: { values: sanitized } };
+              }
+              if (Object.prototype.hasOwnProperty.call(av, 'bytesValue')) {
+                return av;
+              }
+              return { stringValue: '' };
+            } catch {
+              return { stringValue: '' };
+            }
+          };
+          const sanitizeAttributes = (kvs) => {
+            try {
+              const out = [];
+              const seen = new Set();
+              for (const kv of Array.isArray(kvs) ? kvs : []) {
+                const key = String(kv?.key ?? '').slice(0, 128);
+                if (!key || seen.has(key)) continue;
+                seen.add(key);
+                out.push({ key, value: sanitizeAnyValue(kv?.value) });
+                if (out.length >= 128) break;
+              }
+              return out;
+            } catch { return []; }
+          };
+          const spanKindEnum = (k) => {
+            switch (Number(k) || 0) {
+              case 0: return 'SPAN_KIND_UNSPECIFIED';
+              case 1: return 'SPAN_KIND_INTERNAL';
+              case 2: return 'SPAN_KIND_SERVER';
+              case 3: return 'SPAN_KIND_CLIENT';
+              case 4: return 'SPAN_KIND_PRODUCER';
+              case 5: return 'SPAN_KIND_CONSUMER';
+              default: return 'SPAN_KIND_UNSPECIFIED';
             }
           };
           const toSpan = (s) => {
             const ctx = s.spanContext();
-            const attrs = [];
+            let attrs = [];
             try {
               if (s.attributes) {
                 for (const k of Object.keys(s.attributes)) {
@@ -396,6 +548,7 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
                 }
               }
             } catch {}
+            attrs = sanitizeAttributes(attrs);
             // Convert times
             let startNs = toEpochNanos(s.startTime);
             let endNs = toEpochNanos(s.endTime);
@@ -403,11 +556,15 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               // ensure positive duration
               endNs = startNs + 1000000n; // +1ms
             }
-            // OTLP JSON format actually uses hex strings, not base64 (despite spec confusion)
-            // Test spans use hex and work, so let's use hex with proper validation
-            const traceId = (ctx?.traceId || '0'.repeat(32)).padStart(32, '0');
-            const spanId = (ctx?.spanId || '0'.repeat(16)).padStart(16, '0');
-            const parentSpanId = s.parentSpanId ? s.parentSpanId.padStart(16, '0') : '';
+            // IMPORTANT: Although proto3 JSON mapping suggests base64 for bytes,
+            // Grafana Cloud (OTel Collector HTTP/JSON) expects hex strings for IDs.
+            // Use hex for traceId/spanId/parentSpanId for compatibility.
+            const traceIdHex = (ctx?.traceId || '0'.repeat(32)).toLowerCase().padStart(32, '0');
+            const spanIdHex = (ctx?.spanId || '0'.repeat(16)).toLowerCase().padStart(16, '0');
+            const parentSpanIdHex = s.parentSpanId ? s.parentSpanId.toLowerCase().padStart(16, '0') : '';
+            const traceId = traceIdHex;
+            const spanId = spanIdHex;
+            const parentSpanId = parentSpanIdHex;
             
               // Enhanced timestamp debugging
             const nowMs = Date.now();
@@ -423,11 +580,15 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
             
             console.log(`[Renderer OTEL] Span validation debug:`, {
               traceId,
-              traceIdLength: traceId.length,
+              traceIdHexLength: traceId.length,
               spanId,
-              spanIdLength: spanId.length,
+              spanIdHexLength: spanId.length,
               parentSpanId,
-              parentSpanIdLength: parentSpanId.length,
+              parentSpanIdHexLength: parentSpanId.length,
+              // For visibility when debugging, also show base64 versions
+              traceIdBase64: hexToBase64(traceIdHex),
+              spanIdBase64: hexToBase64(spanIdHex),
+              parentSpanIdBase64: parentSpanIdHex ? hexToBase64(parentSpanIdHex) : '',
               startTimeUnixNano: startNs.toString(),
               endTimeUnixNano: endNs.toString(),
               startDate: startDate.toISOString(),
@@ -466,11 +627,11 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
             // Only include status if it is an error.
             const statusCode = s.status?.code;
             const isError = statusCode === 2; // SpanStatusCode.ERROR
-            
             const statusObject = {};
             if (isError) {
               statusObject.status = {
-                code: 2, // ERROR
+                // Use enum string for maximum compatibility with proto3 JSON mapping
+                code: 'STATUS_CODE_ERROR',
                 message: s.status.message || ''
               };
             }
@@ -482,17 +643,20 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               willAddStatus: isError
             });
             
-            return {
+            const spanName = (s.name || 'span');
+            const spanOut = {
               traceId,
               spanId,
-              parentSpanId,
-              name: s.name || 'span',
-              kind: Number(s.kind) || 0,
+              name: spanName.length > 255 ? spanName.slice(0, 255) : spanName,
+              // Use enum string for JSON mapping of enums
+              kind: spanKindEnum(s.kind),
               startTimeUnixNano: startNs.toString(),
               endTimeUnixNano: endNs.toString(),
               attributes: attrs,
               ...statusObject
             };
+            if (parentSpanId) spanOut.parentSpanId = parentSpanId; // omit when empty
+            return spanOut;
           };
           // Group all spans under a single scope
           const scopeName = (spans?.[0]?.instrumentationLibrary?.name) || 'kicktalk-renderer';
@@ -702,46 +866,91 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         ],
       });
 
-      // Minimal WebSocket auto-instrumentation for renderer: open, send, close, error, message
+      // Enhanced WebSocket auto-instrumentation for renderer: connect (short) + session (open→close)
       try {
         if (!window.__KT_WEBSOCKET_INSTRUMENTED__ && typeof window.WebSocket === 'function') {
           window.__KT_WEBSOCKET_INSTRUMENTED__ = true;
           const NativeWS = window.WebSocket;
           const wsTracer = trace.getTracer('kicktalk-renderer-websocket');
           const WSWrapper = function(url, protocols) {
-            const span = wsTracer.startSpan('websocket.connect', {
+            // Derive URL parts for nicer attributes
+            let urlStr = typeof url === 'string' ? url : String(url);
+            let urlHost = '';
+            try { urlHost = new URL(urlStr).host; } catch {}
+
+            const connectSpan = wsTracer.startSpan('websocket.connect', {
               attributes: {
-                'ws.url': typeof url === 'string' ? url : String(url),
+                'ws.url': urlStr,
+                'ws.host': urlHost,
                 'service.name': 'kicktalk-renderer'
               }
             });
+
             let socket;
+            let sessionSpan = null;
             try {
               socket = new NativeWS(url, protocols);
             } catch (err) {
-              try { span.recordException?.(err); span.setStatus?.({ code: 2, message: err?.message || String(err) }); } catch {}
-              try { span.end(); } catch {}
+              try { connectSpan.recordException?.(err); connectSpan.setStatus?.({ code: 2, message: err?.message || String(err) }); } catch {}
+              try { connectSpan.end(); } catch {}
               throw err;
             }
+
             try {
               socket.addEventListener('open', () => {
-                try { span.addEvent('open'); span.setAttribute('ws.readyState', socket.readyState); } catch {}
+                try {
+                  connectSpan.addEvent('open');
+                  connectSpan.setAttribute('ws.readyState', socket.readyState);
+                  connectSpan.end(); // export short connect span immediately on open
+
+                  // Start a long-lived session span that lasts until close
+                  sessionSpan = wsTracer.startSpan('websocket.session', {
+                    attributes: {
+                      'ws.url': urlStr,
+                      'ws.host': urlHost,
+                      'service.name': 'kicktalk-renderer'
+                    }
+                  });
+                } catch {}
               });
               socket.addEventListener('close', (ev) => {
                 try {
-                  span.addEvent('close');
-                  span.setAttribute('ws.code', ev?.code ?? 0);
-                  span.setAttribute('ws.wasClean', !!ev?.wasClean);
+                  if (sessionSpan) {
+                    sessionSpan.addEvent('close');
+                    sessionSpan.setAttribute('ws.code', ev?.code ?? 0);
+                    sessionSpan.setAttribute('ws.wasClean', !!ev?.wasClean);
+                    if (typeof ev?.reason === 'string' && ev.reason) sessionSpan.setAttribute('ws.reason', ev.reason.slice(0, 256));
+                    sessionSpan.end();
+                  } else {
+                    // If close occurs before open, end connect span instead
+                    connectSpan.addEvent('close');
+                    connectSpan.setAttribute('ws.code', ev?.code ?? 0);
+                    connectSpan.setAttribute('ws.wasClean', !!ev?.wasClean);
+                    if (typeof ev?.reason === 'string' && ev.reason) connectSpan.setAttribute('ws.reason', ev.reason.slice(0, 256));
+                    connectSpan.end();
+                  }
                 } catch {}
-                try { span.end(); } catch {}
               });
               socket.addEventListener('error', (err) => {
-                try { span.addEvent('error'); span.recordException?.(err); } catch {}
+                try {
+                  // Attribute errors to the session if available, otherwise to connect span
+                  const targetSpan = sessionSpan || connectSpan;
+                  targetSpan.addEvent('error');
+                  targetSpan.recordException?.(err);
+                  targetSpan.setStatus?.({ code: 2, message: (err?.message || String(err)) });
+                } catch {}
               });
             } catch {}
             return socket;
           };
+          // Preserve prototype chain and static constants
           WSWrapper.prototype = NativeWS.prototype;
+          try {
+            WSWrapper.CONNECTING = NativeWS.CONNECTING;
+            WSWrapper.OPEN = NativeWS.OPEN;
+            WSWrapper.CLOSING = NativeWS.CLOSING;
+            WSWrapper.CLOSED = NativeWS.CLOSED;
+          } catch {}
           // Replace global
           window.WebSocket = WSWrapper;
         }
