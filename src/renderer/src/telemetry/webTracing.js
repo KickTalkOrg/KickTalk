@@ -8,6 +8,84 @@ import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xm
 import { SimpleSpanProcessor, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
 import { context, trace } from '@opentelemetry/api';
 
+// CRITICAL: Install WebSocket instrumentation IMMEDIATELY before any other code runs
+// This must happen synchronously at module load time, not after async telemetry setup
+console.log('[DEBUG] webTracing.js module loading - checking WebSocket availability');
+console.log('[DEBUG] window available:', typeof window !== 'undefined');
+console.log('[DEBUG] window.WebSocket available:', typeof window?.WebSocket === 'function');
+
+try {
+  if (!window.__KT_WEBSOCKET_INSTRUMENTED__ && typeof window.WebSocket === 'function') {
+    window.__KT_WEBSOCKET_INSTRUMENTED__ = true;
+    console.log('[Renderer OTEL]: Installing WebSocket instrumentation immediately at module load');
+    
+    const NativeWS = window.WebSocket;
+    
+    const WSWrapper = function(url, protocols) {
+      const urlStr = typeof url === 'string' ? url : String(url);
+      console.log('[WebSocket Instrumentation]: WebSocket created:', urlStr);
+      
+      const socket = new NativeWS(url, protocols);
+      
+      // Create simple telemetry span immediately (without full OTEL setup)
+      // This will be captured later when the full telemetry system loads
+      try {
+        // Create a basic connection tracking entry
+        if (!window.__KT_EARLY_WEBSOCKET_ACTIVITY__) window.__KT_EARLY_WEBSOCKET_ACTIVITY__ = [];
+        
+        const activityEntry = {
+          url: urlStr,
+          connectTime: Date.now(),
+          events: []
+        };
+        
+        window.__KT_EARLY_WEBSOCKET_ACTIVITY__.push(activityEntry);
+        
+        // Add event listeners to track lifecycle
+        socket.addEventListener('open', () => {
+          activityEntry.events.push({ type: 'open', time: Date.now() });
+          console.log('[WebSocket Instrumentation]: WebSocket opened:', urlStr);
+        });
+        
+        socket.addEventListener('close', (event) => {
+          activityEntry.events.push({ 
+            type: 'close', 
+            time: Date.now(), 
+            code: event.code,
+            wasClean: event.wasClean 
+          });
+          console.log('[WebSocket Instrumentation]: WebSocket closed:', urlStr, 'code:', event.code);
+        });
+        
+        socket.addEventListener('error', () => {
+          activityEntry.events.push({ type: 'error', time: Date.now() });
+          console.log('[WebSocket Instrumentation]: WebSocket error:', urlStr);
+        });
+        
+      } catch (e) {
+        console.error('[WebSocket Instrumentation]: Failed to track WebSocket:', e);
+      }
+      
+      return socket;
+    };
+    
+    // Preserve prototype chain and static constants
+    WSWrapper.prototype = NativeWS.prototype;
+    try {
+      WSWrapper.CONNECTING = NativeWS.CONNECTING;
+      WSWrapper.OPEN = NativeWS.OPEN;
+      WSWrapper.CLOSING = NativeWS.CLOSING;
+      WSWrapper.CLOSED = NativeWS.CLOSED;
+    } catch {}
+    
+    // Replace global WebSocket immediately
+    window.WebSocket = WSWrapper;
+    console.log('[Renderer OTEL]: WebSocket instrumentation installed successfully');
+  }
+} catch (e) {
+  console.error('[Renderer OTEL]: Failed to install WebSocket instrumentation:', e);
+}
+
 // Guard: run only once
 if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
   window.__KT_RENDERER_OTEL_INITIALIZED__ = true;
@@ -847,6 +925,15 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
           };
         }
       } catch {}
+      // Log early WebSocket activity for debugging
+      const earlyActivity = window.__KT_EARLY_WEBSOCKET_ACTIVITY__ || [];
+      console.log('[Renderer OTEL]: Early WebSocket activity captured:', earlyActivity.length, 'connections');
+      earlyActivity.forEach((activity, i) => {
+        const duration = Date.now() - activity.connectTime;
+        const events = activity.events.map(e => e.type).join(', ');
+        console.log(`[Renderer OTEL]: WebSocket ${i+1}: ${activity.url} (${duration}ms ago, events: ${events})`);
+      });
+
       // Immediately emit a test span to trigger exporter
       try {
         const testTracer = trace.getTracer('kicktalk-renderer');

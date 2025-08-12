@@ -180,20 +180,10 @@ initializePreload();
 
 if (process.contextIsolated) {
   try {
-    // A2: expose telemetry bridge to fetch OTLP config from main (without bundling secrets)
+    // Telemetry bridge with IPC relay for CORS bypass
     contextBridge.exposeInMainWorld("telemetry", {
       getOtelConfig: () => ipcRenderer.invoke("otel:get-config"),
-      // Relay OTLP traces via IPC to avoid browser CORS; accepts ArrayBuffer (protobuf bytes)
-      exportTraces: (buffer) => {
-        try {
-          const ab = buffer instanceof ArrayBuffer ? buffer : buffer?.buffer;
-          if (!ab) return Promise.resolve({ ok: false, reason: 'invalid_buffer' });
-          return ipcRenderer.invoke('otel:trace-export', ab);
-        } catch (e) {
-          return Promise.resolve({ ok: false, reason: e?.message || 'ipc_invoke_failed' });
-        }
-      },
-      // Relay OTLP JSON ExportTraceServiceRequest for CSP-safe verification path
+      // Relay OTLP JSON ExportTraceServiceRequest via IPC to bypass CORS
       exportTracesJson: (payload) => {
         try {
           if (!payload || typeof payload !== 'object') {
