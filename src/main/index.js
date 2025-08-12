@@ -101,8 +101,8 @@ try {
   console.warn('[Telemetry]: Telemetry module skipped:', error.message);
 }
 
-// Using IPC relay for renderer telemetry (no proxy needed)
-
+// Telemetry IPC relay: renderer sends OTLP JSON to main via IPC; main forwards over HTTPS.
+// Bypasses renderer CORS and keeps network in a more trusted boundary; main validates/sanitizes payloads and blocks direct renderer outbound requests.
 const isDev = process.env.NODE_ENV === "development";
 const iconPath = process.platform === "win32"
   ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")

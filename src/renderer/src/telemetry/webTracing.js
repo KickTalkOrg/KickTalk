@@ -23,43 +23,117 @@ try {
     
     const WSWrapper = function(url, protocols) {
       const urlStr = typeof url === 'string' ? url : String(url);
+      let urlHost = '';
+      try { urlHost = new URL(urlStr).host; } catch {}
       console.log('[WebSocket Instrumentation]: WebSocket created:', urlStr);
       
       const socket = new NativeWS(url, protocols);
       
-      // Create simple telemetry span immediately (without full OTEL setup)
-      // This will be captured later when the full telemetry system loads
+      // Track early activity; upgrade to OTEL spans when tracer is ready
       try {
-        // Create a basic connection tracking entry
         if (!window.__KT_EARLY_WEBSOCKET_ACTIVITY__) window.__KT_EARLY_WEBSOCKET_ACTIVITY__ = [];
-        
         const activityEntry = {
           url: urlStr,
           connectTime: Date.now(),
-          events: []
+          events: [],
+          __spanned: false,
+        };
+        window.__KT_EARLY_WEBSOCKET_ACTIVITY__.push(activityEntry);
+
+        let connectSpan = null;
+        let sessionSpan = null;
+        const getTracer = () => (window.__KT_TRACER__ || trace.getTracer('kicktalk-renderer-websocket'));
+        const ensureConnectSpan = () => {
+          if (connectSpan || activityEntry.__spanned) return;
+          try {
+            const t = getTracer();
+            if (t?.startSpan) {
+              connectSpan = t.startSpan('websocket.connect', {
+                attributes: {
+                  'ws.url': urlStr,
+                  'ws.host': urlHost,
+                  'service.name': 'kicktalk-renderer',
+                },
+                startTime: activityEntry.connectTime,
+              });
+            }
+          } catch {}
         };
         
-        window.__KT_EARLY_WEBSOCKET_ACTIVITY__.push(activityEntry);
-        
-        // Add event listeners to track lifecycle
         socket.addEventListener('open', () => {
-          activityEntry.events.push({ type: 'open', time: Date.now() });
+          const openTime = Date.now();
+          activityEntry.events.push({ type: 'open', time: openTime });
           console.log('[WebSocket Instrumentation]: WebSocket opened:', urlStr);
+          try {
+            ensureConnectSpan();
+            if (connectSpan?.end) {
+              try {
+                connectSpan.addEvent?.('open');
+                connectSpan.setAttribute?.('ws.readyState', socket.readyState);
+              } catch {}
+              connectSpan.end(openTime);
+            }
+            const t = getTracer();
+            if (t?.startSpan) {
+              sessionSpan = t.startSpan('websocket.session', {
+                attributes: {
+                  'ws.url': urlStr,
+                  'ws.host': urlHost,
+                  'service.name': 'kicktalk-renderer',
+                },
+                startTime: openTime,
+              });
+              activityEntry.__spanned = true;
+            }
+          } catch {}
         });
         
         socket.addEventListener('close', (event) => {
+          const closeTime = Date.now();
           activityEntry.events.push({ 
             type: 'close', 
-            time: Date.now(), 
+            time: closeTime, 
             code: event.code,
             wasClean: event.wasClean 
           });
           console.log('[WebSocket Instrumentation]: WebSocket closed:', urlStr, 'code:', event.code);
+          try {
+            if (sessionSpan?.end) {
+              try {
+                sessionSpan.addEvent?.('close');
+                sessionSpan.setAttribute?.('ws.code', event?.code ?? 0);
+                sessionSpan.setAttribute?.('ws.wasClean', !!event?.wasClean);
+                if (typeof event?.reason === 'string' && event.reason) sessionSpan.setAttribute?.('ws.reason', event.reason.slice(0, 256));
+              } catch {}
+              sessionSpan.end(closeTime);
+            } else {
+              // No session (e.g., close before open). End connect instead.
+              ensureConnectSpan();
+              if (connectSpan?.end) {
+                try {
+                  connectSpan.addEvent?.('close');
+                  connectSpan.setAttribute?.('ws.code', event?.code ?? 0);
+                  connectSpan.setAttribute?.('ws.wasClean', !!event?.wasClean);
+                  if (typeof event?.reason === 'string' && event.reason) connectSpan.setAttribute?.('ws.reason', event.reason.slice(0, 256));
+                } catch {}
+                connectSpan.end(closeTime);
+              }
+            }
+          } catch {}
         });
         
-        socket.addEventListener('error', () => {
-          activityEntry.events.push({ type: 'error', time: Date.now() });
+        socket.addEventListener('error', (err) => {
+          const time = Date.now();
+          activityEntry.events.push({ type: 'error', time });
           console.log('[WebSocket Instrumentation]: WebSocket error:', urlStr);
+          try {
+            const targetSpan = sessionSpan || connectSpan;
+            if (targetSpan) {
+              targetSpan.addEvent?.('error');
+              targetSpan.recordException?.(err);
+              targetSpan.setStatus?.({ code: 2, message: (err?.message || String(err)) });
+            }
+          } catch {}
         });
         
       } catch (e) {
@@ -511,8 +585,9 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               return BigInt(Date.now()) * 1000000n;
             }
           };
-          // Per proto3 JSON mapping, bytes fields map to base64 strings in JSON.
-          // Convert 32-hex (traceId) / 16-hex (spanId) strings to base64.
+          // Note: While proto3 JSON maps bytes to base64, our target (Grafana Cloud/collector HTTP JSON)
+          // expects hex-formatted traceId/spanId. We keep and pad hex strings in the payload.
+          // The helper below is used for debugging/logging only, not for payload conversion.
           const hexToBase64 = (hex) => {
             try {
               if (!hex || typeof hex !== 'string') return '';
@@ -708,14 +783,23 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               const futureDrift = startNs > (nowNs + FIVE_MIN_NS);
               const pastDrift = nowNs > startNs && (nowNs - startNs) > DAY_NS;
               if (futureDrift || pastDrift) {
+                const driftNs = startNs > nowNs ? (startNs - nowNs) : (nowNs - startNs);
+                const driftMs = Number(driftNs) / 1e6;
+                const durationNs = endNs - startNs;
+                const durationMs = Number(durationNs) / 1e6;
+                const driftDirection = futureDrift ? 'future' : 'past';
                 console.warn('[Renderer OTEL] Timestamp drift warning', {
                   traceId,
                   spanId,
                   startTimeUnixNano: startNs.toString(),
                   endTimeUnixNano: endNs.toString(),
                   nowUnixNano: nowNs.toString(),
+                  driftDirection,
+                  driftMagnitudeMs: driftMs,
+                  spanDurationMs: durationMs,
                   futureDrift,
-                  pastDrift
+                  pastDrift,
+                  suggestedAction: 'sync system clock / verify NTP / consider ignoring or discarding this span'
                 });
               }
             } catch {}
@@ -926,13 +1010,25 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         }
       } catch {}
       // Log early WebSocket activity for debugging
-      const earlyActivity = window.__KT_EARLY_WEBSOCKET_ACTIVITY__ || [];
-      console.log('[Renderer OTEL]: Early WebSocket activity captured:', earlyActivity.length, 'connections');
-      earlyActivity.forEach((activity, i) => {
-        const duration = Date.now() - activity.connectTime;
-        const events = activity.events.map(e => e.type).join(', ');
-        console.log(`[Renderer OTEL]: WebSocket ${i+1}: ${activity.url} (${duration}ms ago, events: ${events})`);
-      });
+      try {
+        const ea = window.__KT_EARLY_WEBSOCKET_ACTIVITY__;
+        const list = Array.isArray(ea) ? ea : [];
+        console.log('[Renderer OTEL]: Early WebSocket activity captured:', list.length, 'connections');
+        list.forEach((activity, i) => {
+          try {
+            const url = activity?.url ?? '(unknown)';
+            const ct = typeof activity?.connectTime === 'number' ? activity.connectTime : NaN;
+            const duration = Number.isFinite(ct) ? Math.max(0, Date.now() - ct) : NaN;
+            const evArr = Array.isArray(activity?.events) ? activity.events : [];
+            const events = evArr.map?.(e => e?.type ?? 'unknown')?.join?.(', ') ?? '';
+            console.log(`[Renderer OTEL]: WebSocket ${i + 1}: ${url} (${Number.isFinite(duration) ? duration : 'n/a'}ms ago, events: ${events})`);
+          } catch (inner) {
+            console.warn('[Renderer OTEL]: Failed to log early WebSocket item', i, inner?.message || inner);
+          }
+        });
+      } catch (e) {
+        console.warn('[Renderer OTEL]: Failed to read early WebSocket activity', e?.message || e);
+      }
 
       // Immediately emit a test span to trigger exporter
       try {
@@ -949,7 +1045,16 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         window.__KT_OTEL_PROVIDER__ = provider;
         window.__KT_TRACER__ = trace.getTracer('kicktalk-renderer');
         if (typeof provider.forceFlush === 'function') {
-          console.debug('[Renderer OTEL] provider registered; starting periodic forceFlush every 5s');
+          // Configurable periodic forceFlush interval (defaults to 60s, min threshold applied)
+          const defaultFlushMs = 60000; // safer production default
+          const minFlushMs = 30000; // enforce minimum threshold
+          let flushIntervalMs = defaultFlushMs;
+          try {
+            const val = Number(import.meta.env.RENDERER_VITE_OTEL_FLUSH_INTERVAL_MS);
+            const candidate = Number.isFinite(val) && val > 0 ? Math.round(val) : defaultFlushMs;
+            flushIntervalMs = Math.max(candidate, minFlushMs);
+          } catch {}
+          console.debug('[Renderer OTEL] flush', flushIntervalMs, 'ms');
           setInterval(async () => {
             try {
               const t0 = performance.now?.() || Date.now();
@@ -959,7 +1064,7 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
             } catch (e) {
               console.debug('[Renderer OTEL] periodic forceFlush error', e?.message || e);
             }
-          }, 5000);
+          }, flushIntervalMs);
           // One-time delayed flush to catch early spans
           setTimeout(async () => {
             try {
@@ -975,6 +1080,56 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
       } catch (e) {
         console.debug('[Renderer OTEL] failed to expose provider', e?.message || e);
       }
+
+      // Backfill early WebSocket activity into OTEL spans once tracer is ready
+      try {
+        const t = window.__KT_TRACER__ || trace.getTracer('kicktalk-renderer-websocket');
+        const early = window.__KT_EARLY_WEBSOCKET_ACTIVITY__ || [];
+        for (const a of early) {
+          if (a.__spanned) continue;
+          let urlHost = ''; try { urlHost = new URL(a.url).host; } catch {}
+          const openEvt = a.events.find(e => e.type === 'open');
+          const closeEvt = a.events.find(e => e.type === 'close');
+          const errEvt = a.events.find(e => e.type === 'error');
+
+          const connect = t.startSpan('websocket.connect', {
+            attributes: { 'ws.url': a.url, 'ws.host': urlHost, 'service.name': 'kicktalk-renderer' },
+            startTime: a.connectTime,
+          });
+
+          if (openEvt) {
+            connect.addEvent?.('open');
+            connect.end(openEvt.time);
+            const session = t.startSpan('websocket.session', {
+              attributes: { 'ws.url': a.url, 'ws.host': urlHost, 'service.name': 'kicktalk-renderer' },
+              startTime: openEvt.time,
+            });
+            if (errEvt) session.addEvent?.('error');
+            if (closeEvt) {
+              session.setAttribute?.('ws.code', closeEvt.code ?? 0);
+              session.setAttribute?.('ws.wasClean', !!closeEvt.wasClean);
+              if (typeof closeEvt.reason === 'string' && closeEvt.reason) session.setAttribute?.('ws.reason', closeEvt.reason.slice(0, 256));
+              session.end(closeEvt.time);
+            } else {
+              session.end();
+            }
+          } else {
+            if (errEvt) connect.addEvent?.('error');
+            if (closeEvt) {
+              connect.setAttribute?.('ws.code', closeEvt.code ?? 0);
+              connect.setAttribute?.('ws.wasClean', !!closeEvt.wasClean);
+              if (typeof closeEvt.reason === 'string' && closeEvt.reason) connect.setAttribute?.('ws.reason', closeEvt.reason.slice(0, 256));
+              connect.end(closeEvt.time);
+            } else {
+              connect.end();
+            }
+          }
+          a.__spanned = true;
+        }
+        if (typeof window.__KT_OTEL_PROVIDER__?.forceFlush === 'function') {
+          window.__KT_OTEL_PROVIDER__.forceFlush().catch(() => {});
+        }
+      } catch {}
 
       // Establish a sampled parent span to ensure children (fetch/XHR) are recorded
       const tracer = trace.getTracer('kicktalk-renderer');
@@ -996,97 +1151,7 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         ],
       });
 
-      // Enhanced WebSocket auto-instrumentation for renderer: connect (short) + session (open→close)
-      try {
-        if (!window.__KT_WEBSOCKET_INSTRUMENTED__ && typeof window.WebSocket === 'function') {
-          window.__KT_WEBSOCKET_INSTRUMENTED__ = true;
-          const NativeWS = window.WebSocket;
-          const wsTracer = trace.getTracer('kicktalk-renderer-websocket');
-          const WSWrapper = function(url, protocols) {
-            // Derive URL parts for nicer attributes
-            let urlStr = typeof url === 'string' ? url : String(url);
-            let urlHost = '';
-            try { urlHost = new URL(urlStr).host; } catch {}
-
-            const connectSpan = wsTracer.startSpan('websocket.connect', {
-              attributes: {
-                'ws.url': urlStr,
-                'ws.host': urlHost,
-                'service.name': 'kicktalk-renderer'
-              }
-            });
-
-            let socket;
-            let sessionSpan = null;
-            try {
-              socket = new NativeWS(url, protocols);
-            } catch (err) {
-              try { connectSpan.recordException?.(err); connectSpan.setStatus?.({ code: 2, message: err?.message || String(err) }); } catch {}
-              try { connectSpan.end(); } catch {}
-              throw err;
-            }
-
-            try {
-              socket.addEventListener('open', () => {
-                try {
-                  connectSpan.addEvent('open');
-                  connectSpan.setAttribute('ws.readyState', socket.readyState);
-                  connectSpan.end(); // export short connect span immediately on open
-
-                  // Start a long-lived session span that lasts until close
-                  sessionSpan = wsTracer.startSpan('websocket.session', {
-                    attributes: {
-                      'ws.url': urlStr,
-                      'ws.host': urlHost,
-                      'service.name': 'kicktalk-renderer'
-                    }
-                  });
-                } catch {}
-              });
-              socket.addEventListener('close', (ev) => {
-                try {
-                  if (sessionSpan) {
-                    sessionSpan.addEvent('close');
-                    sessionSpan.setAttribute('ws.code', ev?.code ?? 0);
-                    sessionSpan.setAttribute('ws.wasClean', !!ev?.wasClean);
-                    if (typeof ev?.reason === 'string' && ev.reason) sessionSpan.setAttribute('ws.reason', ev.reason.slice(0, 256));
-                    sessionSpan.end();
-                  } else {
-                    // If close occurs before open, end connect span instead
-                    connectSpan.addEvent('close');
-                    connectSpan.setAttribute('ws.code', ev?.code ?? 0);
-                    connectSpan.setAttribute('ws.wasClean', !!ev?.wasClean);
-                    if (typeof ev?.reason === 'string' && ev.reason) connectSpan.setAttribute('ws.reason', ev.reason.slice(0, 256));
-                    connectSpan.end();
-                  }
-                } catch {}
-              });
-              socket.addEventListener('error', (err) => {
-                try {
-                  // Attribute errors to the session if available, otherwise to connect span
-                  const targetSpan = sessionSpan || connectSpan;
-                  targetSpan.addEvent('error');
-                  targetSpan.recordException?.(err);
-                  targetSpan.setStatus?.({ code: 2, message: (err?.message || String(err)) });
-                } catch {}
-              });
-            } catch {}
-            return socket;
-          };
-          // Preserve prototype chain and static constants
-          WSWrapper.prototype = NativeWS.prototype;
-          try {
-            WSWrapper.CONNECTING = NativeWS.CONNECTING;
-            WSWrapper.OPEN = NativeWS.OPEN;
-            WSWrapper.CLOSING = NativeWS.CLOSING;
-            WSWrapper.CLOSED = NativeWS.CLOSED;
-          } catch {}
-          // Replace global
-          window.WebSocket = WSWrapper;
-        }
-      } catch (e) {
-        console.warn('[Renderer OTEL]: WebSocket instrumentation failed:', e?.message || e);
-      }
+      
 
       // Temporary sampling wrapper: ensure ALL renderer fetch/XHR run under a recording parent
       try {

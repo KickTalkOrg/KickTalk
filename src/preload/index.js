@@ -189,6 +189,13 @@ if (process.contextIsolated) {
           if (!payload || typeof payload !== 'object') {
             return Promise.resolve({ ok: false, reason: 'invalid_json' });
           }
+          // Minimal ExportTraceServiceRequest shape guard
+          try {
+            const rs = payload?.resourceSpans;
+            if (!Array.isArray(rs) || rs.length === 0) {
+              return Promise.resolve({ ok: false, reason: 'invalid_otlp_shape' });
+            }
+          } catch {}
           return ipcRenderer.invoke('otel:trace-export-json', payload);
         } catch (e) {
           return Promise.resolve({ ok: false, reason: e?.message || 'ipc_invoke_failed' });
