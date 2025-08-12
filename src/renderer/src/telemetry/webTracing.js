@@ -529,7 +529,7 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
           };
           const spanKindEnum = (k) => {
             switch (Number(k) || 0) {
-              case 0: return 'SPAN_KIND_UNSPECIFIED';
+              case 0: return 'SPAN_KIND_INTERNAL';
               case 1: return 'SPAN_KIND_INTERNAL';
               case 2: return 'SPAN_KIND_SERVER';
               case 3: return 'SPAN_KIND_CLIENT';
@@ -566,7 +566,7 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
             const spanId = spanIdHex;
             const parentSpanId = parentSpanIdHex;
             
-              // Enhanced timestamp debugging
+            // Enhanced timestamp debugging
             const nowMs = Date.now();
             const nowNs = BigInt(nowMs) * 1000000n;
             const startDate = new Date(Number(startNs) / 1e6);
@@ -623,6 +623,25 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
               directVsCalculated: directConversion.toString() === startNs.toString()
             });
             
+            // Warn if timestamps are too far in the future (>5m) or in the past (>24h)
+            try {
+              const FIVE_MIN_NS = 300000000000n; // 5 minutes
+              const DAY_NS = 86400000000000n; // 24 hours
+              const futureDrift = startNs > (nowNs + FIVE_MIN_NS);
+              const pastDrift = nowNs > startNs && (nowNs - startNs) > DAY_NS;
+              if (futureDrift || pastDrift) {
+                console.warn('[Renderer OTEL] Timestamp drift warning', {
+                  traceId,
+                  spanId,
+                  startTimeUnixNano: startNs.toString(),
+                  endTimeUnixNano: endNs.toString(),
+                  nowUnixNano: nowNs.toString(),
+                  futureDrift,
+                  pastDrift
+                });
+              }
+            } catch {}
+            
             // Per OTLP spec for HTTP, span status should be UNSET (omitted) for success.
             // Only include status if it is an error.
             const statusCode = s.status?.code;
@@ -662,6 +681,26 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
           const scopeName = (spans?.[0]?.instrumentationLibrary?.name) || 'kicktalk-renderer';
           const scopeVersion = (spans?.[0]?.instrumentationLibrary?.version) || undefined;
           const scope = { name: scopeName }; if (scopeVersion) scope.version = scopeVersion;
+          // Compute SDK/resource enrichments
+          const sdkName = 'opentelemetry';
+          const sdkLanguage = 'webjs';
+          const sdkVersion = 'unknown';
+          const getOrCreateInstanceId = () => {
+            try {
+              const KEY = 'kt_service_instance_id';
+              const ls = (typeof window !== 'undefined') ? window.localStorage : null;
+              let id = ls?.getItem(KEY);
+              if (!id) {
+                const rnd = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+                  ? crypto.randomUUID()
+                  : (Math.random().toString(16).slice(2) + Date.now().toString(16));
+                id = rnd;
+                try { ls?.setItem(KEY, id); } catch {}
+              }
+              return id || '';
+            } catch { return ''; }
+          };
+          const instanceId = getOrCreateInstanceId();
           return {
             resourceSpans: [
               {
@@ -670,6 +709,10 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
                     { key: 'service.name', value: { stringValue: this.serviceName || 'kicktalk-renderer' } },
                     { key: 'service.namespace', value: { stringValue: 'kicktalk' } },
                     { key: 'deployment.environment', value: { stringValue: this.deploymentEnv } },
+                    { key: 'telemetry.sdk.name', value: { stringValue: sdkName } },
+                    { key: 'telemetry.sdk.language', value: { stringValue: sdkLanguage } },
+                    { key: 'telemetry.sdk.version', value: { stringValue: sdkVersion } },
+                    { key: 'service.instance.id', value: { stringValue: instanceId } },
                   ]
                 },
                 scopeSpans: [

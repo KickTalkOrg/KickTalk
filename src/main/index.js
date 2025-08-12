@@ -835,6 +835,35 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
       });
     }
     
+    // Optionally annotate spans with a relay request id and source marker for easy correlation in Grafana
+    try {
+      const annotate = (process.env.KT_OTEL_ANNOTATE_SPANS || '1') !== '0';
+      if (annotate && exportJson?.resourceSpans) {
+        let annotatedCount = 0;
+        for (const rs of exportJson.resourceSpans) {
+          const scopes = rs?.scopeSpans || rs?.instrumentationLibrarySpans || [];
+          for (const sc of scopes) {
+            const spans = sc?.spans || [];
+            for (const sp of spans) {
+              if (!sp.attributes) sp.attributes = [];
+              const hasReq = sp.attributes.some(a => a?.key === 'kt.relay.request_id');
+              if (!hasReq) {
+                sp.attributes.push({ key: 'kt.relay.request_id', value: { stringValue: requestId } });
+              }
+              const hasSrc = sp.attributes.some(a => a?.key === 'kt.source');
+              if (!hasSrc) {
+                sp.attributes.push({ key: 'kt.source', value: { stringValue: 'renderer' } });
+              }
+              annotatedCount++;
+            }
+          }
+        }
+        console.log(`[OTEL Relay JSON][${requestId}] Annotated spans with request id`, { requestId, annotatedCount });
+      }
+    } catch (e) {
+      console.warn(`[OTEL Relay JSON][${requestId}] Failed to annotate spans`, { error: e?.message || e });
+    }
+
     // Enhanced span-level analysis for debugging partialSuccess rejections (DEBUG only)
     if (isDebug && exportJson?.resourceSpans) {
       exportJson.resourceSpans.forEach((rs, rsIdx) => {
@@ -1013,6 +1042,111 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
       serviceNames: traceInfo.serviceNames,
       totalDuration: `${Date.now() - startedAt}ms`
     });
+
+    // Optional: verify trace availability in Grafana Tempo via API (non-blocking)
+    try {
+      // Prefer electron-vite main-scoped envs, then fall back to legacy names
+      let ev = {};
+      try { ev = import.meta.env || {}; } catch {}
+      const tempoBase =
+        ev.MAIN_VITE_GRAFANA_TEMPO_BASE_URL ||
+        process.env.MAIN_VITE_GRAFANA_TEMPO_BASE_URL ||
+        process.env.GRAFANA_TEMPO_BASE_URL ||
+        process.env.TEMPO_BASE_URL;
+      const tempoToken =
+        ev.MAIN_VITE_GRAFANA_TEMPO_API_TOKEN ||
+        process.env.MAIN_VITE_GRAFANA_TEMPO_API_TOKEN ||
+        process.env.GRAFANA_TEMPO_API_TOKEN ||
+        process.env.GRAFANA_API_TOKEN;
+      if (success && tempoBase && tempoToken && Array.isArray(traceInfo.traceIds) && traceInfo.traceIds.length) {
+        // Fire-and-forget verification with small retries
+        (async () => {
+          const https = require('https');
+          const urlJoin = (base, path) => base.replace(/\/$/, '') + path;
+          // Prefer Grafana Cloud stack API with Bearer: /api/tempo/traces/{id}
+          // Fallbacks: Bearer to /tempo/api/traces/{id}, then Basic to /tempo/api/traces/{id}
+          const getOnce = (id) => new Promise((resolve) => {
+            try {
+              const stackBase = tempoBase.replace(/\/?tempo\/?$/, '');
+              const tryReq = (fullUrl, headers, next) => {
+                try {
+                  const url = new URL(fullUrl);
+                  const opts = {
+                    method: 'GET',
+                    hostname: url.hostname,
+                    port: url.port || 443,
+                    path: url.pathname + (url.search || ''),
+                    headers,
+                    timeout: 8000,
+                  };
+                  const req = https.request(opts, (res) => {
+                    res.on('data', () => {});
+                    res.on('end', () => {
+                      if (res.statusCode === 200 || res.statusCode === 404) return resolve(res.statusCode);
+                      // On 302/login or other codes, try next strategy
+                      if (typeof next === 'function') return next();
+                      resolve(res.statusCode || 0);
+                    });
+                  });
+                  req.on('error', () => { if (typeof next === 'function') return next(); resolve(0); });
+                  req.setTimeout(8000, () => { try { req.destroy(); } catch {} if (typeof next === 'function') return next(); resolve(0); });
+                  req.end();
+                } catch { if (typeof next === 'function') return next(); resolve(0); }
+              };
+              // Parse Basic auth from OTLP headers if present
+              let basicAuth = null;
+              try {
+                const hdrsStr = (ev.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS || process.env.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS || process.env.OTEL_EXPORTER_OTLP_HEADERS || '').toString();
+                const authKv = hdrsStr.split(',').map(s => s.trim()).find(s => /^Authorization=Basic\s+/i.test(s));
+                if (authKv) basicAuth = authKv.split('=')[1]; // the "Basic ..." value
+              } catch {}
+              // Strategy A: Bearer to stack API
+              const aUrl = urlJoin(stackBase || tempoBase, `/api/tempo/traces/${id}`);
+              // Strategy B: Bearer to /tempo/api
+              const bUrl = urlJoin(tempoBase, `/api/traces/${id}`);
+              // Strategy C: Basic to /tempo/api
+              const cUrl = bUrl;
+              tryReq(aUrl, { 'Authorization': `Bearer ${tempoToken}` }, () => {
+                tryReq(bUrl, { 'Authorization': `Bearer ${tempoToken}` }, () => {
+                  if (basicAuth) return tryReq(cUrl, { 'Authorization': basicAuth }, () => resolve(0));
+                  resolve(0);
+                });
+              });
+            } catch { resolve(0); }
+          });
+          const sleep = (ms) => new Promise(r => setTimeout(r, ms));
+          const results = {};
+          // Allow more time for Grafana Cloud ingestion to index traces
+          for (let attempt = 1; attempt <= 8; attempt++) {
+            for (const id2 of traceInfo.traceIds) {
+              if (results[id2] === 200) continue;
+              const code2 = await getOnce(id2);
+              if (code2) results[id2] = code2;
+            }
+            const remaining = Object.values(results).filter((c) => c !== 200).length;
+            if (remaining === 0) break;
+            await sleep(5e3);
+          }
+          const found = Object.entries(results).filter(([, c]) => c === 200).map(([id2]) => id2);
+          const missing = traceInfo.traceIds.filter((id2) => !found.includes(id2));
+          console.log(`[OTEL Relay JSON][${requestId}] Tempo verification`, {
+            requestId,
+            tempoBase,
+            foundCount: found.length,
+            missingCount: missing.length,
+            found,
+            missing: missing.slice(0, 10)
+          });
+          // Diagnostic: status codes per trace id
+          try {
+            const codesById = Object.entries(results).map(([id2, status]) => ({ id: id2, status }));
+            console.log(`[OTEL Relay JSON][${requestId}] Tempo verification details`, { requestId, codesById });
+          } catch {}
+        })();
+      }
+    } catch (e) {
+      console.warn(`[OTEL Relay JSON][${requestId}] Tempo verification skipped`, { error: e?.message || e });
+    }
 
     if (success) {
       return { ok: true, status: result.statusCode, requestId, traceIds: traceInfo.traceIds };
