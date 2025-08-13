@@ -58,11 +58,11 @@ const Settings = () => {
   const handleAddPhrase = useCallback(
     (e) => {
       const value = e.target.value.trim();
-      if (settings?.notifications?.phrases.includes(value)) return;
+      if ((settings?.notifications?.phrases || []).includes(value)) return;
       if (e.key === "Enter" && value.length > 0) {
         changeSetting("notifications", {
           ...settings?.notifications,
-          phrases: [...settings?.notifications?.phrases, value],
+          phrases: [...(settings?.notifications?.phrases || []), value],
         });
         e.target.value = "";
       }

@@ -24,8 +24,14 @@ const InfoBar = memo(
             return "";
         }
       } else if (initialChatroomInfo) {
-        const { followers_mode, subscribers_mode, emotes_mode, slow_mode, message_interval, following_min_duration } =
-          initialChatroomInfo?.chatroom;
+        const {
+          followers_mode,
+          subscribers_mode,
+          emotes_mode,
+          slow_mode,
+          message_interval,
+          following_min_duration,
+        } = initialChatroomInfo?.chatroom ?? {};
 
         switch (true) {
           case followers_mode:

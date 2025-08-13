@@ -2,7 +2,7 @@ import { resolve } from "path";
 import { defineConfig, externalizeDepsPlugin } from "electron-vite";
 import react from "@vitejs/plugin-react";
 import { copyFileSync, mkdirSync, existsSync } from "fs";
-import { join, dirname } from "path";
+import { join } from "path";
 
 // Custom plugin to copy telemetry files
 const copyTelemetryPlugin = () => ({

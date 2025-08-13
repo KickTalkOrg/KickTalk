@@ -283,7 +283,7 @@ ipcMain.handle("store:set", (e, { key, value }) => {
     }
 
     // Handle auto-update setting changes
-    if (value.hasOwnProperty('autoUpdate') && value.autoUpdate === false) {
+    if (Object.prototype.hasOwnProperty.call(value, 'autoUpdate') && value.autoUpdate === false) {
       // Dismiss any active update notifications when auto-update is disabled
       mainWindow.webContents.send("autoUpdater:dismiss");
     }
@@ -301,7 +301,7 @@ ipcMain.handle("store:delete", (e, { key }) => {
 
 const addUserLog = (chatroomId, userId, message, isDeleted = false) => {
   if (!chatroomId || !userId || !message) {
-    console.error("[Chat Logs]: Invalid data received:", data);
+    console.error("[Chat Logs]: Invalid data received:", { chatroomId, userId, message, isDeleted });
     return null;
   }
 
@@ -340,7 +340,7 @@ const addUserLog = (chatroomId, userId, message, isDeleted = false) => {
 
 const addReplyLog = (chatroomId, message, isDeleted = false) => {
   if (!message || !chatroomId || !message.metadata?.original_message?.id) {
-    console.error("[Reply Logs]: Invalid data received:", data);
+    console.error("[Reply Logs]: Invalid data received:", { chatroomId, message, isDeleted });
     return null;
   }
 

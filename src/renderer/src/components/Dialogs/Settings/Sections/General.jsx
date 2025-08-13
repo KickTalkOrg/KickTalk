@@ -552,11 +552,11 @@ const NotificationsSection = ({ settingsData, onChange }) => {
   const handleAddPhrase = useCallback(
     (e) => {
       const value = e.target.value.trim();
-      if (settingsData?.notifications?.phrases.includes(value)) return;
+      if ((settingsData?.notifications?.phrases || []).includes(value)) return;
       if (e.key === "Enter" && value.length > 0) {
         onChange("notifications", {
           ...settingsData?.notifications,
-          phrases: [...settingsData?.notifications?.phrases, value],
+          phrases: [...(settingsData?.notifications?.phrases || []), value],
         });
         e.target.value = "";
       }

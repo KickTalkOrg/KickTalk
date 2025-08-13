@@ -54,6 +54,10 @@ const Poll = memo(
     const totalVotes = pollDetails?.options.reduce((sum, option) => sum + option.votes, 0);
     const calculatePercentage = (votes) => (totalVotes === 0 ? 0 : (votes / totalVotes) * 100);
 
+    // Temporary no-op handlers to prevent reference errors until actions are wired up
+    const handleVote = () => {};
+    const modDeletePoll = () => {};
+
     // const handleVote = async (optionId) => {
     //   if (hasVoted || pollWinner) return;
 
