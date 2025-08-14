@@ -675,6 +675,122 @@ ipcMain.handle("otel:trace-export-json", async (_e, exportJson) => {
   }
 });
 
+/**
+ * Grafana Tempo trace verification - query traces from Grafana Cloud
+ * Uses environment variables: MAIN_VITE_GRAFANA_TEMPO_QUERY_URL, MAIN_VITE_GRAFANA_TEMPO_QUERY_USER, MAIN_VITE_GRAFANA_TEMPO_QUERY_TOKEN
+ */
+ipcMain.handle("telemetry:readTrace", async (_e, traceId) => {
+  const requestId = genRequestId();
+  const startedAt = Date.now();
+  
+  try {
+    console.log(`[Grafana Read][${requestId}] Reading trace ${traceId} from Grafana Cloud`);
+    
+    const env = process.env;
+    const queryUrl = env.MAIN_VITE_GRAFANA_TEMPO_QUERY_URL || env.GRAFANA_TEMPO_QUERY_URL;
+    const queryUser = env.MAIN_VITE_GRAFANA_TEMPO_QUERY_USER || env.GRAFANA_TEMPO_QUERY_USER;
+    const queryToken = env.MAIN_VITE_GRAFANA_TEMPO_QUERY_TOKEN || env.GRAFANA_TEMPO_QUERY_TOKEN;
+    
+    if (!queryUrl || !queryUser || !queryToken) {
+      console.warn(`[Grafana Read][${requestId}] Missing Grafana Tempo configuration`);
+      return { 
+        success: false, 
+        reason: "missing_grafana_config",
+        message: "Grafana Tempo query URL, user, or token not configured",
+        requestId 
+      };
+    }
+
+    // Build Grafana Tempo API URL for trace lookup
+    const tempoApiUrl = `${queryUrl.replace(/\/$/, '')}/api/traces/${traceId}`;
+    
+    // Create Basic Auth header (user:token)
+    const authString = Buffer.from(`${queryUser}:${queryToken}`).toString('base64');
+    
+    const https = require("https");
+    const url = new URL(tempoApiUrl);
+
+    const options = {
+      method: "GET",
+      hostname: url.hostname,
+      port: url.port || 443,
+      path: url.pathname + (url.search || ""),
+      headers: {
+        "Authorization": `Basic ${authString}`,
+        "Accept": "application/json",
+        "User-Agent": "KickTalk/1.0"
+      },
+      timeout: 15000,
+    };
+
+    console.log(`[Grafana Read][${requestId}] → GET ${url.hostname}${options.path}`);
+
+    const result = await new Promise((resolve, reject) => {
+      const req = https.request(options, (res) => {
+        const chunks = [];
+        res.on("data", (chunk) => chunks.push(chunk));
+        res.on("end", () => {
+          const ms = Date.now() - startedAt;
+          const responseBody = Buffer.concat(chunks).toString("utf8");
+          
+          console.log(`[Grafana Read][${requestId}] ← ${res.statusCode} (${ms}ms)`);
+          
+          let parsedData = null;
+          try {
+            parsedData = JSON.parse(responseBody);
+          } catch (parseError) {
+            console.warn(`[Grafana Read][${requestId}] Failed to parse JSON response:`, parseError.message);
+          }
+          
+          resolve({ 
+            statusCode: res.statusCode || 0, 
+            responseBody,
+            parsedData,
+            headers: res.headers 
+          });
+        });
+      });
+      
+      req.on("error", (err) => {
+        console.error(`[Grafana Read][${requestId}] Error:`, err.message);
+        reject(err);
+      });
+
+      req.setTimeout(15000, () => {
+        req.destroy();
+        reject(new Error('timeout'));
+      });
+      
+      req.end();
+    });
+
+    const success = result.statusCode >= 200 && result.statusCode < 300;
+    console.log(`[Grafana Read][${requestId}] Result: ${success ? 'success' : 'failed'}`);
+
+    return { 
+      success, 
+      status: result.statusCode, 
+      data: result.parsedData,
+      requestId,
+      traceId,
+      queryUrl: tempoApiUrl,
+      message: success ? 
+        `✅ Trace ${traceId} found in Grafana` :
+        `❌ Trace ${traceId} not found: ${result.statusCode}`
+    };
+  } catch (e) {
+    const ms = Date.now() - startedAt;
+    console.error(`[Grafana Read][${requestId}] Failed (${ms}ms):`, e.message);
+    return { 
+      success: false, 
+      reason: e.message, 
+      requestId,
+      traceId,
+      message: `❌ Failed to query Grafana: ${e.message}`
+    };
+  }
+});
+
 ipcMain.handle("store:set", (e, { key, value }) => {
   const result = store.set(key, value);
 

@@ -1,3 +1,22 @@
+// OpenTelemetry instrumentation
+let tracer;
+try {
+  const { trace } = require('@opentelemetry/api');
+  tracer = trace.getTracer('kicktalk-shared-kick-pusher', '1.0.0');
+} catch (e) {
+  // Fallback if OpenTelemetry not available
+  tracer = {
+    startSpan: (name, options) => ({ 
+      end: () => {}, 
+      setStatus: () => {}, 
+      recordException: () => {},
+      addEvent: () => {},
+      setAttribute: () => {},
+      setAttributes: () => {}
+    })
+  };
+}
+
 class SharedKickPusher extends EventTarget {
   constructor() {
     super();
@@ -11,6 +30,7 @@ class SharedKickPusher extends EventTarget {
     this.connectionState = 'disconnected'; // disconnected, connecting, connected
     this.reconnectAttempts = 0;
     this.maxReconnectAttempts = 10;
+    this.connectionSpan = null; // Track current connection span
   }
 
   addChatroom(chatroomId, streamerId, chatroomData) {
@@ -57,8 +77,26 @@ class SharedKickPusher extends EventTarget {
       return;
     }
 
+    // Start OpenTelemetry span for WebSocket connection
+    this.connectionSpan = tracer.startSpan('kick_websocket_connection', {
+      attributes: {
+        'websocket.url': 'wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679',
+        'websocket.protocol': 'pusher',
+        'websocket.type': 'pooled_shared',
+        'connection.chatroom_count': this.chatrooms.size,
+        'connection.attempt': this.reconnectAttempts + 1,
+        'connection.max_attempts': this.maxReconnectAttempts,
+        'kick.pusher.app_key': '32cbd69e4b950bf97679'
+      }
+    });
+
     this.connectionState = 'connecting';
     console.log(`[SharedKickPusher] Connecting to Kick WebSocket for ${this.chatrooms.size} chatrooms`);
+    
+    this.connectionSpan.addEvent('websocket_connection_started', {
+      chatroom_count: this.chatrooms.size,
+      connection_state: 'connecting'
+    });
 
     this.chat = new WebSocket(
       "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
@@ -78,6 +116,21 @@ class SharedKickPusher extends EventTarget {
       console.log("[SharedKickPusher] Connected to Kick WebSocket");
       this.reconnectAttempts = 0;
 
+      // Complete the connection span successfully
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_opened', {
+          connection_state: 'connected',
+          chatroom_count: this.chatrooms.size
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': true,
+          'connection.state': 'connected'
+        });
+        this.connectionSpan.setStatus({ code: 1 }); // SUCCESS
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
+
       // Telemetry: mark each chatroom as connected
       try {
         for (const [chatroomId, info] of this.chatrooms) {
@@ -95,6 +148,23 @@ class SharedKickPusher extends EventTarget {
       this.connectionState = 'disconnected';
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
 
+      // Complete the connection span with error
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_error', {
+          error_message: error.message || 'Unknown WebSocket error',
+          connection_state: 'disconnected'
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': false,
+          'connection.error': error.message || 'Unknown error',
+          'connection.state': 'disconnected'
+        });
+        this.connectionSpan.recordException(error);
+        this.connectionSpan.setStatus({ code: 2, message: error.message }); // ERROR
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
+
       // Telemetry: record connection error and reconnection attempts
       try {
         for (const [chatroomId] of this.chatrooms) {
@@ -110,6 +180,26 @@ class SharedKickPusher extends EventTarget {
       this.socketId = null;
       this.userEventsSubscribed = false;
       this.subscribedChannels.clear();
+
+      // Complete the connection span if still active
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_closed', {
+          close_code: ev.code,
+          close_reason: ev.reason || 'Unknown',
+          was_clean: ev.wasClean,
+          connection_state: 'disconnected'
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': false,
+          'connection.close_code': ev.code,
+          'connection.close_reason': ev.reason || 'Connection closed',
+          'connection.was_clean': ev.wasClean,
+          'connection.state': 'disconnected'
+        });
+        this.connectionSpan.setStatus({ code: 2, message: `Connection closed: ${ev.reason || 'Unknown'}` }); // ERROR
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
 
       // Telemetry: mark each chatroom as disconnected and note reconnection intent
       try {

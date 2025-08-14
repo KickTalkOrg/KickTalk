@@ -133,6 +133,25 @@ const updateCosmetics = async (body) => {
   }
 };
 
+// OpenTelemetry instrumentation
+let tracer;
+try {
+  const { trace } = require('@opentelemetry/api');
+  tracer = trace.getTracer('kicktalk-shared-7tv-websocket', '1.0.0');
+} catch (e) {
+  // Fallback if OpenTelemetry not available
+  tracer = {
+    startSpan: (name, options) => ({ 
+      end: () => {}, 
+      setStatus: () => {}, 
+      recordException: () => {},
+      addEvent: () => {},
+      setAttribute: () => {},
+      setAttributes: () => {}
+    })
+  };
+}
+
 class SharedStvWebSocket extends EventTarget {
   constructor() {
     super();
@@ -145,6 +164,7 @@ class SharedStvWebSocket extends EventTarget {
     this.chatrooms = new Map(); // Map of chatroomId -> channel data
     this.subscribedEvents = new Set(); // Track subscribed events
     this.userEventSubscribed = false; // Track global user events
+    this.connectionSpan = null; // Track current connection span
   }
 
   addChatroom(chatroomId, channelKickID, stvId = "0", stvEmoteSetId = "0") {
@@ -184,8 +204,27 @@ class SharedStvWebSocket extends EventTarget {
       return;
     }
 
+    // Start OpenTelemetry span for 7TV WebSocket connection
+    this.connectionSpan = tracer.startSpan('seventv_websocket_connection', {
+      attributes: {
+        'websocket.url': 'wss://events.7tv.io/v3',
+        'websocket.protocol': '7tv-events',
+        'websocket.type': 'pooled_shared',
+        'connection.chatroom_count': this.chatrooms.size,
+        'connection.attempt': this.reconnectAttempts + 1,
+        'connection.max_attempts': this.maxRetrySteps,
+        'seventv.app': 'kicktalk',
+        'seventv.version': '420.69'
+      }
+    });
+
     this.connectionState = 'connecting';
     console.log(`[Shared7TV]: Connecting to WebSocket for ${this.chatrooms.size} chatrooms (attempt ${this.reconnectAttempts + 1})`);
+    
+    this.connectionSpan.addEvent('websocket_connection_started', {
+      chatroom_count: this.chatrooms.size,
+      connection_state: 'connecting'
+    });
 
     this.chat = new WebSocket("wss://events.7tv.io/v3?app=kicktalk&version=420.69");
 
@@ -193,6 +232,23 @@ class SharedStvWebSocket extends EventTarget {
       console.log(`[Shared7TV]: WebSocket error:`, event);
       this.connectionState = 'disconnected';
       this.handleConnectionError();
+
+      // Complete the connection span with error
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_error', {
+          error_type: event.type || 'Unknown WebSocket error',
+          connection_state: 'disconnected'
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': false,
+          'connection.error': event.type || 'Unknown error',
+          'connection.state': 'disconnected'
+        });
+        this.connectionSpan.recordException(new Error(`7TV WebSocket error: ${event.type || 'Unknown'}`));
+        this.connectionSpan.setStatus({ code: 2, message: event.type || 'WebSocket error' }); // ERROR
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
 
       // Telemetry: record connection error + reconnection intent for all chatrooms
       try {
@@ -208,6 +264,26 @@ class SharedStvWebSocket extends EventTarget {
       this.connectionState = 'disconnected';
       this.subscribedEvents.clear();
       this.userEventSubscribed = false;
+
+      // Complete the connection span if still active
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_closed', {
+          close_code: event.code,
+          close_reason: event.reason || 'Unknown',
+          was_clean: event.wasClean,
+          connection_state: 'disconnected'
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': false,
+          'connection.close_code': event.code,
+          'connection.close_reason': event.reason || 'Connection closed',
+          'connection.was_clean': event.wasClean,
+          'connection.state': 'disconnected'
+        });
+        this.connectionSpan.setStatus({ code: 2, message: `Connection closed: ${event.reason || 'Unknown'}` }); // ERROR
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
 
       // Telemetry: mark disconnected and maybe reconnection
       try {
@@ -238,6 +314,21 @@ class SharedStvWebSocket extends EventTarget {
       console.log(`[Shared7TV]: Connection opened successfully`);
       this.connectionState = 'connected';
       this.reconnectAttempts = 0;
+
+      // Complete the connection span successfully
+      if (this.connectionSpan) {
+        this.connectionSpan.addEvent('websocket_connection_opened', {
+          connection_state: 'connected',
+          chatroom_count: this.chatrooms.size
+        });
+        this.connectionSpan.setAttributes({
+          'connection.success': true,
+          'connection.state': 'connected'
+        });
+        this.connectionSpan.setStatus({ code: 1 }); // SUCCESS
+        this.connectionSpan.end();
+        this.connectionSpan = null;
+      }
 
       // Telemetry: mark connected for all chatrooms
       try {

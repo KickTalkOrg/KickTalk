@@ -200,6 +200,17 @@ if (process.contextIsolated) {
         } catch (e) {
           return Promise.resolve({ ok: false, reason: e?.message || 'ipc_invoke_failed' });
         }
+      },
+      // Read trace from Grafana Cloud Tempo via IPC
+      readTrace: (traceId) => {
+        try {
+          if (!traceId || typeof traceId !== 'string') {
+            return Promise.resolve({ success: false, reason: 'invalid_trace_id' });
+          }
+          return ipcRenderer.invoke('telemetry:readTrace', traceId);
+        } catch (e) {
+          return Promise.resolve({ success: false, reason: e?.message || 'ipc_invoke_failed' });
+        }
       }
     });
 
