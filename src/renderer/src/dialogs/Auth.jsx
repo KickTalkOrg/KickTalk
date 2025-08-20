@@ -1,5 +1,5 @@
-import "../assets/styles/main.scss";
-import "../../../../utils/themeUtils";
+import "@assets/styles/main.scss";
+import "@utils/themeUtils";
 
 import React from "react";
 import ReactDOM from "react-dom/client";

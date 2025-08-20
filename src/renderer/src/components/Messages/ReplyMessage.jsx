@@ -1,6 +1,6 @@
 import { MessageParser } from "../../utils/MessageParser";
 import RegularMessage from "./RegularMessage";
-import ArrowReplyLineIcon from "../../assets/icons/arrow_reply_line.svg?asset";
+import ArrowReplyLineIcon from "@assets/icons/arrow_reply_line.svg?asset";
 import useChatStore from "../../providers/ChatProvider";
 import { useShallow } from "zustand/shallow";
 import { memo, useMemo } from "react";

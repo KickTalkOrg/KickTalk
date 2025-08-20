@@ -1,5 +1,5 @@
 import { memo, useCallback, useState } from "react";
-import { kickBadgeMap } from "../../../../../utils/constants";
+import { kickBadgeMap } from "@utils/constants";
 import BadgeTooltip from "./BadgeTooltip";
 
 const Badge = memo(({ badge, subscriberBadges }) => {

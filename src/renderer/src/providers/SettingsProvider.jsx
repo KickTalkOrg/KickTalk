@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import { applyTheme } from "../../../../utils/themeUtils";
+import { applyTheme } from "@utils/themeUtils";
 import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 
 const SettingsContext = createContext({});

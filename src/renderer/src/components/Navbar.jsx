@@ -1,14 +1,14 @@
-import "../assets/styles/components/Navbar.scss";
+import "@assets/styles/components/Navbar.scss";
 import clsx from "clsx";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useChatStore from "../providers/ChatProvider";
-import Plus from "../assets/icons/plus-bold.svg?asset";
-import X from "../assets/icons/x-bold.svg?asset";
+import Plus from "@assets/icons/plus-bold.svg?asset";
+import X from "@assets/icons/x-bold.svg?asset";
 import useClickOutside from "../utils/useClickOutside";
 import { useSettings } from "../providers/SettingsProvider";
 import { DragDropContext, Droppable } from "@hello-pangea/dnd";
-import NotificationIcon from "../assets/icons/notification-bell.svg?asset";
-import MessageIcon from "../assets/icons/message-bubble.svg?asset";
+import NotificationIcon from "@assets/icons/notification-bell.svg?asset";
+import MessageIcon from "@assets/icons/message-bubble.svg?asset";
 import ChatroomTab from "./Navbar/ChatroomTab";
 import MentionsTab from "./Navbar/MentionsTab";
 

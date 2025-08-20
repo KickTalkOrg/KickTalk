@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import clsx from "clsx";
 import log from "electron-log";
-import downloadIcon from "../../src/assets/icons/cloud-arrow-down-fill.svg?asset";
+import downloadIcon from "@assets/icons/cloud-arrow-down-fill.svg?asset";
 
 const Updater = () => {
   const [updateStatus, setUpdateStatus] = useState("idle");

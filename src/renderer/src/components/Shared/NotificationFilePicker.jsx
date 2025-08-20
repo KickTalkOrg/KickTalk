@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "./Dropdown";
-import caretDownIcon from "../../assets/icons/caret-down-fill.svg?asset";
-import playIcon from "../../assets/icons/play-fill.svg?asset";
+import caretDownIcon from "@assets/icons/caret-down-fill.svg?asset";
+import playIcon from "@assets/icons/play-fill.svg?asset";
 const NotificationFilePicker = ({ getOptions, onChange, settingsData, disabled }) => {
   const [options, setOptions] = useState([]);
   const [name, setName] = useState("default");

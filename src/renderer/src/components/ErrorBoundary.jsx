@@ -1,4 +1,4 @@
-import "../assets/styles/components/ErrorBoundary.scss";
+import "@assets/styles/components/ErrorBoundary.scss";
 import { Component } from "react";
 import clsx from "clsx";
 

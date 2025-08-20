@@ -1,6 +1,6 @@
 import { memo, useState, useCallback, useEffect } from "react";
 import LinkTooltip from "./LinkTooltip";
-import { getLinkThumbnail } from "../../../../../utils/services/kick/kickAPI";
+import { getLinkThumbnail } from "@utils/services/kick/kickAPI";
 
 const LinkPreview = memo(({ url }) => {
   const [showLinkInfo, setShowLinkInfo] = useState(true);

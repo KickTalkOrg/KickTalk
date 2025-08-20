@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import Message from "../Messages/Message";
-import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
+import { userKickTalkBadges } from "@utils/kickTalkBadges";
 import CloseIcon from "../../assets/icons/x-bold.svg?asset";
 import { MessageParser } from "../../utils/MessageParser";
 import ChatInput from "../Chat/Input";

@@ -2,12 +2,12 @@
 
 import * as React from "react";
 import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
-import CircleIcon from "../../assets/icons/circle-bold.svg?asset";
-import CaretRightIcon from "../../assets/icons/caret-right-fill.svg?asset";
-import CheckIcon from "../../assets/icons/check-bold.svg?asset";
+import CircleIcon from "@assets/icons/circle-bold.svg?asset";
+import CaretRightIcon from "@assets/icons/caret-right-fill.svg?asset";
+import CheckIcon from "@assets/icons/check-bold.svg?asset";
 import clsx from "clsx";
 
-import "../../assets/styles/components/Dropdown.scss";
+import "@assets/styles/components/Dropdown.scss";
 
 function DropdownMenu({ ...props }) {
   return <DropdownMenuPrimitive.Root {...props} />;

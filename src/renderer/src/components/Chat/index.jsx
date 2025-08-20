@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
+import { userKickTalkBadges } from "@utils/kickTalkBadges";
 import ChatInput from "./Input";
 import useChatStore from "../../providers/ChatProvider";
 import { useShallow } from "zustand/shallow";

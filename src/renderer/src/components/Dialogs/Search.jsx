@@ -2,7 +2,7 @@ import "../../assets/styles/components/Chat/Message.scss";
 import { useCallback, useEffect, useState, useMemo, useRef } from "react";
 import { Virtuoso } from "react-virtuoso";
 import { useDebounceValue } from "../../utils/hooks";
-import X from "../../assets/icons/x-bold.svg";
+import X from "@assets/icons/x-bold.svg";
 import RegularMessage from "../Messages/RegularMessage";
 
 const Search = () => {

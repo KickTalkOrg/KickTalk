@@ -1,9 +1,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../Shared/Tooltip";
 import { Slider } from "../Shared/Slider";
-import BanIcon from "../../assets/icons/gavel-fill.svg?asset";
-import TimeoutIcon from "../../assets/icons/hourglass.svg?asset";
-import UnbanIcon from "../../assets/icons/circle-slash.svg?asset";
+import BanIcon from "@assets/icons/gavel-fill.svg?asset";
+import TimeoutIcon from "@assets/icons/hourglass.svg?asset";
+import UnbanIcon from "@assets/icons/circle-slash.svg?asset";
 import { convertSecondsToHumanReadable } from "../../utils/ChatUtils";
 import useClickOutside from "../../utils/useClickOutside";
 import clsx from "clsx";

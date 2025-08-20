@@ -1,4 +1,4 @@
-import { kickEmoteRegex, urlRegex, mentionRegex } from "../../../../utils/constants";
+import { kickEmoteRegex, urlRegex, mentionRegex } from "@utils/constants";
 import Emote from "../components/Cosmetics/Emote";
 import { parse } from "tldts";
 

@@ -33,7 +33,7 @@ import useChatStore from "../../../providers/ChatProvider";
 import EmoteDialogs from "./EmoteDialogs";
 import { useShallow } from "zustand/react/shallow";
 import { $isEmoteNode, EmoteNode } from "./EmoteNode";
-import { kickEmoteInputRegex } from "../../../../../../utils/constants";
+import { kickEmoteInputRegex } from "@utils/constants";
 import XIcon from "../../../assets/icons/x-bold.svg?asset";
 import LockIcon from "../../../assets/icons/lock-simple-fill.svg?asset";
 import InfoBar from "./InfoBar";

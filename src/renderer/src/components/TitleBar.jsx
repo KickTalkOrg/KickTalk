@@ -1,11 +1,11 @@
 import { useState, useEffect, useCallback } from "react";
 
-import Minus from "../assets/icons/minus-bold.svg?asset";
-import Square from "../assets/icons/square-bold.svg?asset";
-import X from "../assets/icons/x-bold.svg?asset";
-import GearIcon from "../assets/icons/gear-fill.svg?asset";
+import Minus from "@assets/icons/minus-bold.svg?asset";
+import Square from "@assets/icons/square-bold.svg?asset";
+import X from "@assets/icons/x-bold.svg?asset";
+import GearIcon from "@assets/icons/gear-fill.svg?asset";
 
-import "../assets/styles/components/TitleBar.scss";
+import "@assets/styles/components/TitleBar.scss";
 import clsx from "clsx";
 import Updater from "./Updater";
 import useChatStore from "../providers/ChatProvider";

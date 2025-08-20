@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
-import "../assets/styles/loader.css";
-import Klogo from "../assets/icons/K.svg";
+import "@assets/styles/loader.css";
+import Klogo from "@assets/icons/K.svg";
 import clsx from "clsx";
 
 const Loader = ({ onFinish }) => {

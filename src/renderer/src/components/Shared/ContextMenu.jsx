@@ -3,9 +3,9 @@
 import * as React from "react";
 import * as ContextMenuPrimitive from "@radix-ui/react-context-menu";
 // import { Check, ChevronRight, Circle } from "lucide-react";
-import CarotRight from "../../assets/icons/caret-right-fill.svg";
-import Circle from "../../assets/icons/circle-bold.svg";
-import "../../assets/styles/components/ContextMenu.scss";
+import CarotRight from "@assets/icons/caret-right-fill.svg";
+import Circle from "@assets/icons/circle-bold.svg";
+import "@assets/styles/components/ContextMenu.scss";
 
 const ContextMenu = ContextMenuPrimitive.Root;
 

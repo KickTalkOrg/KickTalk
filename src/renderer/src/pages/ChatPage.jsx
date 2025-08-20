@@ -1,4 +1,4 @@
-import "../assets/styles/pages/ChatPage.scss";
+import "@assets/styles/pages/ChatPage.scss";
 import { useState, useEffect } from "react";
 import { useSettings } from "../providers/SettingsProvider";
 import useChatStore from "../providers/ChatProvider";

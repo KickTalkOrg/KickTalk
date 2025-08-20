@@ -1,6 +1,6 @@
 import "../../assets/styles/dialogs/UserDialog.scss";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
+import { userKickTalkBadges } from "@utils/kickTalkBadges";
 import clsx from "clsx";
 import Message from "../Messages/Message";
 import Pin from "../../assets/icons/push-pin-fill.svg?asset";
