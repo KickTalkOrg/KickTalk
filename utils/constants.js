@@ -5,6 +5,9 @@ export const kickEmoteInputRegex = /(?:^|\s)(:(?<emoteCase1>\w{3,}):)|(?:^|\s)(?
 export const mentionRegex = /(?:^|\s)(@(?<username>[a-zA-Z0-9_]{3,})[,.]?)(?=\s|$)/g;
 export const kickClipRegex = /^https?:\/\/(www\.)?kick\.com\/.*\/clips\/.*/i;
 
+// Chat settings
+export const DEFAULT_CHAT_HISTORY_LENGTH = 400;
+
 const kickTalkCDN = "https://cdn.kicktalk.app";
 
 export const kickBadgeMap = {

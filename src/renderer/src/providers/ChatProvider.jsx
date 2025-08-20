@@ -8,6 +8,7 @@ import ConnectionManager from "../../../../utils/services/connectionManager";
 import useCosmeticsStore from "./CosmeticsProvider";
 import { sendUserPresence } from "../../../../utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "../../../../utils/services/kick/kickAPI";
+import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
 
@@ -228,6 +229,9 @@ const getInitialState = () => {
     currentChatroomId: null, // Track the currently active chatroom
     hasMentionsTab: savedMentionsTab, // Track if mentions tab is enabled
     currentUser: null, // Cache current user info for optimistic messages
+    chatHistorySettings: { // Default chat history settings
+      chatHistoryLength: DEFAULT_CHAT_HISTORY_LENGTH
+    },
   };
 };
 
@@ -1517,11 +1521,19 @@ const useChatStore = create((set, get) => ({
         });
       }
 
-      // Keep a fixed window of messages based on pause state
-      if (state.isChatroomPaused?.[chatroomId] && updatedMessages.length > 600) {
-        updatedMessages = updatedMessages.slice(-300);
-      } else if (!state.isChatroomPaused?.[chatroomId] && updatedMessages.length > 200) {
-        updatedMessages = updatedMessages.slice(-200);
+      // Get chat history settings with fallbacks
+      const chatHistoryLength = state.chatHistorySettings?.chatHistoryLength || DEFAULT_CHAT_HISTORY_LENGTH;
+      
+      // Calculate limits: normal = base, paused = 2x, trim = 1.5x
+      const normalLimit = chatHistoryLength;
+      const pausedLimit = chatHistoryLength * 2;
+      const pausedTrimTo = Math.floor(chatHistoryLength * 1.5);
+
+      // Keep a configurable window of messages based on pause state
+      if (state.isChatroomPaused?.[chatroomId] && updatedMessages.length > pausedLimit) {
+        updatedMessages = updatedMessages.slice(-pausedTrimTo);
+      } else if (!state.isChatroomPaused?.[chatroomId] && updatedMessages.length > normalLimit) {
+        updatedMessages = updatedMessages.slice(-normalLimit);
       }
 
 
@@ -2001,6 +2013,12 @@ const useChatStore = create((set, get) => ({
   handleChatroomPause: (chatroomId, isPaused) => {
     set((state) => ({
       isChatroomPaused: { ...state.isChatroomPaused, [chatroomId]: isPaused },
+    }));
+  },
+
+  updateChatHistorySettings: (settings) => {
+    set((state) => ({
+      chatHistorySettings: { ...state.chatHistorySettings, ...settings },
     }));
   },
 

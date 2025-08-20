@@ -10,6 +10,7 @@ import folderOpenIcon from "../../../../assets/icons/folder-open-fill.svg?asset"
 import playIcon from "../../../../assets/icons/play-fill.svg?asset";
 import NotificationFilePicker from "../../../Shared/NotificationFilePicker";
 import clsx from "clsx";
+import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 
 const GeneralSection = ({ settingsData, onChange }) => {
   return (
@@ -448,6 +449,43 @@ const ChatroomSection = ({ settingsData, onChange }) => {
                   showInfoBar: checked,
                 })
               }
+            />
+          </div>
+        </div>
+        <div className="settingsItem">
+          <div className={clsx("settingNumericItem", {
+            active: (settingsData?.chatHistory?.chatHistoryLength || DEFAULT_CHAT_HISTORY_LENGTH) !== DEFAULT_CHAT_HISTORY_LENGTH,
+          })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Chat History Length</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Number of messages to keep in chat history. Higher values use more memory but let you scroll back further.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <input
+              type="number"
+              min="1"
+              max="2000"
+              step="1"
+              value={settingsData?.chatHistory?.chatHistoryLength || DEFAULT_CHAT_HISTORY_LENGTH}
+              onChange={(e) => {
+                const value = Math.min(2000, Math.max(1, parseInt(e.target.value) || DEFAULT_CHAT_HISTORY_LENGTH));
+                onChange("chatHistory", { 
+                  ...settingsData?.chatHistory, 
+                  chatHistoryLength: value 
+                });
+              }}
+              className={clsx("numericInput", {
+                active: (settingsData?.chatHistory?.chatHistoryLength || DEFAULT_CHAT_HISTORY_LENGTH) !== DEFAULT_CHAT_HISTORY_LENGTH,
+              })}
             />
           </div>
         </div>

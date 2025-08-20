@@ -483,7 +483,8 @@
         .settingSwitchItem,
         .settingSliderItem,
         .settingsTimestampFormat,
-        .settingInputItem {
+        .settingInputItem,
+        .settingNumericItem {
           display: flex;
           align-items: center;
           justify-content: space-between;
@@ -509,7 +510,8 @@
           .timestampFormat,
           .soundFileName {
             padding: 6px 8px;
-            width: 164px;
+            min-width: 120px;
+            max-width: 200px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -535,6 +537,48 @@
             img {
               opacity: 0.7;
               transition: opacity 0.2s ease-in-out;
+            }
+          }
+
+          .numericInput {
+            padding: 6px 8px;
+            min-width: 120px;
+            max-width: 200px;
+            border-radius: 4px;
+            background-color: #ffffff13;
+            color: rgba(255, 255, 255, 0.7);
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: 
+              background-color 0.2s ease-in-out,
+              opacity 0.2s ease-in-out,
+              font-weight 0.2s ease-in-out;
+
+            /* Style the number input spinner arrows */
+            &::-webkit-outer-spin-button,
+            &::-webkit-inner-spin-button {
+              -webkit-appearance: none;
+              margin: 0;
+            }
+
+            /* For Firefox */
+            -moz-appearance: textfield;
+
+            &:focus {
+              background-color: #ffffff24;
+              color: var(--text-primary);
+            }
+
+            &.active {
+              opacity: 1;
+              font-weight: 600;
+            }
+
+            &:not(.active) {
+              opacity: 0.6;
+              font-weight: 500;
             }
           }
 

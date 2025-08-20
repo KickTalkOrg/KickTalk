@@ -62,6 +62,7 @@ export default defineConfig({
         "@renderer": resolve("src/renderer/src"),
         "@components": resolve("src/renderer/src/components"),
         "@assets": resolve("src/renderer/src/assets"),
+        "@utils": resolve("utils"),
       },
     },
     plugins: [react()],

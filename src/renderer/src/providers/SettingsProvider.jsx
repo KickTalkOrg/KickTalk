@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import { applyTheme } from "../../../../utils/themeUtils";
+import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
 
 const SettingsContext = createContext({});
 
@@ -17,11 +18,21 @@ const SettingsProvider = ({ children }) => {
     async function loadSettings() {
       try {
         const settings = await window.app.store.get();
-        setSettings(settings);
+        
+        // Apply default chat history settings if not present
+        const settingsWithDefaults = {
+          ...settings,
+          chatHistory: {
+            chatHistoryLength: DEFAULT_CHAT_HISTORY_LENGTH,
+            ...settings?.chatHistory
+          }
+        };
+        
+        setSettings(settingsWithDefaults);
 
         // Apply theme to document
-        if (settings?.customTheme?.current) {
-          applyTheme(settings.customTheme);
+        if (settingsWithDefaults?.customTheme?.current) {
+          applyTheme(settingsWithDefaults.customTheme);
         }
       } catch (error) {
         console.error("[SettingsProvider]: Error loading settings:", error);
