@@ -37,6 +37,7 @@ import { kickEmoteInputRegex } from "@utils/constants";
 import XIcon from "../../../assets/icons/x-bold.svg?asset";
 import LockIcon from "../../../assets/icons/lock-simple-fill.svg?asset";
 import InfoBar from "./InfoBar";
+import { MessageParser } from "../../../utils/MessageParser";
 
 const onError = (error) => {
   console.error(error);
@@ -796,7 +797,7 @@ const initialConfig = {
   },
 };
 
-const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData }) => {
+const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData, allStvEmotes, settings, chatroom }) => {
   return (
     <>
       {replyInputData && (
@@ -811,7 +812,18 @@ const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData }) => {
             </button>
           </div>
           <div className="replyInputBoxContent">
-            <span>{replyInputData?.content}</span>
+            <span>
+              <MessageParser
+                type="reply"
+                message={{ content: replyInputData?.content }}
+                sevenTVEmotes={allStvEmotes}
+                sevenTVSettings={settings?.sevenTV}
+                userChatroomInfo={chatroom?.userChatroomInfo}
+                chatroomId={chatroomId}
+                chatroomName={chatroom?.username}
+                subscriberBadges={chatroom?.streamerData?.subscriber_badges}
+              />
+            </span>
           </div>
         </div>
       )}
@@ -928,7 +940,14 @@ const ChatInput = memo(
           {settings?.chatrooms?.showInfoBar && (
             <InfoBar chatroomInfo={chatroom?.chatroomInfo} initialChatroomInfo={chatroom?.initialChatroomInfo} />
           )}
-          <ReplyHandler chatroomId={chatroomId} replyInputData={replyInputData} setReplyInputData={setReplyInputData} />
+          <ReplyHandler 
+            chatroomId={chatroomId} 
+            replyInputData={replyInputData} 
+            setReplyInputData={setReplyInputData}
+            allStvEmotes={allStvEmotes}
+            settings={settings}
+            chatroom={chatroom}
+          />
         </div>
         <div className="chatInputContainer">
           <LexicalComposer key={`composer-${chatroomId}`} initialConfig={initialConfig}>
