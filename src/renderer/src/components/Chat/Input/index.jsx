@@ -10,11 +10,8 @@ import {
   $createTextNode,
   $getSelection,
   $isRangeSelection,
-  PASTE_COMMAND,
   TextNode,
-  KEY_ARROW_LEFT_COMMAND,
   KEY_BACKSPACE_COMMAND,
-  KEY_DELETE_COMMAND,
   KEY_SPACE_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   $getNodeByKey,
@@ -33,7 +30,7 @@ import useChatStore from "../../../providers/ChatProvider";
 
 import EmoteDialogs from "./EmoteDialogs";
 import { useShallow } from "zustand/react/shallow";
-import { $isEmoteNode, EmoteNode } from "./EmoteNode";
+import { EmoteNode } from "./EmoteNode";
 import { kickEmoteInputRegex } from "@utils/constants";
 import XIcon from "../../../assets/icons/x-bold.svg?asset";
 import LockIcon from "../../../assets/icons/lock-simple-fill.svg?asset";
@@ -177,15 +174,12 @@ const ChatterSuggestions = memo(
   },
 );
 
-const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputData, isReplyThread, allStvEmotes }) => {
+const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, replyDataRef, clearReplyData }) => {
   const [editor] = useLexicalComposerContext();
   const [emoteSuggestions, setEmoteSuggestions] = useState([]);
   const [chatterSuggestions, setChatterSuggestions] = useState([]);
-  const [searchText, setSearchText] = useState("");
   const [tabSuggestions, setTabSuggestions] = useState([]);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
-  // const [selectedIndex, setSelectedIndex] = useState(0);
-  // const [showChatters, setShowChatters] = useState(false);
   const [selectedEmoteIndex, setSelectedEmoteIndex] = useState(0);
   const [selectedChatterIndex, setSelectedChatterIndex] = useState(0);
   const [position, setPosition] = useState(null);
@@ -262,7 +256,9 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
 
         const textBefore = textContent.slice(0, colonIndex);
         const textAfter = textContent.slice(cursorOffset);
-        node.setTextContent(textBefore);
+        if (node instanceof TextNode) {
+          node.setTextContent(textBefore);
+        }
 
         if (!emote?.platform) return;
         const emoteNode = new EmoteNode(emote.id, emote.name, emote.platform);
@@ -274,7 +270,6 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
       });
 
       setEmoteSuggestions([]);
-      setSearchText("");
       setSelectedEmoteIndex(null);
       setPosition(null);
     },
@@ -301,7 +296,9 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
         const textAfter = textContent.slice(cursorOffset);
 
         // Replace node text up to '@'
-        node.setTextContent(textBefore);
+        if (node instanceof TextNode) {
+          node.setTextContent(textBefore);
+        }
 
         // Insert @mention and restore following text
         const mentionNode = $createTextNode(`@${chatter.username} `);
@@ -314,7 +311,6 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
       });
 
       setChatterSuggestions([]);
-      setSearchText("");
       setSelectedChatterIndex(null);
       setPosition(null);
     },
@@ -436,8 +432,8 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
           });
 
           // Close reply input if open after entering message
-          if (replyInputData) {
-            setReplyInputData(null);
+          if (replyDataRef.current) {
+            clearReplyData();
           }
 
           return true;
@@ -517,7 +513,9 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
               const endIndex = startIndex + currentWord.length;
               const textBefore = textContent.slice(0, startIndex);
               const textAfter = textContent.slice(endIndex);
-              anchorNode.setTextContent(textBefore);
+              if (anchorNode instanceof TextNode) {
+                anchorNode.setTextContent(textBefore);
+              }
               const emote = foundEmotes[0];
               setTabSuggestions(foundEmotes);
               setSelectedTabIndex(0);
@@ -541,7 +539,7 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
 
       editor.registerCommand(
         KEY_BACKSPACE_COMMAND,
-        (e) => {
+        () => {
           const selection = $getSelection();
           if (!$isRangeSelection(selection)) return false;
 
@@ -588,21 +586,18 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
           if (currentWord.startsWith(":")) {
             const query = currentWord.slice(1);
             const results = searchEmotes(query);
-            setSearchText(query);
             setEmoteSuggestions(results);
             setSelectedEmoteIndex(0);
             setPosition([cursorOffset - query.length, cursorOffset]);
           } else if (currentWord.startsWith("@")) {
             const query = currentWord.slice(1);
             const results = searchChatters(query);
-            setSearchText(query);
             setChatterSuggestions(results?.length ? results : null);
             setSelectedChatterIndex(0);
             setPosition([cursorOffset - query.length, cursorOffset]);
           } else {
             setEmoteSuggestions([]);
             setChatterSuggestions([]);
-            setSearchText("");
             setSelectedEmoteIndex(null);
             setSelectedChatterIndex(null);
             setPosition(null);
@@ -611,52 +606,6 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
       }),
     ];
 
-    // Add effect to handle @ mentions
-    // const removeUpdateListener = editor.registerUpdateListener(({ editorState }) => {
-    //   editorState.read(() => {
-    //     const text = $rootTextContent();
-    //     const lastAtSymbol = text.lastIndexOf("@");
-
-    //     if (lastAtSymbol !== -1) {
-    //       const textAfterAt = text.slice(lastAtSymbol + 1);
-    //       if (!textAfterAt.includes(" ")) {
-    //         // Show chatters dialog when @ is typed
-    //         window.app.chattersDialog.open();
-    //         setShowChatters(true);
-    //       } else {
-    //         setShowChatters(false);
-    //       }
-    //     } else {
-    //       setShowChatters(false);
-    //     }
-    //   });
-    // });
-
-    // Add event listener for inserting mentions
-    // const handleInsertMention = (e) => {
-    //   const { text } = e.detail;
-    //   editor.update(() => {
-    //     const selection = $getSelection();
-    //     if (!$isRangeSelection(selection)) return;
-
-    //     // Find the last @ symbol
-    //     const rootText = $rootTextContent();
-    //     const lastAtSymbol = rootText.lastIndexOf("@");
-    //     if (lastAtSymbol === -1) return;
-
-    //     // Get the text node containing the @ symbol
-    //     const textNode = selection.anchor.getNode();
-    //     const textContent = textNode.getTextContent();
-    //     const atIndex = textContent.lastIndexOf("@");
-
-    //     if (atIndex !== -1) {
-    //       // Replace the @ and any text after it with the mention
-    //       textNode.setTextContent(textContent.slice(0, atIndex) + text);
-    //     }
-    //   });
-    // };
-
-    // window.addEventListener("insertMention", handleInsertMention);
 
     return () => {
       registeredCommands.forEach((unregister) => unregister());
@@ -771,7 +720,6 @@ const DraftManager = ({ chatroomId }) => {
   const [editor] = useLexicalComposerContext();
   const saveDraftMessage = useChatStore((state) => state.saveDraftMessage);
   const getDraftMessage = useChatStore((state) => state.getDraftMessage);
-  const clearDraftMessage = useChatStore((state) => state.clearDraftMessage);
 
   // Save draft on editor content changes
   useEffect(() => {
@@ -807,6 +755,81 @@ const DraftManager = ({ chatroomId }) => {
   return null;
 };
 
+const ReplyCapture = ({ chatroomId, setReplyData, chatInputRef }) => {
+  const [editor] = useLexicalComposerContext();
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    // Validate external API availability
+    if (!window.app?.reply?.onData) {
+      setError('Reply API not available');
+      console.error('ReplyCapture: window.app.reply.onData is not available');
+      return;
+    }
+
+    try {
+      const cleanup = window.app.reply.onData((data) => {
+        try {
+          // Validate reply data structure
+          if (!data || typeof data !== 'object') {
+            console.error('ReplyCapture: Invalid reply data received:', data);
+            return;
+          }
+
+          // Validate required fields
+          if (!data.id || !data.content || !data.sender) {
+            console.error('ReplyCapture: Missing required fields in reply data:', data);
+            return;
+          }
+
+          // Set reply data and trigger UI update
+          setReplyData(data);
+
+          // Focus the editor using requestAnimationFrame for better timing
+          requestAnimationFrame(() => {
+            try {
+              if (chatInputRef?.current) {
+                chatInputRef.current.focus();
+              }
+            } catch (focusError) {
+              console.error('ReplyCapture: Failed to focus chat input:', focusError);
+              // Non-critical error, don't prevent reply functionality
+            }
+          });
+        } catch (dataHandlerError) {
+          console.error('ReplyCapture: Error handling reply data:', dataHandlerError);
+          setError('Failed to process reply data');
+        }
+      });
+
+      return () => {
+        try {
+          if (typeof cleanup === 'function') {
+            cleanup();
+          }
+        } catch (cleanupError) {
+          console.error('ReplyCapture: Error during cleanup:', cleanupError);
+          // Non-critical error during cleanup
+        }
+      };
+    } catch (setupError) {
+      console.error('ReplyCapture: Failed to setup reply handler:', setupError);
+      setError('Failed to setup reply functionality');
+    }
+  }, [editor, setReplyData, chatroomId, chatInputRef]);
+
+  // Render error state if needed
+  if (error) {
+    return (
+      <div className="reply-capture-error" title={error}>
+        <span>⚠️ Reply functionality unavailable</span>
+      </div>
+    );
+  }
+
+  return null;
+};
+
 const EmoteHandler = ({ chatroomId, userChatroomInfo }) => {
   const [editor] = useLexicalComposerContext();
 
@@ -838,17 +861,18 @@ const initialConfig = {
   },
 };
 
-const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData, allStvEmotes, settings, chatroom }) => {
+const ReplyHandler = ({ chatroomId, getReplyData, clearReplyData, allStvEmotes, settings, chatroom }) => {
+  const replyData = getReplyData();
   return (
     <>
-      {replyInputData && (
-        <div className={clsx("replyInputContainer", replyInputData?.sender?.id && "show")}>
+      {replyData && (
+        <div className={clsx("replyInputContainer", replyData?.sender?.id && "show")}>
           <div className="replyInputBoxHead">
             <span>
-              Replying to <b>@{replyInputData?.sender?.username}</b>
+              Replying to <b>@{replyData?.sender?.username}</b>
             </span>
 
-            <button className="replyInputCloseButton" onClick={() => setReplyInputData(null)}>
+            <button className="replyInputCloseButton" onClick={() => clearReplyData()}>
               <img src={XIcon} alt="Close" width={16} height={16} />
             </button>
           </div>
@@ -856,7 +880,7 @@ const ReplyHandler = ({ chatroomId, replyInputData, setReplyInputData, allStvEmo
             <span>
               <MessageParser
                 type="reply"
-                message={{ content: replyInputData?.content }}
+                message={{ content: replyData?.content }}
                 sevenTVEmotes={allStvEmotes}
                 sevenTVSettings={settings?.sevenTV}
                 userChatroomInfo={chatroom?.userChatroomInfo}
@@ -876,12 +900,25 @@ const ChatInput = memo(
   ({ chatroomId, isReplyThread = false, replyMessage = {}, settings }) => {
     const sendMessage = useChatStore((state) => state.sendMessage);
     const sendReply = useChatStore((state) => state.sendReply);
-    const saveDraftMessage = useChatStore((state) => state.saveDraftMessage);
-    const getDraftMessage = useChatStore((state) => state.getDraftMessage);
     const clearDraftMessage = useChatStore((state) => state.clearDraftMessage);
     const chatroom = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)));
     const personalEmoteSets = useChatStore(useShallow((state) => state.personalEmoteSets));
-    const [replyInputData, setReplyInputData] = useState(null);
+    const replyDataRef = useRef(null);
+    const [, setReplyUIUpdate] = useState(0); // Force re-renders when reply data changes
+    const chatInputRef = useRef(null); // Ref for the chat input element
+
+    // Helper functions for managing reply data
+    const setReplyData = useCallback((data) => {
+      replyDataRef.current = data;
+      setReplyUIUpdate(prev => prev + 1); // Trigger re-render
+    }, []);
+
+    const clearReplyData = useCallback(() => {
+      replyDataRef.current = null;
+      setReplyUIUpdate(prev => prev + 1); // Trigger re-render
+    }, []);
+
+    const getReplyData = useCallback(() => replyDataRef.current, []);
 
     const allStvEmotes = useMemo(() => {
       return [...(personalEmoteSets || []), ...(chatroom?.channel7TVEmotes || [])];
@@ -890,29 +927,15 @@ const ChatInput = memo(
     // Reset selected index when changing chatrooms
     useEffect(() => {
       const history = messageHistory.get(chatroomId);
-      setReplyInputData(null);
+      clearReplyData();
       if (history) {
         messageHistory.set(chatroomId, {
           ...history,
           selectedIndex: undefined,
         });
       }
-    }, [chatroomId]);
+    }, [chatroomId, clearReplyData]);
 
-    useEffect(() => {
-      const cleanup = window.app.reply.onData((data) => {
-        setReplyInputData(data);
-
-        setTimeout(() => {
-          const editor = document.querySelector(".chatInput");
-          if (editor) {
-            editor.focus();
-          }
-        }, 500);
-      });
-
-      return () => cleanup();
-    }, []);
 
     const handleSendMessage = useCallback(
       async (content) => {
@@ -954,12 +977,30 @@ const ChatInput = memo(
         let res;
 
         // If we are replying to a message, add the original message to the metadata
-        if (replyInputData || isReplyThread) {
+        const currentReplyData = getReplyData();
+        if (currentReplyData || isReplyThread) {
+          // If replying to a reply, use the original message from the reply's metadata
+          // Otherwise use the message we're directly replying to
+          let originalMessage, originalSender;
+          
+          if (currentReplyData?.type === 'reply' && currentReplyData?.metadata) {
+            // Replying to a reply - use the original message from the reply's metadata
+            originalMessage = currentReplyData.metadata.original_message;
+            originalSender = currentReplyData.metadata.original_sender;
+          } else {
+            // Replying to a regular message - use the message itself
+            originalMessage = { 
+              id: currentReplyData?.id || replyMessage?.original_message?.id, 
+              content: currentReplyData?.content || replyMessage?.original_message?.content 
+            };
+            originalSender = { 
+              username: currentReplyData?.sender?.username || replyMessage?.original_sender?.username 
+            };
+          }
+
           const metadata = {
-            original_message: {
-              id: replyInputData?.id || replyMessage?.original_message?.id,
-              content: replyInputData?.content || replyMessage?.original_message?.content,
-            },
+            original_message: originalMessage,
+            original_sender: originalSender,
           };
 
           res = await sendReply(chatroomId, content, metadata);
@@ -977,7 +1018,7 @@ const ChatInput = memo(
           clearDraftMessage(chatroomId);
         }
       },
-      [chatroomId, chatroom, sendMessage, replyInputData, setReplyInputData, replyMessage, clearDraftMessage],
+      [chatroomId, chatroom, sendMessage, getReplyData, replyMessage, clearDraftMessage],
     );
 
     return (
@@ -988,8 +1029,8 @@ const ChatInput = memo(
           )}
           <ReplyHandler 
             chatroomId={chatroomId} 
-            replyInputData={replyInputData} 
-            setReplyInputData={setReplyInputData}
+            getReplyData={getReplyData}
+            clearReplyData={clearReplyData}
             allStvEmotes={allStvEmotes}
             settings={settings}
             chatroom={chatroom}
@@ -1002,6 +1043,7 @@ const ChatInput = memo(
                 contentEditable={
                   <div>
                     <ContentEditable
+                      ref={chatInputRef}
                       className="chatInput"
                       enterKeyHint="send"
                       aria-placeholder={"Enter message..."}
@@ -1022,13 +1064,18 @@ const ChatInput = memo(
               chatroomId={chatroomId}
               allStvEmotes={allStvEmotes}
               onSendMessage={(content) => {
-                handleSendMessage(content, replyInputData ? "reply" : "message");
+                handleSendMessage(content);
               }}
-              replyInputData={replyInputData}
-              setReplyInputData={setReplyInputData}
+              replyDataRef={replyDataRef}
+              clearReplyData={clearReplyData}
             />
             <EmoteTransformer chatroomId={chatroomId} />
             <DraftManager chatroomId={chatroomId} />
+            <ReplyCapture 
+              chatroomId={chatroomId} 
+              setReplyData={setReplyData}
+              chatInputRef={chatInputRef}
+            />
             <HistoryPlugin />
             <AutoFocusPlugin />
           </LexicalComposer>
