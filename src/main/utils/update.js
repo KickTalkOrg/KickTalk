@@ -1,6 +1,7 @@
 import { ipcMain } from "electron";
 import { autoUpdater } from "electron-updater";
 import log from "electron-log";
+import store from "../../../utils/config";
 
 export const update = (mainWindow) => {
   // Only run auto-updater in production
@@ -113,8 +114,28 @@ export const update = (mainWindow) => {
     });
   });
 
+  // Handle auto-update setting changes
+  ipcMain.handle("autoUpdater:setEnabled", (event, enabled) => {
+    try {
+      store.set("general.autoUpdate", enabled);
+      log.info(`[Auto Updater]: Auto-update ${enabled ? 'enabled' : 'disabled'} via settings`);
+      return { success: true };
+    } catch (error) {
+      log.error("[Auto Updater]: Error updating auto-update setting:", error);
+      return { success: false, error: error.message };
+    }
+  });
+
   // Check for updates after a slight delay to allow app to fully initialize
   setTimeout(() => {
+    // Check if auto-update is enabled in settings (default: true)
+    const autoUpdateEnabled = store.get("general.autoUpdate", true);
+    
+    if (!autoUpdateEnabled) {
+      log.info("[Auto Updater]: Auto-update disabled in settings, skipping initial check");
+      return;
+    }
+    
     log.info("[Auto Updater]: Performing initial update check...");
     autoUpdater.checkForUpdates().catch((err) => {
       log.error("[Auto Updater]: Initial update check failed:", err);
