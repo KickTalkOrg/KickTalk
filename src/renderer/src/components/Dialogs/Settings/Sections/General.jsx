@@ -114,6 +114,40 @@ const GeneralSection = ({ settingsData, onChange }) => {
           <div className="settingsItem">
             <div
               className={clsx("settingSwitchItem", {
+                active: settingsData?.general?.compactChatroomsList,
+              })}
+            >
+              <div className="settingsItemTitleWithInfo">
+                <span className="settingsItemTitle">Compact Chatroom List</span>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button className="settingsInfoIcon">
+                      <img src={InfoIcon} width={14} height={14} alt="Info" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Display chatroom tabs in a more compact layout to save
+                      space
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Switch
+                checked={settingsData?.general?.compactChatroomsList || false}
+                onCheckedChange={(checked) =>
+                  onChange("general", {
+                    ...settingsData?.general,
+                    compactChatroomsList: checked,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="settingsItem">
+            <div
+              className={clsx("settingSwitchItem", {
                 active: settingsData?.general?.showTabImages,
               })}>
               <div className="settingsItemTitleWithInfo">
@@ -503,7 +537,6 @@ const CosmeticsSection = ({ settingsData, onChange }) => {
 };
 
 const NotificationsSection = ({ settingsData, onChange }) => {
-  const [notificationFiles, setNotificationFiles] = useState([]);
   const [openColorPicker, setOpenColorPicker] = useState(false);
 
   const handleColorChange = useCallback(
@@ -533,13 +566,8 @@ const NotificationsSection = ({ settingsData, onChange }) => {
 
   const getNotificationFiles = useCallback(async () => {
     const files = await window.app.notificationSounds.getAvailable();
-    setNotificationFiles(files);
     return files;
   }, []);
-
-  useEffect(() => {
-    getNotificationFiles();
-  }, [getNotificationFiles]);
 
   return (
     <div className="settingsContentSection">
