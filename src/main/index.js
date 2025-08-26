@@ -1,4 +1,4 @@
-const { app, shell, BrowserWindow, ipcMain, screen, session, Tray, dialog } = require("electron");
+const { app, shell, BrowserWindow, ipcMain, screen, session, Tray, Menu, dialog } = require("electron");
 import { join, basename } from "path";
 import { electronApp, optimizer } from "@electron-toolkit/utils";
 import { update } from "./utils/update";
@@ -95,6 +95,65 @@ const logLimits = {
 
 let tray = null;
 
+const createTrayContextMenu = () => {
+  const isWindowVisible = mainWindow && mainWindow.isVisible() && !mainWindow.isMinimized();
+  
+  return Menu.buildFromTemplate([
+    {
+      label: isWindowVisible ? 'Hide KickTalk' : 'Show KickTalk',
+      click: () => {
+        if (mainWindow) {
+          if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+            mainWindow.hide();
+          } else {
+            mainWindow.show();
+            if (mainWindow.isMinimized()) {
+              mainWindow.restore();
+            }
+            mainWindow.focus();
+          }
+          // Update context menu after visibility change
+          tray.setContextMenu(createTrayContextMenu());
+        }
+      }
+    },
+    {
+      label: 'Settings',
+      click: async () => {
+        try {
+          await openSettingsDialog({ userData: null });
+        } catch (error) {
+          console.error('[Tray]: Error opening settings:', error);
+        }
+      }
+    },
+    {
+      type: 'separator'
+    },
+    {
+      label: 'Quit',
+      click: async () => {
+        // Proper shutdown with telemetry cleanup
+        if (isTelemetryEnabled()) {
+          if (allWindows.size > 0) {
+            const openWindowTitles = Array.from(allWindows).map(win => win.getTitle());
+            console.error(`[ProcessExit] Closing with ${allWindows.size} windows still open: ${openWindowTitles.join(", ")}`);
+            metrics.recordError(new Error("Lingering windows on exit"), { openWindows: openWindowTitles });
+          }
+          if (shutdownTelemetry) {
+            try {
+              await shutdownTelemetry();
+            } catch (error) {
+              console.warn('[Telemetry]: Failed to shutdown telemetry:', error.message);
+            }
+          }
+        }
+        app.quit();
+      }
+    }
+  ]);
+};
+
 const storeToken = async (token_name, token) => {
   if (!token || !token_name) return;
 
@@ -137,6 +196,80 @@ let settingsDialog = null;
 
 // Track all windows for telemetry
 const allWindows = new Set();
+
+// Centralized Settings Dialog creator to avoid duplication
+const openSettingsDialog = async (data) => {
+  const settings = store.get();
+
+  if (settingsDialog) {
+    settingsDialog.focus();
+    if (data) {
+      settingsDialog.webContents.send("settingsDialog:data", { ...data, settings });
+    }
+    return;
+  }
+
+  const mainWindowPos = mainWindow.getPosition();
+  const mainWindowSize = mainWindow.getSize();
+
+  const newX = mainWindowPos[0] + Math.round((mainWindowSize[0] - 1200) / 2);
+  const newY = mainWindowPos[1] + Math.round((mainWindowSize[1] - 700) / 2);
+
+  settingsDialog = new BrowserWindow({
+    width: 1200,
+    minWidth: 800,
+    height: 700,
+    minHeight: 600,
+    x: newX,
+    y: newY,
+    show: false,
+    resizable: true,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#020a05",
+    roundedCorners: true,
+    parent: mainWindow,
+    icon: iconPath,
+    webPreferences: {
+      devtools: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+    },
+  });
+
+  metrics.incrementOpenWindows();
+  allWindows.add(settingsDialog);
+
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+    settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
+  } else {
+    settingsDialog.loadFile(join(__dirname, "../renderer/settings.html"));
+  }
+
+  settingsDialog.once("ready-to-show", () => {
+    settingsDialog.show();
+    if (data) {
+      settingsDialog.webContents.send("settingsDialog:data", { ...data, settings });
+    }
+    if (isDev) {
+      settingsDialog.webContents.openDevTools();
+    }
+
+    settingsDialog.webContents.setWindowOpenHandler((details) => {
+      shell.openExternal(details.url);
+      return { action: "deny" };
+    });
+  });
+
+  settingsDialog.on("closed", () => {
+    allWindows.delete(settingsDialog);
+    settingsDialog = null;
+    metrics.decrementOpenWindows();
+  });
+};
+
 let searchDialog = null;
 let replyThreadDialog = null;
 let availableNotificationSounds = [];
@@ -475,6 +608,7 @@ ipcMain.handle("bring-to-front", () => {
   }
 });
 
+
 const setAlwaysOnTop = (window) => {
   const alwaysOnTopSetting = store.get("general.alwaysOnTop");
 
@@ -547,6 +681,23 @@ const createWindow = () => {
     store.set("lastMainWindowState", { ...mainWindow.getNormalBounds() });
     allWindows.delete(mainWindow);
     metrics.decrementOpenWindows();
+  });
+
+  // Update tray context menu when window state changes
+  mainWindow.on('show', () => {
+    if (tray) tray.setContextMenu(createTrayContextMenu());
+  });
+
+  mainWindow.on('hide', () => {
+    if (tray) tray.setContextMenu(createTrayContextMenu());
+  });
+
+  mainWindow.on('minimize', () => {
+    if (tray) tray.setContextMenu(createTrayContextMenu());
+  });
+
+  mainWindow.on('restore', () => {
+    if (tray) tray.setContextMenu(createTrayContextMenu());
   });
 
   mainWindow.webContents.setWindowOpenHandler((details) => {
@@ -731,6 +882,26 @@ const setupLocalShortcuts = () => {
 app.whenReady().then(() => {
   tray = new Tray(iconPath);
   tray.setToolTip("KickTalk");
+  
+  // Set up context menu
+  tray.setContextMenu(createTrayContextMenu());
+  
+  // Handle single-click to show/hide window
+  tray.on('click', () => {
+    if (mainWindow) {
+      if (mainWindow.isVisible() && !mainWindow.isMinimized()) {
+        mainWindow.hide();
+      } else {
+        mainWindow.show();
+        if (mainWindow.isMinimized()) {
+          mainWindow.restore();
+        }
+        mainWindow.focus();
+      }
+      // Update context menu after visibility change
+      tray.setContextMenu(createTrayContextMenu());
+    }
+  });
 
   // Set the icon for the app
   if (process.platform === "win32") {
@@ -928,8 +1099,8 @@ ipcMain.handle("authDialog:open", (e) => {
   });
 
   authDialog.on("closed", () => {
-    authDialog = null;
     allWindows.delete(authDialog);
+    authDialog = null;
     metrics.decrementOpenWindows();
   });
 });
@@ -1135,8 +1306,8 @@ ipcMain.handle("chattersDialog:open", (e, { data }) => {
   });
 
   chattersDialog.on("closed", () => {
-    chattersDialog = null;
     allWindows.delete(chattersDialog);
+    chattersDialog = null;
     metrics.decrementOpenWindows();
   });
 });
@@ -1212,8 +1383,8 @@ ipcMain.handle("searchDialog:open", (e, { data }) => {
   });
 
   searchDialog.on("closed", () => {
-    searchDialog = null;
     allWindows.delete(searchDialog);
+    searchDialog = null;
     metrics.decrementOpenWindows();
   });
 });
@@ -1232,72 +1403,7 @@ ipcMain.handle("searchDialog:close", () => {
 
 // Settings Dialog Handler
 ipcMain.handle("settingsDialog:open", async (e, { data }) => {
-  const settings = await store.get();
-
-  if (settingsDialog) {
-    settingsDialog.focus();
-    settingsDialog.webContents.send("settingsDialog:data", { ...data, settings });
-    return;
-  }
-
-  const mainWindowPos = mainWindow.getPosition();
-  const mainWindowSize = mainWindow.getSize();
-
-  const newX = mainWindowPos[0] + Math.round((mainWindowSize[0] - 1400) / 2);
-  const newY = mainWindowPos[1] + Math.round((mainWindowSize[1] - 750) / 2);
-
-  settingsDialog = new BrowserWindow({
-    width: 1200,
-    minWidth: 800,
-    height: 700,
-    minHeight: 600,
-    x: newX,
-    y: newY,
-    show: false,
-    resizable: true,
-    frame: false,
-    transparent: true,
-    backgroundColor: "#020a05",
-    roundedCorners: true,
-    parent: mainWindow,
-    icon: iconPath,
-    webPreferences: {
-      devtools: true,
-      nodeIntegration: false,
-      contextIsolation: true,
-      preload: join(__dirname, "../preload/index.js"),
-      sandbox: false,
-    },
-  });
-  metrics.incrementOpenWindows();
-  allWindows.add(settingsDialog);
-
-  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
-    settingsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/settings.html`);
-  } else {
-    settingsDialog.loadFile(join(__dirname, "../renderer/settings.html"));
-  }
-
-  settingsDialog.once("ready-to-show", () => {
-    settingsDialog.show();
-    if (data) {
-      settingsDialog.webContents.send("settingsDialog:data", { ...data, settings });
-    }
-    if (isDev) {
-      settingsDialog.webContents.openDevTools();
-    }
-
-    settingsDialog.webContents.setWindowOpenHandler((details) => {
-      shell.openExternal(details.url);
-      return { action: "deny" };
-    });
-  });
-
-  settingsDialog.on("closed", () => {
-    settingsDialog = null;
-    allWindows.delete(settingsDialog);
-    metrics.decrementOpenWindows();
-  });
+  await openSettingsDialog(data);
 });
 
 ipcMain.handle("settingsDialog:close", () => {
@@ -1373,8 +1479,8 @@ ipcMain.handle("replyThreadDialog:open", (e, { data }) => {
   });
 
   replyThreadDialog.on("closed", () => {
-    replyThreadDialog = null;
     allWindows.delete(replyThreadDialog);
+    replyThreadDialog = null;
     metrics.decrementOpenWindows();
   });
 });
@@ -1383,10 +1489,8 @@ ipcMain.handle("replyThreadDialog:close", () => {
   try {
     if (replyThreadDialog) {
       replyThreadDialog.close();
-      replyThreadDialog = null;
     }
   } catch (error) {
     console.error("[Reply Thread Dialog]: Error closing dialog:", error);
-    replyThreadDialog = null;
   }
 });

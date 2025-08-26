@@ -26,6 +26,15 @@ lib-cov
 coverage
 *.lcov
 
+# Testing results
+test-results.json
+test-report.html
+
+# E2E Testing (Playwright)
+e2e-results/
+playwright-report/
+playwright-results.json
+
 # nyc test coverage
 .nyc_output
 
