@@ -451,6 +451,16 @@ if (process.contextIsolated) {
           ipcRenderer.invoke("telemetry:recordReconnection", { chatroomId, reason }),
         recordAPIRequest: (endpoint, method, statusCode, duration) =>
           ipcRenderer.invoke("telemetry:recordAPIRequest", { endpoint, method, statusCode, duration }),
+        recordSevenTVConnectionHealth: (chatroomsCount, connectionsCount, state) =>
+          ipcRenderer.invoke("telemetry:recordSevenTVConnectionHealth", { chatroomsCount, connectionsCount, state }),
+        recordSevenTVWebSocketCreated: (chatroomId, stvId, emoteSets) =>
+          ipcRenderer.invoke("telemetry:recordSevenTVWebSocketCreated", { chatroomId, stvId, emoteSets }),
+        recordSevenTVEmoteUpdate: (chatroomId, pulled, pushed, updated, duration) =>
+          ipcRenderer.invoke("telemetry:recordSevenTVEmoteUpdate", { chatroomId, pulled, pushed, updated, duration }),
+        recordSevenTVEmoteChanges: (chatroomId, added, removed, updated, setType) =>
+          ipcRenderer.invoke("telemetry:recordSevenTVEmoteChanges", { chatroomId, added, removed, updated, setType }),
+        recordChatroomSwitch: (fromChatroomId, toChatroomId, duration) =>
+          ipcRenderer.invoke("telemetry:recordChatroomSwitch", { fromChatroomId, toChatroomId, duration }),
       },
     });
    } catch (error) {

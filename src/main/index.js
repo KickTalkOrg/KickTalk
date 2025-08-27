@@ -1622,6 +1622,36 @@ ipcMain.handle("telemetry:recordAPIRequest", (e, { endpoint, method, statusCode,
   }
 });
 
+ipcMain.handle("telemetry:recordSevenTVConnectionHealth", (e, { chatroomsCount, connectionsCount, state }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordSevenTVConnectionHealth(chatroomsCount, connectionsCount, state);
+  }
+});
+
+ipcMain.handle("telemetry:recordSevenTVWebSocketCreated", (e, { chatroomId, stvId, emoteSets }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordSevenTVWebSocketCreated(chatroomId, stvId, emoteSets);
+  }
+});
+
+ipcMain.handle("telemetry:recordSevenTVEmoteUpdate", (e, { chatroomId, pulled, pushed, updated, duration }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordSevenTVEmoteUpdate(chatroomId, pulled, pushed, updated, duration);
+  }
+});
+
+ipcMain.handle("telemetry:recordSevenTVEmoteChanges", (e, { chatroomId, added, removed, updated, setType }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordSevenTVEmoteChanges(chatroomId, added, removed, updated, setType);
+  }
+});
+
+ipcMain.handle("telemetry:recordChatroomSwitch", (e, { fromChatroomId, toChatroomId, duration }) => {
+  if (isTelemetryEnabled()) {
+    metrics.recordChatroomSwitch(fromChatroomId, toChatroomId, duration);
+  }
+});
+
 // Quit when all windows are closed, except on macOS. There, it's common
 // for applications and their menu bar to stay active until the user quits
 // explicitly with Cmd + Q.

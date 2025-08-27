@@ -387,11 +387,22 @@ const useChatStore = create((set, get) => ({
     
     // Check if using shared connection manager
     if (connectionManager) {
-      // TODO: Add OpenTelemetry metrics here for 7TV connection health
-      // Metrics to consider:
-      // - seventv_connections_total (gauge)
-      // - seventv_subscriptions_total (gauge) 
-      // - seventv_websocket_state (gauge with labels: connected, connecting, disconnected)
+      const span = startSpan('seventv.connection_health_check', {
+        'chatrooms.count': chatrooms.length,
+        'connections.count': Object.keys(connections).length
+      });
+      
+      try {
+        // Record connection health metrics via IPC
+        window.app?.telemetry?.recordSevenTVConnectionHealth?.(
+          chatrooms.length,
+          Object.keys(connections).length,
+          'connected'
+        );
+        endSpanOk(span);
+      } catch (error) {
+        endSpanError(span, error);
+      }
     }
     
     return { chatrooms: chatrooms.length, connections: Object.keys(connections).length };
@@ -736,33 +747,43 @@ const useChatStore = create((set, get) => ({
     const stvId = channelSet?.user?.id;
     const stvEmoteSets = channelSet?.setInfo?.id;
 
-    // TODO: Add OpenTelemetry metrics for 7TV WebSocket setup
-    // Metrics to consider:
-    // - seventv_websocket_connections_created_total (counter)
-    // - seventv_emote_sets_subscribed_total (counter)
+    const setupSpan = startSpan('seventv.websocket_setup', {
+      'chatroom.id': chatroom.id,
+      'streamer.name': chatroom.streamerData?.username || '',
+      'seventv.user_id': stvId || '',
+      'seventv.emote_set_id': stvEmoteSets || ''
+    });
+
+    try {
+      // Record WebSocket connection creation
+      window.app?.telemetry?.recordSevenTVWebSocketCreated?.(chatroom.id, stvId, stvEmoteSets);
+    } catch (error) {
+      console.warn('[Telemetry] Failed to record 7TV WebSocket setup:', error);
+    }
 
     const existingConnection = get().connections[chatroom.id]?.stvSocket;
     if (existingConnection) {
       existingConnection.close();
     }
 
-    const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
+    try {
+      const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
 
-    console.log("Connecting to 7TV WebSocket for chatroom:", chatroom.id);
+      console.log("Connecting to 7TV WebSocket for chatroom:", chatroom.id);
 
-    set((state) => ({
-      connections: {
-        ...state.connections,
-        [chatroom.id]: {
-          ...state.connections[chatroom.id],
-          stvSocket: stvSocket,
+      set((state) => ({
+        connections: {
+          ...state.connections,
+          [chatroom.id]: {
+            ...state.connections[chatroom.id],
+            stvSocket: stvSocket,
+          },
         },
-      },
-    }));
+      }));
 
-    stvSocket.connect();
+      stvSocket.connect();
 
-    stvSocket.addEventListener("message", (event) => {
+      stvSocket.addEventListener("message", (event) => {
       const SevenTVEvent = event.detail;
       const { type, body } = SevenTVEvent;
 
@@ -785,32 +806,39 @@ const useChatStore = create((set, get) => ({
         default:
           break;
       }
-    });
+      });
 
-    storeStvId = localStorage.getItem("stvId");
+      const storeStvId = localStorage.getItem("stvId");
 
-    stvSocket.addEventListener("open", () => {
-      const s = startSpan('7tv.ws.connect', { 'chat.id': chatroom.id });
-      console.log("7TV WebSocket connected for chatroom:", chatroom.id);
+      stvSocket.addEventListener("open", () => {
+        const s = startSpan('7tv.ws.connect', { 'chat.id': chatroom.id });
+        console.log("7TV WebSocket connected for chatroom:", chatroom.id);
 
-      setTimeout(() => {
-        const authTokens = window.app.auth.getToken();
-        if (storeStvId && authTokens?.token && authTokens?.session) {
-          sendUserPresence(storeStvId, chatroom.streamerData.user_id);
-          stvPresenceUpdates.set(chatroom.streamerData.user_id, Date.now());
-        } else {
-          console.log("[7tv Presence]: No STV ID or auth tokens available for WebSocket presence update");
-        }
-      }, 2000);
-      endSpanOk(s);
-    });
+        setTimeout(() => {
+          const authTokens = window.app.auth.getToken();
+          if (storeStvId && authTokens?.token && authTokens?.session) {
+            sendUserPresence(storeStvId, chatroom.streamerData.user_id);
+            stvPresenceUpdates.set(chatroom.streamerData.user_id, Date.now());
+          } else {
+            console.log("[7tv Presence]: No STV ID or auth tokens available for WebSocket presence update");
+          }
+        }, 2000);
+        endSpanOk(s);
+      });
 
-    stvSocket.addEventListener("close", () => {
-      const s = startSpan('7tv.ws.close', { 'chat.id': chatroom.id });
-      console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
-      stvPresenceUpdates.delete(chatroom.streamerData.user_id);
-      endSpanOk(s);
-    });
+      stvSocket.addEventListener("close", () => {
+        const s = startSpan('7tv.ws.close', { 'chat.id': chatroom.id });
+        console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
+        stvPresenceUpdates.delete(chatroom.streamerData.user_id);
+        endSpanOk(s);
+      });
+
+      endSpanOk(setupSpan);
+    } catch (error) {
+      console.error("Failed to setup 7TV WebSocket:", error);
+      endSpanError(setupSpan, error);
+      throw error;
+    }
   },
 
   connectToChatroom: async (chatroom) => {
@@ -2158,16 +2186,25 @@ const useChatStore = create((set, get) => ({
   },
 
   handleEmoteSetUpdate: (chatroomId, body) => {
-    // TODO: Add OpenTelemetry metrics for emote set updates
-    // Metrics to consider:
-    // - seventv_emote_updates_total (counter with labels: type=pulled|pushed|updated)
-    // - seventv_emote_update_processing_duration (histogram)
+    const updateSpan = startSpan('seventv.emote_set_update', {
+      'chatroom.id': chatroomId
+    });
+    
+    const startTime = performance.now();
     
     if (!body) {
+      updateSpan?.addEvent?.('empty_body_received');
+      endSpanOk(updateSpan);
       return;
     }
 
     const { pulled = [], pushed = [], updated = [] } = body;
+    
+    updateSpan?.setAttributes?.({
+      'emotes.pulled.count': pulled.length,
+      'emotes.pushed.count': pushed.length,
+      'emotes.updated.count': updated.length
+    });
 
     const chatroom = get().chatrooms.find((room) => room.id === chatroomId);
     if (!chatroom) {
@@ -2342,11 +2379,26 @@ const useChatStore = create((set, get) => ({
 
     // Send emote update data to frontend for custom handling
     if (addedEmotes.length > 0 || removedEmotes.length > 0 || updatedEmotes.length > 0) {
-      // TODO: Add OpenTelemetry metrics for emote changes
-      // Metrics to consider:
-      // - seventv_emotes_added_total (counter)
-      // - seventv_emotes_removed_total (counter)
-      // - seventv_emotes_updated_total (counter)
+      try {
+        // Record specific emote change metrics
+        window.app?.telemetry?.recordSevenTVEmoteChanges?.(
+          chatroomId,
+          addedEmotes.length,
+          removedEmotes.length,
+          updatedEmotes.length,
+          isPersonalSetUpdated ? 'personal' : 'channel'
+        );
+        
+        updateSpan?.addEvent?.('emote_changes_detected', {
+          'emotes.added': addedEmotes.length,
+          'emotes.removed': removedEmotes.length,
+          'emotes.updated': updatedEmotes.length,
+          'set.type': isPersonalSetUpdated ? 'personal' : 'channel'
+        });
+      } catch (error) {
+        console.warn('[Telemetry] Failed to record emote changes:', error);
+      }
+      
       const setInfo = isPersonalSetUpdated ? personalSetBeingUpdated?.setInfo : channelEmoteSet?.setInfo;
 
       if (body?.actor) {
@@ -2420,6 +2472,25 @@ const useChatStore = create((set, get) => ({
     
     // Refresh emote data to get the updated emote set
     get().refresh7TVEmotes(chatroomId);
+    
+    try {
+      const processingDuration = performance.now() - startTime;
+      // Record emote update metrics via IPC
+      window.app?.telemetry?.recordSevenTVEmoteUpdate?.(
+        chatroomId,
+        pulled.length,
+        pushed.length, 
+        updated.length,
+        processingDuration
+      );
+      
+      updateSpan?.addEvent?.('emote_update_completed');
+      updateSpan?.setAttribute?.('processing.duration_ms', processingDuration);
+      endSpanOk(updateSpan);
+    } catch (error) {
+      console.warn('[Telemetry] Failed to record 7TV emote update:', error);
+      endSpanError(updateSpan, error);
+    }
   },
 
   refresh7TVEmotes: async (chatroomId) => {

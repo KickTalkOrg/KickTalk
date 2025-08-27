@@ -41,6 +41,38 @@ const onError = (error) => {
   console.error(error);
 };
 
+// Telemetry helpers
+const getRendererTracer = () =>
+  (typeof window !== 'undefined' && (window.__KT_TRACER__ || window.__KT_TRACE_API__?.trace?.getTracer?.('kicktalk-renderer-chat-input'))) || null;
+
+const startSpan = (name, attributes = {}) => {
+  try {
+    const tracer = getRendererTracer();
+    if (!tracer || typeof tracer.startSpan !== 'function') return null;
+    const span = tracer.startSpan(name);
+    try {
+      if (span && attributes && typeof attributes === 'object') {
+        Object.entries(attributes).forEach(([k, v]) => {
+          try { span.setAttribute(k, v); } catch {}
+        });
+      }
+    } catch {}
+    return span;
+  } catch {
+    return null;
+  }
+};
+
+const endSpanOk = (span) => {
+  try { span?.setStatus?.({ code: 0 }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
+const endSpanError = (span, err) => {
+  try { span?.setStatus?.({ code: 2, message: (err && (err.message || String(err))) || '' }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
 const theme = {
   ltr: "ltr",
   paragraph: "editor-paragraph",
@@ -198,36 +230,70 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
 
   const searchEmotes = useCallback(
     (text) => {
-      if (!text) return [];
-      const transformedText = text.toLowerCase();
-
-      const sevenTvResults =
-        allStvEmotes
-          ?.flatMap((emoteSet) => emoteSet.emotes)
-          ?.filter((emote) => emote.name.toLowerCase().includes(transformedText)) || [];
-
-      const kickResults =
-        kickEmotes
-          ?.flatMap((emoteSet) => emoteSet.emotes || [])
-          ?.filter((emote) => emote.name.toLowerCase().includes(transformedText)) || [];
-
-      const allResults = [...sevenTvResults, ...kickResults];
-
-      // Sort by relevance exact match first
-      const sortedResults = allResults.sort((a, b) => {
-        const aName = a.name.toLowerCase();
-        const bName = b.name.toLowerCase();
-
-        if (aName === transformedText && bName !== transformedText) return -1;
-        if (bName === transformedText && aName !== transformedText) return 1;
-
-        if (aName.startsWith(transformedText) && !bName.startsWith(transformedText)) return -1;
-        if (bName.startsWith(transformedText) && !aName.startsWith(transformedText)) return 1;
-
-        return aName.localeCompare(bName);
+      const searchSpan = startSpan('chat.input.emote_search', {
+        'search.query': text || '',
+        'search.query_length': (text || '').length
       });
+      
+      const startTime = performance.now();
+      
+      try {
+        if (!text) {
+          endSpanOk(searchSpan);
+          return [];
+        }
+        
+        const transformedText = text.toLowerCase();
+        searchSpan?.setAttribute?.('search.transformed_query', transformedText);
 
-      return sortedResults.slice(0, 20);
+        const sevenTvResults =
+          allStvEmotes
+            ?.flatMap((emoteSet) => emoteSet.emotes)
+            ?.filter((emote) => emote.name.toLowerCase().includes(transformedText)) || [];
+
+        const kickResults =
+          kickEmotes
+            ?.flatMap((emoteSet) => emoteSet.emotes || [])
+            ?.filter((emote) => emote.name.toLowerCase().includes(transformedText)) || [];
+
+        const allResults = [...sevenTvResults, ...kickResults];
+
+        searchSpan?.setAttributes?.({
+          'search.seventv_matches': sevenTvResults.length,
+          'search.kick_matches': kickResults.length,
+          'search.total_matches': allResults.length
+        });
+
+        // Sort by relevance exact match first
+        const sortedResults = allResults.sort((a, b) => {
+          const aName = a.name.toLowerCase();
+          const bName = b.name.toLowerCase();
+
+          if (aName === transformedText && bName !== transformedText) return -1;
+          if (bName === transformedText && aName !== transformedText) return 1;
+
+          if (aName.startsWith(transformedText) && !bName.startsWith(transformedText)) return -1;
+          if (bName.startsWith(transformedText) && !aName.startsWith(transformedText)) return 1;
+
+          return aName.localeCompare(bName);
+        });
+
+        const results = sortedResults.slice(0, 20);
+        const processingTime = performance.now() - startTime;
+        
+        searchSpan?.setAttributes?.({
+          'search.results_returned': results.length,
+          'search.processing_time_ms': processingTime
+        });
+        
+        searchSpan?.addEvent?.('emote_search_completed');
+        endSpanOk(searchSpan);
+        
+        return results;
+      } catch (error) {
+        endSpanError(searchSpan, error);
+        return [];
+      }
     },
     [allStvEmotes, kickEmotes],
   );
@@ -570,14 +636,33 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
         COMMAND_PRIORITY_HIGH,
       ),
 
-      editor.registerUpdateListener(({ editorState }) => {
+      editor.registerUpdateListener(({ editorState, tags }) => {
+        const updateStartTime = performance.now();
+        const updateSpan = startSpan('chat.input.lexical_update', {
+          'update.has_selection': false,
+          'chatroom.id': chatroomId
+        });
+        
         editorState.read(() => {
           const selection = $getSelection();
-          if (!$isRangeSelection(selection)) return;
+          if (!$isRangeSelection(selection)) {
+            updateSpan?.setAttribute?.('update.has_selection', false);
+            const renderTime = performance.now() - updateStartTime;
+            updateSpan?.setAttribute?.('update.render_time_ms', renderTime);
+            endSpanOk(updateSpan);
+            return;
+          }
+
+          updateSpan?.setAttribute?.('update.has_selection', true);
 
           const node = selection.anchor.getNode();
           const textContent = node.getTextContent();
           const cursorOffset = selection.anchor.offset;
+          
+          updateSpan?.setAttributes?.({
+            'content.length': textContent.length,
+            'cursor.offset': cursorOffset
+          });
 
           const textBeforeCursor = textContent.slice(0, cursorOffset);
           const words = textBeforeCursor.split(/\s+/);
@@ -602,6 +687,20 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
             setSelectedChatterIndex(null);
             setPosition(null);
           }
+          
+          // Complete telemetry for this update
+          const renderTime = performance.now() - updateStartTime;
+          updateSpan?.setAttributes?.({
+            'update.render_time_ms': renderTime,
+            'update.completed': true
+          });
+          
+          // Track performance for different render time ranges
+          if (renderTime > 16) { // More than 1 frame at 60fps
+            updateSpan?.addEvent?.('slow_render_detected', { render_time_ms: renderTime });
+          }
+          
+          endSpanOk(updateSpan);
         });
       }),
     ];
@@ -939,7 +1038,16 @@ const ChatInput = memo(
 
     const handleSendMessage = useCallback(
       async (content) => {
-        if (content.startsWith("/")) {
+        const messageSpan = startSpan('chat.input.send_message', {
+          'message.length': content?.length || 0,
+          'message.type': content?.startsWith('/') ? 'command' : 'regular',
+          'chatroom.id': chatroomId
+        });
+        
+        const startTime = performance.now();
+        
+        try {
+          if (content.startsWith("/")) {
           const commandParts = content.slice(1).trim().split(" ");
           const command = commandParts[0];
           let usernameInput = commandParts[1];
@@ -970,6 +1078,9 @@ const ChatInput = memo(
               cords: [0, 300],
             });
 
+            messageSpan?.setAttribute?.('command.name', command);
+            messageSpan?.addEvent?.('command_processed');
+            endSpanOk(messageSpan);
             return;
           }
         }
@@ -978,7 +1089,10 @@ const ChatInput = memo(
 
         // If we are replying to a message, add the original message to the metadata
         const currentReplyData = getReplyData();
-        if (currentReplyData || isReplyThread) {
+        const isReply = currentReplyData || isReplyThread;
+        messageSpan?.setAttribute?.('message.is_reply', isReply);
+        
+        if (isReply) {
           // If replying to a reply, use the original message from the reply's metadata
           // Otherwise use the message we're directly replying to
           let originalMessage, originalSender;
@@ -1008,6 +1122,12 @@ const ChatInput = memo(
           res = await sendMessage(chatroomId, content);
         }
 
+        const sendDuration = performance.now() - startTime;
+        messageSpan?.setAttributes?.({
+          'message.send_success': !!res,
+          'message.send_duration_ms': sendDuration
+        });
+
         if (res) {
           const history = messageHistory.get(chatroomId);
           messageHistory.set(chatroomId, {
@@ -1016,8 +1136,20 @@ const ChatInput = memo(
           });
           // Clear draft message when message is sent successfully
           clearDraftMessage(chatroomId);
+          
+          messageSpan?.addEvent?.('message_sent_success');
+          endSpanOk(messageSpan);
+        } else {
+          messageSpan?.addEvent?.('message_send_failed');
+          endSpanError(messageSpan, new Error('Message send failed'));
         }
-      },
+      } catch (error) {
+        console.error('Error sending message:', error);
+        messageSpan?.addEvent?.('message_send_error', { error: error.message });
+        endSpanError(messageSpan, error);
+        throw error;
+      }
+    },
       [chatroomId, chatroom, sendMessage, getReplyData, replyMessage, clearDraftMessage],
     );
 

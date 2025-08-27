@@ -2,6 +2,38 @@ import { kickEmoteRegex, urlRegex, mentionRegex } from "@utils/constants";
 import Emote from "../components/Cosmetics/Emote";
 import { parse } from "tldts";
 
+// Telemetry helpers
+const getRendererTracer = () =>
+  (typeof window !== 'undefined' && (window.__KT_TRACER__ || window.__KT_TRACE_API__?.trace?.getTracer?.('kicktalk-renderer-message-parser'))) || null;
+
+const startSpan = (name, attributes = {}) => {
+  try {
+    const tracer = getRendererTracer();
+    if (!tracer || typeof tracer.startSpan !== 'function') return null;
+    const span = tracer.startSpan(name);
+    try {
+      if (span && attributes && typeof attributes === 'object') {
+        Object.entries(attributes).forEach(([k, v]) => {
+          try { span.setAttribute(k, v); } catch {}
+        });
+      }
+    } catch {}
+    return span;
+  } catch {
+    return null;
+  }
+};
+
+const endSpanOk = (span) => {
+  try { span?.setStatus?.({ code: 0 }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
+const endSpanError = (span, err) => {
+  try { span?.setStatus?.({ code: 2, message: (err && (err.message || String(err))) || '' }); } catch {}
+  try { span?.end?.(); } catch {}
+};
+
 const messageContentCache = new Map();
 const MAX_MESSAGE_CACHE_SIZE = 800;
 
@@ -185,11 +217,27 @@ const parseMessageContent = ({
   chatroomName,
   userChatroomInfo,
 }) => {
-  if (!message?.content) return [];
-  const parts = [];
-  let lastIndex = 0;
+  const parseSpan = startSpan('message.parse_content', {
+    'message.id': message?.id || '',
+    'message.length': message?.content?.length || 0,
+    'message.type': type || 'regular',
+    'chatroom.id': chatroomId || '',
+    'emote_sets.count': sevenTVEmotes?.length || 0
+  });
+  
+  const startTime = performance.now();
+  
+  try {
+    if (!message?.content) {
+      parseSpan?.addEvent?.('empty_message_content');
+      endSpanOk(parseSpan);
+      return [];
+    }
+    
+    const parts = [];
+    let lastIndex = 0;
 
-  const allMatches = [];
+    const allMatches = [];
 
   for (const rule of rules) {
     for (const match of message.content.matchAll(rule.regexPattern)) {
@@ -343,7 +391,27 @@ const parseMessageContent = ({
     finalParts.push(<span key="final-text">{pendingTextParts.join("")}</span>);
   }
 
+  const parseTime = performance.now() - startTime;
+  parseSpan?.setAttributes?.({
+    'parse.duration_ms': parseTime,
+    'parse.matches_found': allMatches.length,
+    'parse.final_parts': finalParts.length
+  });
+  
+  parseSpan?.addEvent?.('message_parsing_completed');
+  endSpanOk(parseSpan);
+
   return finalParts;
+  } catch (error) {
+    const parseTime = performance.now() - startTime;
+    parseSpan?.setAttributes?.({
+      'parse.duration_ms': parseTime,
+      'parse.error': true
+    });
+    parseSpan?.addEvent?.('message_parsing_error', { error: error.message });
+    endSpanError(parseSpan, error);
+    throw error;
+  }
 };
 
 export const MessageParser = ({
@@ -356,28 +424,65 @@ export const MessageParser = ({
   chatroomName,
   userChatroomInfo,
 }) => {
-  const cacheKey = `${message?.id}-${message?.content}-${sevenTVSettings?.emotes}-${type}`;
-
-  if (messageContentCache.has(cacheKey)) {
-    return messageContentCache.get(cacheKey);
-  }
-
-  const parsed = parseMessageContent({
-    message,
-    sevenTVEmotes,
-    sevenTVSettings,
-    subscriberBadges,
-    type,
-    chatroomId,
-    chatroomName,
-    userChatroomInfo,
+  const parserSpan = startSpan('message.parser_main', {
+    'message.id': message?.id || '',
+    'chatroom.id': chatroomId || '',
+    'message.type': type || 'regular'
   });
+  
+  const startTime = performance.now();
+  
+  try {
+    const cacheKey = `${message?.id}-${message?.content}-${sevenTVSettings?.emotes}-${type}`;
 
-  messageContentCache.set(cacheKey, parsed);
+    if (messageContentCache.has(cacheKey)) {
+      parserSpan?.addEvent?.('cache_hit');
+      parserSpan?.setAttribute?.('cache.hit', true);
+      const parseTime = performance.now() - startTime;
+      parserSpan?.setAttribute?.('parse.duration_ms', parseTime);
+      endSpanOk(parserSpan);
+      return messageContentCache.get(cacheKey);
+    }
 
-  // Cleanup caches
-  clearMessageCache();
-  clearEmoteCache();
+    parserSpan?.addEvent?.('cache_miss');
+    parserSpan?.setAttribute?.('cache.hit', false);
 
-  return parsed;
+    const parsed = parseMessageContent({
+      message,
+      sevenTVEmotes,
+      sevenTVSettings,
+      subscriberBadges,
+      type,
+      chatroomId,
+      chatroomName,
+      userChatroomInfo,
+    });
+
+    messageContentCache.set(cacheKey, parsed);
+    parserSpan?.setAttribute?.('cache.size', messageContentCache.size);
+
+    // Cleanup caches
+    clearMessageCache();
+    clearEmoteCache();
+
+    const parseTime = performance.now() - startTime;
+    parserSpan?.setAttributes?.({
+      'parse.duration_ms': parseTime,
+      'cache.final_size': messageContentCache.size
+    });
+    
+    parserSpan?.addEvent?.('parsing_with_caching_completed');
+    endSpanOk(parserSpan);
+
+    return parsed;
+  } catch (error) {
+    const parseTime = performance.now() - startTime;
+    parserSpan?.setAttributes?.({
+      'parse.duration_ms': parseTime,
+      'parse.error': true
+    });
+    parserSpan?.addEvent?.('parser_error', { error: error.message });
+    endSpanError(parserSpan, error);
+    throw error;
+  }
 };

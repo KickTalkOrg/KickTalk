@@ -100,6 +100,52 @@ const gcDuration = meter.createHistogram('kicktalk_gc_duration_seconds', {
   unit: 's'
 });
 
+// 7TV Metrics
+const seventvConnections = meter.createObservableGauge('kicktalk_seventv_connections_total', {
+  description: 'Number of active 7TV connections',
+  unit: '1'
+});
+
+const seventvWebSocketsCreated = meter.createCounter('kicktalk_seventv_websockets_created_total', {
+  description: 'Total number of 7TV WebSocket connections created',
+  unit: '1'
+});
+
+const seventvEmoteUpdates = meter.createCounter('kicktalk_seventv_emote_updates_total', {
+  description: 'Total number of 7TV emote updates processed',
+  unit: '1'
+});
+
+const seventvEmoteUpdateDuration = meter.createHistogram('kicktalk_seventv_emote_update_duration_seconds', {
+  description: 'Time taken to process 7TV emote updates',
+  unit: 's',
+  boundaries: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+});
+
+const seventvEmoteChanges = meter.createCounter('kicktalk_seventv_emote_changes_total', {
+  description: 'Total number of individual emote changes (added/removed/updated)',
+  unit: '1'
+});
+
+// Chatroom Navigation Metrics
+const chatroomSwitches = meter.createCounter('kicktalk_chatroom_switches_total', {
+  description: 'Total number of chatroom switches',
+  unit: '1'
+});
+
+const chatroomSwitchDuration = meter.createHistogram('kicktalk_chatroom_switch_duration_seconds', {
+  description: 'Time taken to switch between chatrooms',
+  unit: 's',
+  boundaries: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+});
+
+// 7TV connection tracking
+let currentSevenTVConnections = 0;
+
+seventvConnections.addCallback((observableResult) => {
+  observableResult.observe(currentSevenTVConnections);
+});
+
 // Callback for resource metrics
 memoryUsage.addCallback((observableResult) => {
   const memUsage = process.memoryUsage();
@@ -311,6 +357,76 @@ const MetricsHelper = {
 
   decrementOpenWindows() {
     openWindows.add(-1);
+  },
+
+  // 7TV specific metrics
+  recordSevenTVConnectionHealth(chatroomsCount, connectionsCount, state) {
+    currentSevenTVConnections = connectionsCount || 0;
+    console.log(`[Metrics] 7TV Connection Health: ${connectionsCount} connections, ${chatroomsCount} chatrooms, state: ${state}`);
+  },
+
+  recordSevenTVWebSocketCreated(chatroomId, stvId, emoteSets) {
+    const attributes = {
+      chatroom_id: chatroomId
+    };
+    if (stvId) attributes.seventv_user_id = stvId;
+    if (emoteSets) attributes.emote_sets = emoteSets;
+    
+    seventvWebSocketsCreated.add(1, attributes);
+    console.log(`[Metrics] 7TV WebSocket created for chatroom: ${chatroomId}`);
+  },
+
+  recordSevenTVEmoteUpdate(chatroomId, pulled, pushed, updated, duration) {
+    const attributes = {
+      chatroom_id: chatroomId,
+      pulled: pulled || 0,
+      pushed: pushed || 0, 
+      updated: updated || 0
+    };
+    
+    seventvEmoteUpdates.add(1, attributes);
+    
+    if (duration && duration > 0) {
+      seventvEmoteUpdateDuration.record(duration / 1000, attributes); // Convert ms to seconds
+    }
+    
+    console.log(`[Metrics] 7TV Emote update: ${chatroomId} - pulled:${pulled}, pushed:${pushed}, updated:${updated}, duration:${duration}ms`);
+  },
+
+  recordSevenTVEmoteChanges(chatroomId, added, removed, updated, setType) {
+    const baseAttributes = {
+      chatroom_id: chatroomId,
+      set_type: setType || 'channel'
+    };
+    
+    if (added > 0) {
+      seventvEmoteChanges.add(added, { ...baseAttributes, change_type: 'added' });
+    }
+    if (removed > 0) {
+      seventvEmoteChanges.add(removed, { ...baseAttributes, change_type: 'removed' });
+    }
+    if (updated > 0) {
+      seventvEmoteChanges.add(updated, { ...baseAttributes, change_type: 'updated' });
+    }
+    
+    console.log(`[Metrics] 7TV Emote changes: ${chatroomId} (${setType}) - added:${added}, removed:${removed}, updated:${updated}`);
+  },
+
+  // Chatroom navigation metrics
+  recordChatroomSwitch(fromChatroomId, toChatroomId, duration) {
+    const attributes = {
+      from_chatroom: fromChatroomId || 'none',
+      to_chatroom: toChatroomId || 'none',
+      switch_type: toChatroomId === 'mentions' ? 'mentions' : 'chatroom'
+    };
+    
+    chatroomSwitches.add(1, attributes);
+    
+    if (duration && duration > 0) {
+      chatroomSwitchDuration.record(duration / 1000, attributes); // Convert ms to seconds
+    }
+    
+    console.log(`[Metrics] Chatroom switch: ${fromChatroomId || 'none'} → ${toChatroomId || 'none'}, duration: ${duration}ms`);
   }
 };
 
@@ -332,7 +448,14 @@ module.exports = {
     rendererMemoryUsage,
     domNodeCount,
     openWindows,
-    upStatus
+    upStatus,
+    seventvConnections,
+    seventvWebSocketsCreated,
+    seventvEmoteUpdates,
+    seventvEmoteUpdateDuration,
+    seventvEmoteChanges,
+    chatroomSwitches,
+    chatroomSwitchDuration
   },
   MetricsHelper
 };
