@@ -636,33 +636,31 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
         COMMAND_PRIORITY_HIGH,
       ),
 
-      editor.registerUpdateListener(({ editorState, tags }) => {
+      editor.registerUpdateListener(({ editorState }) => {
         const updateStartTime = performance.now();
-        const updateSpan = startSpan('chat.input.lexical_update', {
-          'update.has_selection': false,
-          'chatroom.id': chatroomId
-        });
+        let updateSpan = null;
         
         editorState.read(() => {
           const selection = $getSelection();
           if (!$isRangeSelection(selection)) {
-            updateSpan?.setAttribute?.('update.has_selection', false);
             const renderTime = performance.now() - updateStartTime;
-            updateSpan?.setAttribute?.('update.render_time_ms', renderTime);
-            endSpanOk(updateSpan);
+            
+            // Check if we should emit telemetry based on duration and throttling
+            const telemetryUtils = window.__KT_TELEMETRY_UTILS__;
+            if (telemetryUtils?.shouldEmitLexicalUpdate?.(renderTime)) {
+              updateSpan = startSpan('chat.input.lexical_update', {
+                'update.has_selection': false,
+                'chatroom.id': chatroomId,
+                'update.render_time_ms': renderTime
+              });
+              endSpanOk(updateSpan);
+            }
             return;
           }
-
-          updateSpan?.setAttribute?.('update.has_selection', true);
 
           const node = selection.anchor.getNode();
           const textContent = node.getTextContent();
           const cursorOffset = selection.anchor.offset;
-          
-          updateSpan?.setAttributes?.({
-            'content.length': textContent.length,
-            'cursor.offset': cursorOffset
-          });
 
           const textBeforeCursor = textContent.slice(0, cursorOffset);
           const words = textBeforeCursor.split(/\s+/);
@@ -688,19 +686,27 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
             setPosition(null);
           }
           
-          // Complete telemetry for this update
+          // Complete telemetry for this update (with throttling)
           const renderTime = performance.now() - updateStartTime;
-          updateSpan?.setAttributes?.({
-            'update.render_time_ms': renderTime,
-            'update.completed': true
-          });
+          const telemetryUtils = window.__KT_TELEMETRY_UTILS__;
           
-          // Track performance for different render time ranges
-          if (renderTime > 16) { // More than 1 frame at 60fps
-            updateSpan?.addEvent?.('slow_render_detected', { render_time_ms: renderTime });
+          if (telemetryUtils?.shouldEmitLexicalUpdate?.(renderTime)) {
+            updateSpan = startSpan('chat.input.lexical_update', {
+              'update.has_selection': true,
+              'chatroom.id': chatroomId,
+              'content.length': textContent.length,
+              'cursor.offset': cursorOffset,
+              'update.render_time_ms': renderTime,
+              'update.completed': true
+            });
+            
+            // Track performance for different render time ranges
+            if (renderTime > 16) { // More than 1 frame at 60fps
+              updateSpan?.addEvent?.('slow_render_detected', { render_time_ms: renderTime });
+            }
+            
+            endSpanOk(updateSpan);
           }
-          
-          endSpanOk(updateSpan);
         });
       }),
     ];

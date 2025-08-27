@@ -160,6 +160,115 @@ try {
   console.error('[Renderer OTEL]: Failed to install WebSocket instrumentation:', e);
 }
 
+// Telemetry Level Configuration and Sampling Utilities
+const getTelemetryLevel = () => {
+  try {
+    const level = import.meta.env.RENDERER_VITE_TELEMETRY_LEVEL || 'NORMAL';
+    return level.toUpperCase();
+  } catch {
+    return 'NORMAL';
+  }
+};
+
+const TELEMETRY_LEVELS = {
+  MINIMAL: {
+    priority: 1,
+    description: 'Only errors, user actions, critical failures'
+  },
+  NORMAL: {
+    priority: 2, 
+    description: 'Above + slow operations (>100ms), startup events, connection changes'
+  },
+  VERBOSE: {
+    priority: 3,
+    description: 'All operations including message parsing, keystroke updates, frequent events'
+  }
+};
+
+const shouldEmitTelemetry = (spanName, attributes = {}, requiredLevel = 'NORMAL') => {
+  const currentLevel = getTelemetryLevel();
+  const currentPriority = TELEMETRY_LEVELS[currentLevel]?.priority || 2;
+  const requiredPriority = TELEMETRY_LEVELS[requiredLevel]?.priority || 2;
+  
+  // Always emit if current level meets or exceeds required level
+  if (currentPriority >= requiredPriority) {
+    return true;
+  }
+  
+  // Special cases that bypass level restrictions:
+  // 1. Error spans (always emit)
+  if (spanName.includes('error') || attributes?.['error.type']) {
+    return true;
+  }
+  
+  // 2. User actions (always emit)
+  if (spanName.includes('user.') || spanName.includes('chatroom.switch') || attributes?.['user.action']) {
+    return true;
+  }
+  
+  // 3. Critical operations (always emit)
+  if (spanName.includes('critical') || attributes?.['span.critical']) {
+    return true;
+  }
+  
+  return false;
+};
+
+// Message parser sampling configuration
+const MESSAGE_PARSER_SAMPLE_RATE = 0.1; // 10% sampling
+let messageParserSampleCounter = 0;
+
+const shouldSampleMessageParser = () => {
+  messageParserSampleCounter++;
+  return (messageParserSampleCounter % Math.floor(1 / MESSAGE_PARSER_SAMPLE_RATE)) === 0;
+};
+
+// Lexical editor throttling
+let lastLexicalUpdate = 0;
+const LEXICAL_THROTTLE_MS = 1000; // 1 second
+const LEXICAL_MIN_DURATION_MS = 16; // Only track if >16ms
+
+const shouldEmitLexicalUpdate = (durationMs) => {
+  const now = Date.now();
+  const timeSinceLastUpdate = now - lastLexicalUpdate;
+  
+  // Throttle to max 1 per second and only if operation took >16ms
+  if (timeSinceLastUpdate >= LEXICAL_THROTTLE_MS && durationMs > LEXICAL_MIN_DURATION_MS) {
+    lastLexicalUpdate = now;
+    return true;
+  }
+  return false;
+};
+
+// Startup phase detection
+let startupPhaseEndTime = Date.now() + 30000; // 30 second startup window
+let isStartupPhase = true;
+
+const checkStartupPhase = () => {
+  if (isStartupPhase && Date.now() > startupPhaseEndTime) {
+    isStartupPhase = false;
+    console.log('[Renderer OTEL] Startup phase ended, telemetry sampling may increase');
+  }
+  return isStartupPhase;
+};
+
+// Export utilities for use in components
+window.__KT_TELEMETRY_UTILS__ = {
+  getTelemetryLevel,
+  shouldEmitTelemetry,
+  shouldSampleMessageParser,
+  shouldEmitLexicalUpdate,
+  checkStartupPhase,
+  TELEMETRY_LEVELS
+};
+
+console.log(`[Renderer OTEL] Telemetry sampling initialized:`, {
+  level: getTelemetryLevel(),
+  messageParserSampleRate: MESSAGE_PARSER_SAMPLE_RATE,
+  lexicalThrottleMs: LEXICAL_THROTTLE_MS,
+  startupWindowMs: 30000
+});
+
 // Guard: run only once
 if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
   window.__KT_RENDERER_OTEL_INITIALIZED__ = true;

@@ -153,6 +153,12 @@ try {
     decrementWebSocketConnections: metricsModule.MetricsHelper?.decrementWebSocketConnections || (() => {}),
     recordConnectionError: metricsModule.MetricsHelper?.recordConnectionError || (() => {}),
     recordReconnection: metricsModule.MetricsHelper?.recordReconnection || (() => {}),
+    recordChatroomSwitch: metricsModule.MetricsHelper?.recordChatroomSwitch || (() => {}),
+    // 7TV metrics
+    recordSevenTVConnectionHealth: metricsModule.MetricsHelper?.recordSevenTVConnectionHealth || (() => {}),
+    recordSevenTVWebSocketCreated: metricsModule.MetricsHelper?.recordSevenTVWebSocketCreated || (() => {}),
+    recordSevenTVEmoteUpdate: metricsModule.MetricsHelper?.recordSevenTVEmoteUpdate || (() => {}),
+    recordSevenTVEmoteChanges: metricsModule.MetricsHelper?.recordSevenTVEmoteChanges || (() => {}),
   };
 } catch (error) {
   console.warn('[Telemetry]: Failed to load metrics helper:', error.message);
@@ -171,7 +177,13 @@ try {
     incrementWebSocketConnections: () => {},
     decrementWebSocketConnections: () => {},
     recordConnectionError: () => {},
-    recordReconnection: () => {}
+    recordReconnection: () => {},
+    recordChatroomSwitch: () => {},
+    // 7TV metrics no-ops
+    recordSevenTVConnectionHealth: () => {},
+    recordSevenTVWebSocketCreated: () => {},
+    recordSevenTVEmoteUpdate: () => {},
+    recordSevenTVEmoteChanges: () => {}
   };
 }
 

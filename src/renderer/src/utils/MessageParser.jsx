@@ -6,8 +6,24 @@ import { parse } from "tldts";
 const getRendererTracer = () =>
   (typeof window !== 'undefined' && (window.__KT_TRACER__ || window.__KT_TRACE_API__?.trace?.getTracer?.('kicktalk-renderer-message-parser'))) || null;
 
+const getTelemetryUtils = () => window.__KT_TELEMETRY_UTILS__ || null;
+
 const startSpan = (name, attributes = {}) => {
   try {
+    const utils = getTelemetryUtils();
+    
+    // Apply message parser sampling - only create spans for 10% of messages
+    if (name.includes('message.parse') || name.includes('message.parser')) {
+      if (utils?.shouldSampleMessageParser && !utils.shouldSampleMessageParser()) {
+        return null;
+      }
+    }
+    
+    // Check telemetry level requirements
+    if (utils?.shouldEmitTelemetry && !utils.shouldEmitTelemetry(name, attributes, 'NORMAL')) {
+      return null;
+    }
+    
     const tracer = getRendererTracer();
     if (!tracer || typeof tracer.startSpan !== 'function') return null;
     const span = tracer.startSpan(name);
@@ -216,23 +232,22 @@ const parseMessageContent = ({
   chatroomId,
   chatroomName,
   userChatroomInfo,
+  parentSpan = null, // Receive parent span to consolidate telemetry
 }) => {
-  const parseSpan = startSpan('message.parse_content', {
-    'message.id': message?.id || '',
-    'message.length': message?.content?.length || 0,
-    'message.type': type || 'regular',
-    'chatroom.id': chatroomId || '',
-    'emote_sets.count': sevenTVEmotes?.length || 0
-  });
-  
   const startTime = performance.now();
   
   try {
     if (!message?.content) {
-      parseSpan?.addEvent?.('empty_message_content');
-      endSpanOk(parseSpan);
+      parentSpan?.addEvent?.('empty_message_content');
       return [];
     }
+    
+    // Add content parsing attributes to parent span instead of creating new span
+    parentSpan?.setAttributes?.({
+      'message.length': message?.content?.length || 0,
+      'emote_sets.count': sevenTVEmotes?.length || 0,
+      'parse.phase': 'content_parsing'
+    });
     
     const parts = [];
     let lastIndex = 0;
@@ -392,24 +407,26 @@ const parseMessageContent = ({
   }
 
   const parseTime = performance.now() - startTime;
-  parseSpan?.setAttributes?.({
-    'parse.duration_ms': parseTime,
+  
+  // Update parent span with content parsing results
+  parentSpan?.setAttributes?.({
+    'parse.content_duration_ms': parseTime,
     'parse.matches_found': allMatches.length,
     'parse.final_parts': finalParts.length
   });
   
-  parseSpan?.addEvent?.('message_parsing_completed');
-  endSpanOk(parseSpan);
+  parentSpan?.addEvent?.('content_parsing_completed');
 
   return finalParts;
   } catch (error) {
     const parseTime = performance.now() - startTime;
-    parseSpan?.setAttributes?.({
-      'parse.duration_ms': parseTime,
-      'parse.error': true
+    
+    // Update parent span with error information
+    parentSpan?.setAttributes?.({
+      'parse.content_duration_ms': parseTime,
+      'parse.content_error': true
     });
-    parseSpan?.addEvent?.('message_parsing_error', { error: error.message });
-    endSpanError(parseSpan, error);
+    parentSpan?.addEvent?.('content_parsing_error', { error: error.message });
     throw error;
   }
 };
@@ -424,10 +441,12 @@ export const MessageParser = ({
   chatroomName,
   userChatroomInfo,
 }) => {
-  const parserSpan = startSpan('message.parser_main', {
+  // Consolidated span for all message parsing operations (sampling applied in startSpan)
+  const parserSpan = startSpan('message.parser_consolidated', {
     'message.id': message?.id || '',
     'chatroom.id': chatroomId || '',
-    'message.type': type || 'regular'
+    'message.type': type || 'regular',
+    'service.name': 'kicktalk-renderer'
   });
   
   const startTime = performance.now();
@@ -439,7 +458,10 @@ export const MessageParser = ({
       parserSpan?.addEvent?.('cache_hit');
       parserSpan?.setAttribute?.('cache.hit', true);
       const parseTime = performance.now() - startTime;
-      parserSpan?.setAttribute?.('parse.duration_ms', parseTime);
+      parserSpan?.setAttributes?.({
+        'parse.total_duration_ms': parseTime,
+        'cache.final_size': messageContentCache.size
+      });
       endSpanOk(parserSpan);
       return messageContentCache.get(cacheKey);
     }
@@ -447,6 +469,7 @@ export const MessageParser = ({
     parserSpan?.addEvent?.('cache_miss');
     parserSpan?.setAttribute?.('cache.hit', false);
 
+    // Pass parent span to consolidate telemetry instead of creating separate spans
     const parsed = parseMessageContent({
       message,
       sevenTVEmotes,
@@ -456,10 +479,11 @@ export const MessageParser = ({
       chatroomId,
       chatroomName,
       userChatroomInfo,
+      parentSpan: parserSpan, // Pass parent span for consolidated telemetry
     });
 
     messageContentCache.set(cacheKey, parsed);
-    parserSpan?.setAttribute?.('cache.size', messageContentCache.size);
+    parserSpan?.addEvent?.('cache_updated');
 
     // Cleanup caches
     clearMessageCache();
@@ -467,7 +491,7 @@ export const MessageParser = ({
 
     const parseTime = performance.now() - startTime;
     parserSpan?.setAttributes?.({
-      'parse.duration_ms': parseTime,
+      'parse.total_duration_ms': parseTime,
       'cache.final_size': messageContentCache.size
     });
     
@@ -478,7 +502,7 @@ export const MessageParser = ({
   } catch (error) {
     const parseTime = performance.now() - startTime;
     parserSpan?.setAttributes?.({
-      'parse.duration_ms': parseTime,
+      'parse.total_duration_ms': parseTime,
       'parse.error': true
     });
     parserSpan?.addEvent?.('parser_error', { error: error.message });
