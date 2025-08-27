@@ -412,8 +412,20 @@ const parseMessageContent = ({
   parentSpan?.setAttributes?.({
     'parse.content_duration_ms': parseTime,
     'parse.matches_found': allMatches.length,
-    'parse.final_parts': finalParts.length
+    'parse.final_parts': finalParts.length,
+    'slo.target_ms': 50, // 50ms SLO target
+    'slo.violation': parseTime > 50
   });
+  
+  // Add SLO violation event if parsing was slow
+  if (parseTime > 50) {
+    parentSpan?.addEvent?.('slo_violation_detected', {
+      operation: 'message_parsing',
+      target_ms: 50,
+      actual_ms: parseTime,
+      severity: parseTime > 100 ? 'critical' : 'warning'
+    });
+  }
   
   parentSpan?.addEvent?.('content_parsing_completed');
 
@@ -492,8 +504,22 @@ export const MessageParser = ({
     const parseTime = performance.now() - startTime;
     parserSpan?.setAttributes?.({
       'parse.total_duration_ms': parseTime,
-      'cache.final_size': messageContentCache.size
+      'cache.final_size': messageContentCache.size,
+      'slo.target_ms': 50, // 50ms SLO target
+      'slo.violation': parseTime > 50,
+      'message.content_length': message?.content?.length || 0
     });
+    
+    // Add SLO violation event for total parsing time
+    if (parseTime > 50) {
+      parserSpan?.addEvent?.('slo_violation_detected', {
+        operation: 'total_message_parsing',
+        target_ms: 50,
+        actual_ms: parseTime,
+        message_length: message?.content?.length || 0,
+        severity: parseTime > 100 ? 'critical' : 'warning'
+      });
+    }
     
     parserSpan?.addEvent?.('parsing_with_caching_completed');
     endSpanOk(parserSpan);

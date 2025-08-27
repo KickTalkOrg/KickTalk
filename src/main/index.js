@@ -159,6 +159,14 @@ try {
     recordSevenTVWebSocketCreated: metricsModule.MetricsHelper?.recordSevenTVWebSocketCreated || (() => {}),
     recordSevenTVEmoteUpdate: metricsModule.MetricsHelper?.recordSevenTVEmoteUpdate || (() => {}),
     recordSevenTVEmoteChanges: metricsModule.MetricsHelper?.recordSevenTVEmoteChanges || (() => {}),
+    // Performance monitoring methods
+    recordStartupDuration: metricsModule.MetricsHelper?.recordStartupDuration || (() => {}),
+    recordMessageParsingDuration: metricsModule.MetricsHelper?.recordMessageParsingDuration || (() => {}),
+    recordEmoteSearchDuration: metricsModule.MetricsHelper?.recordEmoteSearchDuration || (() => {}),
+    recordWebSocketConnectionDuration: metricsModule.MetricsHelper?.recordWebSocketConnectionDuration || (() => {}),
+    getSLOTarget: metricsModule.MetricsHelper?.getSLOTarget || (() => {}),
+    getAllSLOTargets: metricsModule.MetricsHelper?.getAllSLOTargets || (() => {}),
+    updatePerformanceBudget: metricsModule.MetricsHelper?.updatePerformanceBudget || (() => {}),
   };
 } catch (error) {
   console.warn('[Telemetry]: Failed to load metrics helper:', error.message);
@@ -183,7 +191,15 @@ try {
     recordSevenTVConnectionHealth: () => {},
     recordSevenTVWebSocketCreated: () => {},
     recordSevenTVEmoteUpdate: () => {},
-    recordSevenTVEmoteChanges: () => {}
+    recordSevenTVEmoteChanges: () => {},
+    // Performance monitoring no-ops
+    recordStartupDuration: () => {},
+    recordMessageParsingDuration: () => {},
+    recordEmoteSearchDuration: () => {},
+    recordWebSocketConnectionDuration: () => {},
+    getSLOTarget: () => ({}),
+    getAllSLOTargets: () => ({}),
+    updatePerformanceBudget: () => {}
   };
 }
 

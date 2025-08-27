@@ -1,5 +1,6 @@
 // KickTalk metrics implementation
 const { metrics } = require('@opentelemetry/api');
+const { SLOMonitor } = require('./slo-monitoring');
 
 // Ensure a meter exists (provider is configured in instrumentation.js)
 const pkg = require('../../package.json');
@@ -161,6 +162,12 @@ memoryUsage.addCallback((observableResult) => {
   observableResult.observe(memUsage.external, {
     type: 'external'
   });
+  
+  // SLO monitoring for memory usage
+  SLOMonitor.checkResourceUsage('memory', memUsage.heapUsed, {
+    process: 'main',
+    type: 'heap_used'
+  });
 });
 
 cpuUsage.addCallback((observableResult) => {
@@ -309,6 +316,15 @@ const MetricsHelper = {
       chatroom_id: chatroomId,
       success: success.toString()
     });
+    
+    // SLO monitoring for message send performance
+    SLOMonitor.recordLatency('MESSAGE_SEND_DURATION', duration, {
+      chatroom_id: chatroomId
+    });
+    
+    SLOMonitor.recordOperationResult('message_send', success, duration, {
+      chatroom_id: chatroomId
+    });
   },
 
   // API metrics
@@ -423,10 +439,85 @@ const MetricsHelper = {
     chatroomSwitches.add(1, attributes);
     
     if (duration && duration > 0) {
-      chatroomSwitchDuration.record(duration / 1000, attributes); // Convert ms to seconds
+      const durationSeconds = duration / 1000;
+      chatroomSwitchDuration.record(durationSeconds, attributes);
+      
+      // SLO monitoring for chatroom switch performance
+      SLOMonitor.recordLatency('CHATROOM_SWITCH_DURATION', durationSeconds, attributes);
+      SLOMonitor.recordOperationResult('chatroom_switch', true, durationSeconds, attributes);
     }
     
     console.log(`[Metrics] Chatroom switch: ${fromChatroomId || 'none'} → ${toChatroomId || 'none'}, duration: ${duration}ms`);
+  },
+
+  // Performance monitoring methods
+  recordStartupDuration(phase, duration, attributes = {}) {
+    const durationSeconds = duration / 1000;
+    
+    // Record to existing histogram
+    apiRequestDuration.record(durationSeconds, {
+      operation: 'startup',
+      phase,
+      ...attributes
+    });
+    
+    // SLO monitoring for startup performance
+    SLOMonitor.recordLatency('APP_STARTUP_DURATION', durationSeconds, {
+      phase,
+      ...attributes
+    });
+    
+    console.log(`[Metrics] Startup ${phase}: ${duration}ms`);
+  },
+
+  recordMessageParsingDuration(duration, messageLength, cacheHit = false, attributes = {}) {
+    const durationSeconds = duration / 1000;
+    
+    // SLO monitoring for message parsing performance
+    SLOMonitor.recordLatency('MESSAGE_PARSER_DURATION', durationSeconds, {
+      message_length: messageLength,
+      cache_hit: cacheHit,
+      ...attributes
+    });
+  },
+
+  recordEmoteSearchDuration(duration, query, resultCount, attributes = {}) {
+    const durationSeconds = duration / 1000;
+    
+    // SLO monitoring for emote search performance  
+    SLOMonitor.recordLatency('EMOTE_SEARCH_DURATION', durationSeconds, {
+      query_length: query?.length || 0,
+      result_count: resultCount,
+      ...attributes
+    });
+  },
+
+  recordWebSocketConnectionDuration(duration, chatroomId, success = true, attributes = {}) {
+    const durationSeconds = duration / 1000;
+    
+    // SLO monitoring for WebSocket connections
+    SLOMonitor.recordLatency('WEBSOCKET_CONNECTION_TIME', durationSeconds, {
+      chatroom_id: chatroomId,
+      ...attributes
+    });
+    
+    SLOMonitor.recordOperationResult('websocket_connection', success, durationSeconds, {
+      chatroom_id: chatroomId,
+      ...attributes
+    });
+  },
+
+  // SLO helper methods
+  getSLOTarget(operation) {
+    return SLOMonitor.getSLOTarget(operation);
+  },
+
+  getAllSLOTargets() {
+    return SLOMonitor.getAllSLOTargets();
+  },
+
+  updatePerformanceBudget(operation, usedPercent) {
+    SLOMonitor.updatePerformanceBudget(operation, usedPercent);
   }
 };
 

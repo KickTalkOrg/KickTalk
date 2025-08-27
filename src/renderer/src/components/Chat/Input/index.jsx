@@ -283,8 +283,22 @@ const KeyHandler = ({ chatroomId, onSendMessage, isReplyThread, allStvEmotes, re
         
         searchSpan?.setAttributes?.({
           'search.results_returned': results.length,
-          'search.processing_time_ms': processingTime
+          'search.processing_time_ms': processingTime,
+          'slo.target_ms': 100, // 100ms SLO target for emote search
+          'slo.violation': processingTime > 100
         });
+        
+        // Add SLO violation event if search was slow
+        if (processingTime > 100) {
+          searchSpan?.addEvent?.('slo_violation_detected', {
+            operation: 'emote_search',
+            target_ms: 100,
+            actual_ms: processingTime,
+            query_length: text.length,
+            total_emotes_searched: sevenTvResults.length + kickResults.length,
+            severity: processingTime > 200 ? 'critical' : 'warning'
+          });
+        }
         
         searchSpan?.addEvent?.('emote_search_completed');
         endSpanOk(searchSpan);
