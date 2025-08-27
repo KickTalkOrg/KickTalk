@@ -17,7 +17,7 @@ const copyTelemetryPlugin = () => ({
     }
     
     // Copy telemetry files
-    const files = ['index.js', 'metrics.js', 'tracing.js', 'instrumentation.js', 'prometheus-server.js'];
+    const files = ['index.js', 'metrics.js', 'tracing.js', 'instrumentation.js', 'prometheus-server.js', 'slo-monitoring.js'];
     files.forEach(file => {
       const src = join(srcTelemetry, file);
       const dest = join(outTelemetry, file);

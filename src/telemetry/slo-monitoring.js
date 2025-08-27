@@ -57,7 +57,6 @@ const sloViolations = meter.createCounter('kicktalk_slo_violations_total', {
 const sloLatency = meter.createHistogram('kicktalk_slo_latency_seconds', {
   description: 'Latency measurements for SLO tracking',
   unit: 's',
-  boundaries: [0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
 });
 
 const sloSuccessRate = meter.createCounter('kicktalk_slo_success_rate_total', {

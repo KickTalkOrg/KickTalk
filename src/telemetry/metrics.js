@@ -37,15 +37,13 @@ const messagesReceived = meter.createCounter('kicktalk_messages_received_total',
 
 const messageSendDuration = meter.createHistogram('kicktalk_message_send_duration_seconds', {
   description: 'Time taken to send a message',
-  unit: 's',
-  boundaries: [0.01, 0.05, 0.1, 0.5, 1, 2, 5]
+  unit: 's'
 });
 
 // API Metrics
 const apiRequestDuration = meter.createHistogram('kicktalk_api_request_duration_seconds', {
   description: 'Time taken for API requests',
-  unit: 's',
-  boundaries: [0.1, 0.5, 1, 2, 5, 10, 30]
+  unit: 's'
 });
 
 const apiRequests = meter.createCounter('kicktalk_api_requests_total', {
@@ -119,8 +117,7 @@ const seventvEmoteUpdates = meter.createCounter('kicktalk_seventv_emote_updates_
 
 const seventvEmoteUpdateDuration = meter.createHistogram('kicktalk_seventv_emote_update_duration_seconds', {
   description: 'Time taken to process 7TV emote updates',
-  unit: 's',
-  boundaries: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+  unit: 's'
 });
 
 const seventvEmoteChanges = meter.createCounter('kicktalk_seventv_emote_changes_total', {
@@ -136,8 +133,7 @@ const chatroomSwitches = meter.createCounter('kicktalk_chatroom_switches_total',
 
 const chatroomSwitchDuration = meter.createHistogram('kicktalk_chatroom_switch_duration_seconds', {
   description: 'Time taken to switch between chatrooms',
-  unit: 's',
-  boundaries: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1]
+  unit: 's'
 });
 
 // 7TV connection tracking
@@ -188,7 +184,7 @@ openHandles.addCallback((observableResult) => {
     observableResult.observe(handles + requests, {
       type: 'total'
     });
-  } catch (error) {
+  } catch (_error) {
     // Fallback if internal APIs are not available
     observableResult.observe(0);
   }
@@ -216,7 +212,7 @@ websocketConnections.addCallback((observableResult) => {
   // Group connections by unique attribute sets and count them
   const connectionCounts = new Map();
   
-  for (const [connectionKey, attributes] of activeConnections) {
+  for (const [_, attributes] of activeConnections) {
     const key = JSON.stringify(attributes);
     connectionCounts.set(key, (connectionCounts.get(key) || 0) + 1);
   }
@@ -229,7 +225,6 @@ websocketConnections.addCallback((observableResult) => {
 
 // GC monitoring setup
 try {
-  const v8 = require('v8');
   const performanceObserver = require('perf_hooks').PerformanceObserver;
   
   // Monitor GC events using Performance Observer
@@ -322,7 +317,7 @@ const MetricsHelper = {
       chatroom_id: chatroomId
     });
     
-    SLOMonitor.recordOperationResult('message_send', success, duration, {
+    SLOMonitor.recordOperationResult('MESSAGE_SEND_DURATION', success, duration, {
       chatroom_id: chatroomId
     });
   },
@@ -444,7 +439,7 @@ const MetricsHelper = {
       
       // SLO monitoring for chatroom switch performance
       SLOMonitor.recordLatency('CHATROOM_SWITCH_DURATION', durationSeconds, attributes);
-      SLOMonitor.recordOperationResult('chatroom_switch', true, durationSeconds, attributes);
+      SLOMonitor.recordOperationResult('CHATROOM_SWITCH_DURATION', true, durationSeconds, attributes);
     }
     
     console.log(`[Metrics] Chatroom switch: ${fromChatroomId || 'none'} → ${toChatroomId || 'none'}, duration: ${duration}ms`);
@@ -501,7 +496,7 @@ const MetricsHelper = {
       ...attributes
     });
     
-    SLOMonitor.recordOperationResult('websocket_connection', success, durationSeconds, {
+    SLOMonitor.recordOperationResult('WEBSOCKET_CONNECTION_TIME', success, durationSeconds, {
       chatroom_id: chatroomId,
       ...attributes
     });

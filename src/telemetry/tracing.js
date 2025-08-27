@@ -14,6 +14,11 @@ try {
   const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
   const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
   const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+  // Views are optional; load defensively to avoid runtime mismatches across package versions
+  let View, ExplicitBucketHistogramAggregation;
+  try {
+    ({ View, ExplicitBucketHistogramAggregation } = require('@opentelemetry/sdk-metrics'));
+  } catch {}
 
 (async () => {
  try {
@@ -26,14 +31,56 @@ try {
      || process.env.OTEL_EXPORTER_OTLP_ENDPOINT
      || '';
 
-   const sdk = new NodeSDK({
-     traceExporter: new OTLPTraceExporter(),
-     metricExporter: new OTLPMetricExporter(),
-     instrumentations: [
-       getNodeAutoInstrumentations({
-         '@opentelemetry/instrumentation-http': {
-           ignoreOutgoingRequestHook: (request) => {
-             try {
+   // Define metric Views for histograms (optional)
+  let histogramViews = undefined;
+  try {
+    if (typeof View === 'function' && typeof ExplicitBucketHistogramAggregation === 'function') {
+      histogramViews = [
+        new View({
+          instrumentName: 'kicktalk_slo_latency_seconds',
+          aggregation: new ExplicitBucketHistogramAggregation([
+            0.001, 0.005, 0.01, 0.02, 0.05, 0.1, 0.2, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0
+          ])
+        }),
+        new View({
+          instrumentName: 'kicktalk_message_send_duration_seconds',
+          aggregation: new ExplicitBucketHistogramAggregation([
+            0.01, 0.05, 0.1, 0.5, 1, 2, 5
+          ])
+        }),
+        new View({
+          instrumentName: 'kicktalk_api_request_duration_seconds',
+          aggregation: new ExplicitBucketHistogramAggregation([
+            0.1, 0.5, 1, 2, 5, 10, 30
+          ])
+        }),
+        new View({
+          instrumentName: 'kicktalk_chatroom_switch_duration_seconds',
+          aggregation: new ExplicitBucketHistogramAggregation([
+            0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1
+          ])
+        }),
+        new View({
+          instrumentName: 'kicktalk_seventv_emote_update_duration_seconds',
+          aggregation: new ExplicitBucketHistogramAggregation([
+            0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1
+          ])
+        })
+      ];
+    }
+  } catch {
+    histogramViews = undefined;
+  }
+
+  const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter(),
+    metricExporter: new OTLPMetricExporter(),
+    ...(histogramViews ? { views: histogramViews } : {}),
+    instrumentations: [
+      getNodeAutoInstrumentations({
+        '@opentelemetry/instrumentation-http': {
+          ignoreOutgoingRequestHook: (request) => {
+            try {
                const host = request?.headers?.host || request?.hostname || '';
                const path = request?.path || '';
                const protocol = request?.protocol || 'https:';
