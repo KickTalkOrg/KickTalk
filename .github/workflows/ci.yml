@@ -129,9 +129,15 @@ jobs:
       - name: Build application
         run: ${{ matrix.package-manager }} run build
 
+      - name: Clean dist before packaging
+        shell: bash
+        run: rm -rf dist
+
       - name: Build Electron app (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
+        env:
+          USE_HARD_LINKS: false
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --linux=AppImage --publish never
@@ -142,6 +148,8 @@ jobs:
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
+        env:
+          USE_HARD_LINKS: false
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --win --publish never
@@ -152,6 +160,8 @@ jobs:
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
+        env:
+          USE_HARD_LINKS: false
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --mac=dmg --publish never
