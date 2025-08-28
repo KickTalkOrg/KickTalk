@@ -10,6 +10,8 @@ files:
   - "!{.env,.env.*,.npmrc,pnpm-lock.yaml}"
 asarUnpack:
   - resources/**
+  - node_modules/@opentelemetry/**
+  - node_modules/.pnpm/**
 win:
   executableName: kicktalk
   icon: resources/icons/win/KickTalk_v1.ico
@@ -42,6 +44,9 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
+includeSubNodeModules: true
+buildDependenciesFromSource: true
+nodeGypRebuild: false
 publish:
   provider: github
   owner: BP602

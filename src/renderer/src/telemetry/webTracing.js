@@ -1316,12 +1316,6 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
         console.warn('[Renderer OTEL]: Failed to apply sampling wrappers:', e?.message || e);
       }
 
-      // Trigger a small fetch under the parent context to validate child spans immediately
-      try {
-        await context.with(activeCtx, async () => {
-          await fetch('https://httpbin.org/get', { method: 'GET', mode: 'cors' }).catch(() => {});
-        });
-      } catch {}
       try { parent.end(); } catch {}
 
       // Smoke test span so you can confirm visibility

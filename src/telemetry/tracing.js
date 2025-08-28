@@ -5,23 +5,69 @@
 * - Keep preload/renderer free of telemetry init.
 */
 try {
- require('dotenv').config();
+  require('dotenv').config();
 } catch {}
 
-  const { NodeSDK } = require('@opentelemetry/sdk-node');
-  const { diag, DiagConsoleLogger, DiagLogLevel } = require('@opentelemetry/api');
-  const { OTLPTraceExporter } = require('@opentelemetry/exporter-trace-otlp-http');
-  const { OTLPMetricExporter } = require('@opentelemetry/exporter-metrics-otlp-http');
-  const { AlwaysOnSampler } = require('@opentelemetry/sdk-trace-base');
-  const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
-  // Views are optional; load defensively to avoid runtime mismatches across package versions
-  let View, ExplicitBucketHistogramAggregation;
+// Best-effort resolver to handle AppImage + asar + pnpm layouts
+// Tries normal require first, then falls back to app.asar.unpacked/node_modules
+function safeRequire(modName) {
   try {
-    ({ View, ExplicitBucketHistogramAggregation } = require('@opentelemetry/sdk-metrics'));
-  } catch {}
+    return require(modName);
+  } catch (e1) {
+    try {
+      const path = require('path');
+      const base = (process.resourcesPath || '').toString();
+      if (base) {
+        const candidate = path.join(base, 'app.asar.unpacked', 'node_modules', modName);
+        return require(candidate);
+      }
+    } catch {}
+    throw e1;
+  }
+}
+
+  // Defer and guard all OpenTelemetry requires. In packaged builds (AppImage),
+  // pnpm's layout and asar can cause resolution issues. We avoid crashing the app
+  // if any telemetry dependency is unavailable by bailing out gracefully.
+  let NodeSDK,
+    diag,
+    DiagConsoleLogger,
+    DiagLogLevel,
+    OTLPTraceExporter,
+    OTLPMetricExporter,
+    AlwaysOnSampler,
+    getNodeAutoInstrumentations,
+    View,
+    ExplicitBucketHistogramAggregation;
+  let __otelReady = true;
+  try {
+    ({ NodeSDK } = safeRequire('@opentelemetry/sdk-node'));
+    ({ diag, DiagConsoleLogger, DiagLogLevel } = safeRequire('@opentelemetry/api'));
+    ({ OTLPTraceExporter } = safeRequire('@opentelemetry/exporter-trace-otlp-http'));
+    ({ OTLPMetricExporter } = safeRequire('@opentelemetry/exporter-metrics-otlp-http'));
+    ({ AlwaysOnSampler } = safeRequire('@opentelemetry/sdk-trace-base'));
+    // Load auto-instrumentations defensively to handle AppImage packaging issues
+    try {
+      ({ getNodeAutoInstrumentations } = safeRequire('@opentelemetry/auto-instrumentations-node'));
+    } catch (error) {
+      console.warn('[Telemetry] Auto-instrumentations not available:', error.message);
+      console.warn('[Telemetry] Continuing with manual instrumentation only...');
+    }
+    // Views are optional; load defensively to avoid runtime mismatches across package versions
+    try {
+      ({ View, ExplicitBucketHistogramAggregation } = safeRequire('@opentelemetry/sdk-metrics'));
+    } catch {}
+  } catch (requireErr) {
+    console.error('[Telemetry] OpenTelemetry modules are not available, disabling telemetry:', requireErr?.message || requireErr);
+    __otelReady = false;
+  }
 
 (async () => {
  try {
+  if (!__otelReady) {
+    module.exports = null;
+    return;
+  }
    if (process.env.OTEL_DIAG_LOG_LEVEL) {
      const level = DiagLogLevel[process.env.OTEL_DIAG_LOG_LEVEL.toUpperCase()] ?? DiagLogLevel.INFO;
      diag.setLogger(new DiagConsoleLogger(), level);
@@ -72,12 +118,11 @@ try {
     histogramViews = undefined;
   }
 
-  const sdk = new NodeSDK({
-    traceExporter: new OTLPTraceExporter(),
-    metricExporter: new OTLPMetricExporter(),
-    ...(histogramViews ? { views: histogramViews } : {}),
-    instrumentations: [
-      getNodeAutoInstrumentations({
+  // Build instrumentations array conditionally
+  const instrumentations = [];
+  if (getNodeAutoInstrumentations && typeof getNodeAutoInstrumentations === 'function') {
+    try {
+      const autoInstrumentations = getNodeAutoInstrumentations({
         '@opentelemetry/instrumentation-http': {
           ignoreOutgoingRequestHook: (request) => {
             try {
@@ -91,10 +136,23 @@ try {
              return false;
            }
          }
-       })
-     ],
-     traceSampler: new AlwaysOnSampler()
-   });
+       });
+      instrumentations.push(...autoInstrumentations);
+      console.log('[Telemetry] Auto-instrumentations loaded successfully');
+    } catch (error) {
+      console.warn('[Telemetry] Failed to configure auto-instrumentations:', error.message);
+    }
+  } else {
+    console.log('[Telemetry] Auto-instrumentations not available - using manual instrumentation only');
+  }
+
+  const sdk = new NodeSDK({
+    traceExporter: new OTLPTraceExporter(),
+    metricExporter: new OTLPMetricExporter(),
+    ...(histogramViews ? { views: histogramViews } : {}),
+    instrumentations,
+    traceSampler: new AlwaysOnSampler()
+  });
 
    const startResult = sdk.start();
    if (startResult && typeof startResult.then === 'function') {

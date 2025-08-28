@@ -167,10 +167,19 @@ try {
     getSLOTarget: metricsModule.MetricsHelper?.getSLOTarget || (() => {}),
     getAllSLOTargets: metricsModule.MetricsHelper?.getAllSLOTargets || (() => {}),
     updatePerformanceBudget: metricsModule.MetricsHelper?.updatePerformanceBudget || (() => {}),
+    // Error monitoring methods
+    recordError: metricsModule.MetricsHelper?.recordError || (() => {}),
+    recordErrorRecovery: metricsModule.MetricsHelper?.recordErrorRecovery || (() => {}),
+    executeWithRetry: metricsModule.MetricsHelper?.executeWithRetry || (async (op) => await op()),
+    executeNetworkRequestWithRetry: metricsModule.MetricsHelper?.executeNetworkRequestWithRetry || (async (op) => await op()),
+    executeWebSocketWithRetry: metricsModule.MetricsHelper?.executeWebSocketWithRetry || (async (op) => await op()),
+    executeSevenTVWithRetry: metricsModule.MetricsHelper?.executeSevenTVWithRetry || (async (op) => await op()),
+    getCircuitBreaker: metricsModule.MetricsHelper?.getCircuitBreaker || (() => ({})),
+    getErrorStatistics: metricsModule.MetricsHelper?.getErrorStatistics || (() => ({})),
   };
 } catch (error) {
   console.warn('[Telemetry]: Failed to load metrics helper:', error.message);
-  // Fallback no-op metrics
+  // Fallback no-op metrics (Phase 4 methods)
   metrics = {
     incrementOpenWindows: () => {},
     decrementOpenWindows: () => {},
@@ -199,7 +208,37 @@ try {
     recordWebSocketConnectionDuration: () => {},
     getSLOTarget: () => ({}),
     getAllSLOTargets: () => ({}),
-    updatePerformanceBudget: () => {}
+    updatePerformanceBudget: () => {},
+    // Error monitoring no-ops
+    recordError: () => ({}),
+    recordErrorRecovery: () => {},
+    executeWithRetry: async (op) => await op(),
+    executeNetworkRequestWithRetry: async (op) => await op(),
+    executeWebSocketWithRetry: async (op) => await op(),
+    executeSevenTVWithRetry: async (op) => await op(),
+    getCircuitBreaker: () => ({}),
+    getErrorStatistics: () => ({}),
+    // User analytics no-ops
+    startUserSession: () => ({}),
+    endUserSession: () => {},
+    recordUserAction: () => {},
+    recordFeatureUsage: () => {},
+    recordChatEngagement: () => {},
+    recordConnectionQuality: () => {},
+    getUserAnalyticsData: () => ({}),
+    getUserActionTypes: () => ({}),
+    // Performance budget no-ops
+    monitorUIInteraction: () => 'good',
+    monitorComponentRender: () => 'good',
+    monitorWebSocketLatency: () => 'good',
+    monitorMemoryUsage: () => 'good',
+    monitorCPUUsage: () => 'good',
+    monitorBundleSize: () => 'good',
+    getPerformanceData: () => ({}),
+    // Memory management no-ops
+    cleanupOldSessions: () => ({ cleaned: 0, remaining: {} }),
+    forceCleanupSessions: () => ({}),
+    getAnalyticsMemoryStats: () => ({ total_estimated_bytes: 0 })
   };
 }
 
@@ -1678,6 +1717,130 @@ ipcMain.handle("telemetry:recordChatroomSwitch", (e, { fromChatroomId, toChatroo
   if (isTelemetryEnabled()) {
     metrics.recordChatroomSwitch(fromChatroomId, toChatroomId, duration);
   }
+});
+
+// Phase 4: User Analytics IPC handlers
+ipcMain.handle("telemetry:startUserSession", (e, { sessionId, userId = null }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.startUserSession(sessionId, userId);
+  }
+  return {};
+});
+
+ipcMain.handle("telemetry:endUserSession", (e, { sessionId }) => {
+  if (isTelemetryEnabled()) {
+    metrics.endUserSession(sessionId);
+  }
+});
+
+ipcMain.handle("telemetry:recordUserAction", (e, { sessionId, actionType, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.recordUserAction(sessionId, actionType, context);
+  }
+});
+
+ipcMain.handle("telemetry:recordFeatureUsage", (e, { sessionId, featureName, action, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.recordFeatureUsage(sessionId, featureName, action, context);
+  }
+});
+
+ipcMain.handle("telemetry:recordChatEngagement", (e, { sessionId, engagementSeconds }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.recordChatEngagement(sessionId, engagementSeconds);
+  }
+});
+
+ipcMain.handle("telemetry:recordConnectionQuality", (e, { sessionId, quality, eventType }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.recordConnectionQuality(sessionId, quality, eventType);
+  }
+});
+
+ipcMain.handle("telemetry:getUserAnalyticsData", (e) => {
+  if (isTelemetryEnabled()) {
+    return metrics.getUserAnalyticsData();
+  }
+  return {};
+});
+
+ipcMain.handle("telemetry:getUserActionTypes", (e) => {
+  if (isTelemetryEnabled()) {
+    return metrics.getUserActionTypes();
+  }
+  return {};
+});
+
+// Phase 4: Performance Budget IPC handlers
+ipcMain.handle("telemetry:monitorUIInteraction", (e, { interactionType, executionTime, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorUIInteraction(interactionType, executionTime, context);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:monitorComponentRender", (e, { componentName, renderTime, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorComponentRender(componentName, renderTime, context);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:monitorWebSocketLatency", (e, { latency, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorWebSocketLatency(latency, context);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:monitorMemoryUsage", (e, { memoryMB, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorMemoryUsage(memoryMB, context);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:monitorCPUUsage", (e, { cpuPercent, context = {} }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorCPUUsage(cpuPercent, context);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:monitorBundleSize", (e, { bundleName, sizeKB }) => {
+  if (isTelemetryEnabled()) {
+    return metrics.monitorBundleSize(bundleName, sizeKB);
+  }
+  return 'good';
+});
+
+ipcMain.handle("telemetry:getPerformanceData", (e) => {
+  if (isTelemetryEnabled()) {
+    return metrics.getPerformanceData();
+  }
+  return {};
+});
+
+// Memory management IPC handlers
+ipcMain.handle("telemetry:cleanupOldSessions", (e, { maxAgeMs = 24 * 60 * 60 * 1000 } = {}) => {
+  if (isTelemetryEnabled()) {
+    return metrics.cleanupOldSessions(maxAgeMs);
+  }
+  return { cleaned: 0, remaining: {} };
+});
+
+ipcMain.handle("telemetry:forceCleanupSessions", (e) => {
+  if (isTelemetryEnabled()) {
+    return metrics.forceCleanupSessions();
+  }
+  return {};
+});
+
+ipcMain.handle("telemetry:getAnalyticsMemoryStats", (e) => {
+  if (isTelemetryEnabled()) {
+    return metrics.getAnalyticsMemoryStats();
+  }
+  return { total_estimated_bytes: 0 };
 });
 
 // Quit when all windows are closed, except on macOS. There, it's common

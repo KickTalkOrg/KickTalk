@@ -1,6 +1,10 @@
 // KickTalk metrics implementation
 const { metrics } = require('@opentelemetry/api');
 const { SLOMonitor } = require('./slo-monitoring');
+const { ErrorMonitor } = require('./error-monitoring');
+const { RetryUtils } = require('./retry-utils');
+const { UserAnalytics, USER_ACTION_TYPES } = require('./user-analytics');
+const { performanceBudgetMonitor } = require('./performance-budget');
 
 // Ensure a meter exists (provider is configured in instrumentation.js)
 const pkg = require('../../package.json');
@@ -513,6 +517,122 @@ const MetricsHelper = {
 
   updatePerformanceBudget(operation, usedPercent) {
     SLOMonitor.updatePerformanceBudget(operation, usedPercent);
+  },
+
+  // Error monitoring methods
+  recordError(error, context = {}) {
+    return ErrorMonitor.recordError(error, context);
+  },
+
+  recordErrorRecovery(errorId, recoveryAction, success, duration = 0) {
+    ErrorMonitor.recordRecovery(errorId, recoveryAction, success, duration);
+  },
+
+  async executeWithRetry(operation, options = {}) {
+    return await RetryUtils.retry(operation, {
+      component: 'metrics_helper',
+      ...options
+    });
+  },
+
+  async executeNetworkRequestWithRetry(requestFn, options = {}) {
+    return await RetryUtils.retryNetworkRequest(requestFn, options);
+  },
+
+  async executeWebSocketWithRetry(connectFn, options = {}) {
+    return await RetryUtils.retryWebSocketConnection(connectFn, options);
+  },
+
+  async executeSevenTVWithRetry(operationFn, options = {}) {
+    return await RetryUtils.retrySevenTVOperation(operationFn, options);
+  },
+
+  getCircuitBreaker(name, options = {}) {
+    return ErrorMonitor.getCircuitBreaker(name, options);
+  },
+
+  getErrorStatistics() {
+    return ErrorMonitor.getErrorStatistics();
+  },
+
+  resetErrorStatistics() {
+    ErrorMonitor.resetStatistics();
+  },
+
+  // User analytics methods
+  startUserSession(sessionId, userId = null) {
+    return UserAnalytics.startSession(sessionId, userId);
+  },
+
+  endUserSession(sessionId) {
+    return UserAnalytics.endSession(sessionId);
+  },
+
+  recordUserAction(sessionId, actionType, context = {}) {
+    return UserAnalytics.recordUserAction(sessionId, actionType, context);
+  },
+
+  recordFeatureUsage(sessionId, featureName, action, context = {}) {
+    return UserAnalytics.recordFeatureUsage(sessionId, featureName, action, context);
+  },
+
+  recordChatEngagement(sessionId, engagementSeconds) {
+    return UserAnalytics.recordChatEngagement(sessionId, engagementSeconds);
+  },
+
+  recordConnectionQuality(sessionId, quality, eventType) {
+    return UserAnalytics.recordConnectionQuality(sessionId, quality, eventType);
+  },
+
+  getUserAnalyticsData() {
+    return UserAnalytics.getAnalyticsData();
+  },
+
+  // Performance budget methods
+  monitorUIInteraction(interactionType, executionTime, context = {}) {
+    return performanceBudgetMonitor.monitorUIInteraction(interactionType, executionTime, context);
+  },
+
+  monitorComponentRender(componentName, renderTime, context = {}) {
+    return performanceBudgetMonitor.monitorComponentRender(componentName, renderTime, context);
+  },
+
+  monitorWebSocketLatency(latency, context = {}) {
+    return performanceBudgetMonitor.monitorWebSocketLatency(latency, context);
+  },
+
+  monitorMemoryUsage(memoryMB, context = {}) {
+    return performanceBudgetMonitor.monitorMemoryUsage(memoryMB, context);
+  },
+
+  monitorCPUUsage(cpuPercent, context = {}) {
+    return performanceBudgetMonitor.monitorCPUUsage(cpuPercent, context);
+  },
+
+  monitorBundleSize(bundleName, sizeKB) {
+    return performanceBudgetMonitor.monitorBundleSize(bundleName, sizeKB);
+  },
+
+  getPerformanceData() {
+    return performanceBudgetMonitor.getPerformanceData();
+  },
+
+  // Action type constants for consistency
+  getUserActionTypes() {
+    return USER_ACTION_TYPES;
+  },
+
+  // Memory management methods
+  cleanupOldSessions(maxAgeMs = 24 * 60 * 60 * 1000) {
+    return UserAnalytics.cleanupOldSessions(maxAgeMs);
+  },
+
+  forceCleanupSessions() {
+    return UserAnalytics.forceCleanup();
+  },
+
+  getAnalyticsMemoryStats() {
+    return UserAnalytics.getMemoryStats();
   }
 };
 

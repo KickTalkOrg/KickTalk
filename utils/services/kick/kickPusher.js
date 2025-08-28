@@ -2,23 +2,87 @@ class KickPusher extends EventTarget {
   constructor(chatroomNumber, streamerId, streamerName = null) {
     super();
     this.reconnectDelay = 5000;
+    this.maxReconnectDelay = 60000; // 1 minute max
+    this.reconnectMultiplier = 1.5;
+    this.maxReconnectAttempts = 10;
+    this.reconnectAttempts = 0;
     this.chat = null;
     this.chatroomNumber = chatroomNumber;
     this.streamerId = streamerId;
     this.streamerName = streamerName;
     this.shouldReconnect = true;
     this.socketId = null;
+    this.connectionStartTime = null;
+    this.lastErrorTime = null;
+    this.consecutiveErrors = 0;
+    // Circuit breaker will be managed by error monitoring system
+    this.circuitBreakerName = `kick_websocket_${chatroomNumber}`;
   }
 
-  connect() {
+  async connect() {
     if (!this.shouldReconnect) {
       console.log("Not connecting to chatroom. Disabled reconnect.");
       return;
     }
-    console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
-    this.chat = new WebSocket(
-      "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
-    );
+    
+    this.connectionStartTime = Date.now();
+    console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId} (attempt ${this.reconnectAttempts + 1}/${this.maxReconnectAttempts})`);
+    
+    try {
+      // Use error monitoring system for WebSocket connection with circuit breaker
+      await this.executeWithErrorMonitoring(async () => {
+        this.chat = new WebSocket(
+          "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
+        );
+        this.setupWebSocketHandlers();
+      }, 'websocket_connect');
+      
+    } catch (error) {
+      console.error(`Failed to connect to chatroom ${this.chatroomNumber}:`, error);
+      this.handleConnectionFailure(error);
+    }
+  }
+
+  async executeWithErrorMonitoring(operation, operationType) {
+    try {
+      // Record error monitoring context
+      const context = {
+        operation: operationType,
+        component: 'kick_websocket',
+        chatroom_id: this.chatroomNumber,
+        streamer_id: this.streamerId,
+        streamer_name: this.streamerName,
+        reconnect_attempt: this.reconnectAttempts
+      };
+
+      // Use main process error monitoring if available
+      if (window.app?.telemetry?.executeWebSocketWithRetry) {
+        return await window.app.telemetry.executeWebSocketWithRetry(operation, {
+          operationName: operationType,
+          circuitBreakerName: this.circuitBreakerName,
+          chatroomId: this.chatroomNumber,
+          context
+        });
+      } else {
+        // Fallback to direct execution
+        return await operation();
+      }
+    } catch (error) {
+      // Record error in monitoring system
+      if (window.app?.telemetry?.recordError) {
+        window.app.telemetry.recordError(error, {
+          operation: operationType,
+          component: 'kick_websocket',
+          chatroom_id: this.chatroomNumber,
+          streamer_id: this.streamerId,
+          reconnect_attempt: this.reconnectAttempts
+        });
+      }
+      throw error;
+    }
+  }
+
+  setupWebSocketHandlers() {
 
     this.dispatchEvent(
       new CustomEvent("connection", {
@@ -31,13 +95,25 @@ class KickPusher extends EventTarget {
     );
 
     this.chat.addEventListener("open", async () => {
-      console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
+      const connectionDuration = Date.now() - this.connectionStartTime;
+      console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber} (${connectionDuration}ms)`);
       
-      // Record WebSocket connection
+      // Reset error tracking on successful connection
+      this.reconnectAttempts = 0;
+      this.consecutiveErrors = 0;
+      this.reconnectDelay = 5000; // Reset to initial delay
+      
+      // Record successful WebSocket connection with duration
       try {
         const streamerName = this.streamerName || `chatroom_${this.chatroomNumber}`;
         console.log(`[Telemetry] WebSocket connected - chatroomId: ${this.chatroomNumber}, streamerId: ${this.streamerId}, streamerName: ${streamerName}`);
+        
+        // Record connection success and duration
         await window.app?.telemetry?.recordWebSocketConnection?.(this.chatroomNumber, this.streamerId, true, streamerName);
+        await window.app?.telemetry?.recordWebSocketConnectionDuration?.(connectionDuration, this.chatroomNumber, true, {
+          streamer_name: streamerName,
+          reconnect_attempt: this.reconnectAttempts
+        });
       } catch (error) {
         console.warn('[Telemetry]: Failed to record WebSocket connection:', error);
       }
@@ -67,19 +143,46 @@ class KickPusher extends EventTarget {
     });
 
     this.chat.addEventListener("error", (error) => {
-      console.log(`Error occurred: ${error.message}`);
+      this.consecutiveErrors++;
+      this.lastErrorTime = Date.now();
       
-      // Record connection error
+      console.error(`WebSocket error for chatroom ${this.chatroomNumber} (consecutive: ${this.consecutiveErrors}):`, error.message || error);
+      
+      // Record comprehensive error information
       try {
-        window.app?.telemetry?.recordConnectionError?.(this.chatroomNumber, error.message || 'unknown');
+        const errorContext = {
+          operation: 'websocket_error',
+          component: 'kick_websocket',
+          chatroom_id: this.chatroomNumber,
+          streamer_id: this.streamerId,
+          streamer_name: this.streamerName,
+          consecutive_errors: this.consecutiveErrors,
+          reconnect_attempts: this.reconnectAttempts,
+          connection_state: this.chat?.readyState || 'unknown',
+          error_type: error.type || 'websocket_error'
+        };
+
+        // Record error using enhanced error monitoring
+        if (window.app?.telemetry?.recordError) {
+          window.app.telemetry.recordError(error, errorContext);
+        } else {
+          // Fallback to basic error recording
+          window.app?.telemetry?.recordConnectionError?.(this.chatroomNumber, error.message || 'unknown');
+        }
       } catch (telemetryError) {
         console.warn('[Telemetry]: Failed to record connection error:', telemetryError);
       }
       
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
+      
+      // Trigger connection failure handling if too many consecutive errors
+      if (this.consecutiveErrors >= 3) {
+        console.warn(`Too many consecutive errors (${this.consecutiveErrors}) for chatroom ${this.chatroomNumber}`);
+        this.handleConnectionFailure(error);
+      }
     });
 
-    this.chat.addEventListener("close", () => {
+    this.chat.addEventListener("close", async () => {
       console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
       
       // Record WebSocket disconnection
@@ -92,19 +195,68 @@ class KickPusher extends EventTarget {
 
       this.dispatchEvent(new Event("close"));
 
-      if (this.shouldReconnect) {
-        setTimeout(() => {
-          console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
+      if (this.shouldReconnect && this.reconnectAttempts < this.maxReconnectAttempts) {
+        this.reconnectAttempts++;
+        
+        // Calculate exponential backoff delay
+        const calculatedDelay = Math.min(
+          this.reconnectDelay * Math.pow(this.reconnectMultiplier, this.reconnectAttempts - 1),
+          this.maxReconnectDelay
+        );
+        
+        setTimeout(async () => {
+          console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber} (attempt ${this.reconnectAttempts}/${this.maxReconnectAttempts}, delay: ${calculatedDelay}ms)`);
           
-          // Record reconnection attempt
+          // Record reconnection attempt with enhanced context and user impact
           try {
-            window.app?.telemetry?.recordReconnection?.(this.chatroomNumber, 'websocket_close');
+            const context = {
+              chatroom_id: this.chatroomNumber,
+              reconnect_attempt: this.reconnectAttempts,
+              max_attempts: this.maxReconnectAttempts,
+              delay_ms: calculatedDelay,
+              consecutive_errors: this.consecutiveErrors
+            };
+            
+            if (window.app?.telemetry?.recordError) {
+              // Record as reconnection context for error correlation
+              window.app.telemetry.recordError(new Error('WebSocket reconnection attempt'), {
+                operation: 'websocket_reconnect',
+                component: 'kick_websocket',
+                ...context
+              });
+            } else {
+              window.app?.telemetry?.recordReconnection?.(this.chatroomNumber, 'websocket_close');
+            }
+            
+            // Record connection quality impact on user experience (Phase 4)
+            if (window.userAnalytics) {
+              const qualityScore = this.reconnectAttempts > 3 ? 2 : this.reconnectAttempts > 1 ? 4 : 6;
+              await window.userAnalytics.recordConnectionQuality(qualityScore, 'websocket_reconnect');
+            }
           } catch (error) {
             console.warn('[Telemetry]: Failed to record reconnection:', error);
           }
           
-          this.connect();
-        }, this.reconnectDelay);
+          await this.connect();
+        }, calculatedDelay);
+      } else if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+        console.error(`Max reconnection attempts (${this.maxReconnectAttempts}) reached for chatroom ${this.chatroomNumber}`);
+        
+        // Record critical connection failure impact (Phase 4)
+        if (window.userAnalytics) {
+          try {
+            await window.userAnalytics.recordConnectionQuality(1, 'websocket_failure_exhausted');
+          } catch (error) {
+            console.warn('[User Analytics]: Failed to record connection failure:', error);
+          }
+        }
+        
+        this.dispatchEvent(new CustomEvent("max_reconnects_reached", { 
+          detail: { 
+            chatroomNumber: this.chatroomNumber,
+            attempts: this.reconnectAttempts 
+          }
+        }));
       } else {
         console.log("Not reconnecting - connection was closed intentionally");
       }
@@ -253,6 +405,70 @@ class KickPusher extends EventTarget {
       }
     });
   }
+
+  handleConnectionFailure(error) {
+    console.error(`Connection failure for chatroom ${this.chatroomNumber}:`, error.message || error);
+    
+    // Record comprehensive failure context
+    try {
+      const context = {
+        operation: 'websocket_connection_failure',
+        component: 'kick_websocket',
+        chatroom_id: this.chatroomNumber,
+        streamer_id: this.streamerId,
+        streamer_name: this.streamerName,
+        consecutive_errors: this.consecutiveErrors,
+        reconnect_attempts: this.reconnectAttempts,
+        max_attempts: this.maxReconnectAttempts,
+        failure_reason: error.message || 'unknown'
+      };
+
+      if (window.app?.telemetry?.recordError) {
+        window.app.telemetry.recordError(error, context);
+      }
+    } catch (telemetryError) {
+      console.warn('[Telemetry]: Failed to record connection failure:', telemetryError);
+    }
+
+    // Dispatch failure event for UI handling
+    this.dispatchEvent(new CustomEvent("connection_failure", {
+      detail: {
+        error,
+        chatroomNumber: this.chatroomNumber,
+        consecutiveErrors: this.consecutiveErrors,
+        reconnectAttempts: this.reconnectAttempts
+      }
+    }));
+
+    // If we're at max attempts, stop trying
+    if (this.reconnectAttempts >= this.maxReconnectAttempts) {
+      console.error(`Stopping reconnection attempts for chatroom ${this.chatroomNumber}`);
+      this.shouldReconnect = false;
+    }
+  }
+
+  // Method to reset connection state (useful for recovery)
+  resetConnectionState() {
+    this.reconnectAttempts = 0;
+    this.consecutiveErrors = 0;
+    this.reconnectDelay = 5000;
+    this.shouldReconnect = true;
+    console.log(`Connection state reset for chatroom ${this.chatroomNumber}`);
+  }
+
+  // Method to get connection health status
+  getConnectionHealth() {
+    return {
+      isConnected: this.chat?.readyState === WebSocket.OPEN,
+      reconnectAttempts: this.reconnectAttempts,
+      consecutiveErrors: this.consecutiveErrors,
+      shouldReconnect: this.shouldReconnect,
+      chatroomNumber: this.chatroomNumber,
+      lastErrorTime: this.lastErrorTime,
+      connectionStartTime: this.connectionStartTime
+    };
+  }
+
   close() {
     console.log(`Closing connection for chatroom ${this.chatroomNumber}`);
     this.shouldReconnect = false;

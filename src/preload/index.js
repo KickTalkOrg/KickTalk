@@ -461,6 +461,48 @@ if (process.contextIsolated) {
           ipcRenderer.invoke("telemetry:recordSevenTVEmoteChanges", { chatroomId, added, removed, updated, setType }),
         recordChatroomSwitch: (fromChatroomId, toChatroomId, duration) =>
           ipcRenderer.invoke("telemetry:recordChatroomSwitch", { fromChatroomId, toChatroomId, duration }),
+        
+        // Phase 4: User Analytics methods
+        startUserSession: (sessionId, userId) =>
+          ipcRenderer.invoke("telemetry:startUserSession", { sessionId, userId }),
+        endUserSession: (sessionId) =>
+          ipcRenderer.invoke("telemetry:endUserSession", { sessionId }),
+        recordUserAction: (sessionId, actionType, context) =>
+          ipcRenderer.invoke("telemetry:recordUserAction", { sessionId, actionType, context }),
+        recordFeatureUsage: (sessionId, featureName, action, context) =>
+          ipcRenderer.invoke("telemetry:recordFeatureUsage", { sessionId, featureName, action, context }),
+        recordChatEngagement: (sessionId, engagementSeconds) =>
+          ipcRenderer.invoke("telemetry:recordChatEngagement", { sessionId, engagementSeconds }),
+        recordConnectionQuality: (sessionId, quality, eventType) =>
+          ipcRenderer.invoke("telemetry:recordConnectionQuality", { sessionId, quality, eventType }),
+        getUserAnalyticsData: () =>
+          ipcRenderer.invoke("telemetry:getUserAnalyticsData"),
+        getUserActionTypes: () =>
+          ipcRenderer.invoke("telemetry:getUserActionTypes"),
+        
+        // Phase 4: Performance Budget methods
+        monitorUIInteraction: (interactionType, executionTime, context) =>
+          ipcRenderer.invoke("telemetry:monitorUIInteraction", { interactionType, executionTime, context }),
+        monitorComponentRender: (componentName, renderTime, context) =>
+          ipcRenderer.invoke("telemetry:monitorComponentRender", { componentName, renderTime, context }),
+        monitorWebSocketLatency: (latency, context) =>
+          ipcRenderer.invoke("telemetry:monitorWebSocketLatency", { latency, context }),
+        monitorMemoryUsage: (memoryMB, context) =>
+          ipcRenderer.invoke("telemetry:monitorMemoryUsage", { memoryMB, context }),
+        monitorCPUUsage: (cpuPercent, context) =>
+          ipcRenderer.invoke("telemetry:monitorCPUUsage", { cpuPercent, context }),
+        monitorBundleSize: (bundleName, sizeKB) =>
+          ipcRenderer.invoke("telemetry:monitorBundleSize", { bundleName, sizeKB }),
+        getPerformanceData: () =>
+          ipcRenderer.invoke("telemetry:getPerformanceData"),
+        
+        // Memory management methods
+        cleanupOldSessions: (maxAgeMs) =>
+          ipcRenderer.invoke("telemetry:cleanupOldSessions", { maxAgeMs }),
+        forceCleanupSessions: () =>
+          ipcRenderer.invoke("telemetry:forceCleanupSessions"),
+        getAnalyticsMemoryStats: () =>
+          ipcRenderer.invoke("telemetry:getAnalyticsMemoryStats"),
       },
     });
    } catch (error) {

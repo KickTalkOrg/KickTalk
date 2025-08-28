@@ -16,8 +16,19 @@ const copyTelemetryPlugin = () => ({
       mkdirSync(outTelemetry, { recursive: true });
     }
     
-    // Copy telemetry files
-    const files = ['index.js', 'metrics.js', 'tracing.js', 'instrumentation.js', 'prometheus-server.js', 'slo-monitoring.js'];
+    // Copy telemetry files (including Phase 4 files)
+    const files = [
+      'index.js', 
+      'metrics.js', 
+      'tracing.js', 
+      'instrumentation.js', 
+      'prometheus-server.js', 
+      'slo-monitoring.js',
+      'error-monitoring.js',
+      'retry-utils.js', 
+      'user-analytics.js',
+      'performance-budget.js'
+    ];
     files.forEach(file => {
       const src = join(srcTelemetry, file);
       const dest = join(outTelemetry, file);
@@ -36,12 +47,28 @@ const copyTelemetryPlugin = () => ({
 export default defineConfig({
   main: {
     plugins: [
-      externalizeDepsPlugin({ exclude: ["electron-store", "electron-util"] }),
+      externalizeDepsPlugin({ 
+        exclude: [
+          "electron-store", 
+          "electron-util",
+          "electron-updater",
+          "electron-log",
+          "dotenv"
+        ] 
+      }),
       copyTelemetryPlugin()
     ],
   },
   preload: {
-    plugins: [externalizeDepsPlugin({ exclude: ["electron-store", "electron-util"] })],
+    plugins: [externalizeDepsPlugin({ 
+      exclude: [
+        "electron-store", 
+        "electron-util",
+        "electron-updater",
+        "electron-log",
+        "dotenv"
+      ] 
+    })],
   },
   renderer: {
     build: {
