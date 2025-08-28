@@ -136,7 +136,7 @@ jobs:
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --linux=AppImage --publish never
           else
-            npm exec --yes electron-builder -- --linux=AppImage --publish never
+            npx --no-install electron-builder --linux=AppImage --publish never
           fi
         
       - name: Build Electron app (Windows)
@@ -146,7 +146,7 @@ jobs:
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --win --publish never
           else
-            npm exec --yes electron-builder -- --win --publish never
+            npx --no-install electron-builder --win --publish never
           fi
 
       - name: Build Electron app (macOS)
@@ -156,7 +156,7 @@ jobs:
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --mac=dmg --publish never
           else
-            npm exec --yes electron-builder -- --mac=dmg --publish never
+            npx --no-install electron-builder --mac=dmg --publish never
           fi
 
       - name: Upload artifacts (Windows)
