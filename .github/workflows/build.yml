@@ -83,6 +83,10 @@ jobs:
       - name: Build application
         run: ${{ matrix.package-manager }} run build
 
+      - name: Clean dist before packaging
+        shell: bash
+        run: rm -rf dist
+
       - name: Build Electron app
         shell: bash
         run: |
@@ -99,6 +103,8 @@ jobs:
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           # This is used for uploading release assets to github
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Avoid hardlink-related EEXIST issues on runners
+          USE_HARD_LINKS: false
           
           # Grafana Cloud OTLP telemetry injection for production builds
           MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT }}
