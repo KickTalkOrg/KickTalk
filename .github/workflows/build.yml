@@ -89,7 +89,7 @@ jobs:
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder ${{ matrix.args }}
           else
-            npx electron-builder ${{ matrix.args }}
+            npm exec --yes electron-builder -- ${{ matrix.args }}
           fi
         env:
           # These are used for auto updates signing
