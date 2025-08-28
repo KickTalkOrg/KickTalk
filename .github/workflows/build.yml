@@ -99,6 +99,19 @@ jobs:
           # CSC_KEY_PASSWORD: ${{ secrets.CSC_KEY_PASSWORD }}
           # This is used for uploading release assets to github
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          
+          # Grafana Cloud OTLP telemetry injection for production builds
+          MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT: ${{ secrets.MAIN_VITE_OTEL_EXPORTER_OTLP_ENDPOINT }}
+          MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS: ${{ secrets.MAIN_VITE_OTEL_EXPORTER_OTLP_HEADERS }}
+          MAIN_VITE_OTEL_SERVICE_NAME: kicktalk
+          
+          # Production telemetry configuration
+          OTEL_RESOURCE_ATTRIBUTES: deployment.environment=production,service.namespace=kicktalk,service.version=${{ github.ref_name }}
+          OTEL_EXPORTER_OTLP_PROTOCOL: http/protobuf
+          OTEL_NODE_RESOURCE_DETECTORS: env,host,os,serviceinstance
+          MAIN_VITE_OTEL_DEPLOYMENT_ENV: production
+          NODE_ENV: production
+
 
       - name: Rename artifacts with package manager suffix
         shell: bash

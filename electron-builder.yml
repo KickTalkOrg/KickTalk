@@ -1,4 +1,4 @@
-appId: com.kicktalk.app
+appId: com.bp602.kicktalk.app
 productName: kicktalk
 directories:
   buildResources: build

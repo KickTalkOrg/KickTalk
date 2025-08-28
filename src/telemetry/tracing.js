@@ -8,9 +8,29 @@ try {
   require('dotenv').config();
 } catch {}
 
-// Best-effort resolver to handle AppImage + asar + pnpm layouts
-// Tries normal require first, then falls back to app.asar.unpacked/node_modules
-function safeRequire(modName) {
+// Check if telemetry is enabled in user settings
+let telemetryEnabled = false;
+try {
+  const StoreMod = require('electron-store');
+  const ElectronStore = StoreMod && StoreMod.default ? StoreMod.default : StoreMod;
+  const store = new ElectronStore();
+  const telemetrySettings = store.get('telemetry', { enabled: false });
+  telemetryEnabled = telemetrySettings.enabled === true;
+  
+  if (!telemetryEnabled) {
+    console.log('[Telemetry] Telemetry disabled by user settings, skipping initialization');
+    module.exports = null;
+  }
+} catch (error) {
+  console.warn('[Telemetry] Could not check user settings:', error.message);
+  module.exports = null;
+}
+
+// Only proceed with telemetry setup if enabled
+if (telemetryEnabled) {
+  // Best-effort resolver to handle AppImage + asar + pnpm layouts
+  // Tries normal require first, then falls back to app.asar.unpacked/node_modules
+  function safeRequire(modName) {
   try {
     return require(modName);
   } catch (e1) {
@@ -62,9 +82,9 @@ function safeRequire(modName) {
     __otelReady = false;
   }
 
-(async () => {
- try {
-  if (!__otelReady) {
+  (async () => {
+   try {
+    if (!__otelReady) {
     module.exports = null;
     return;
   }
@@ -146,29 +166,30 @@ function safeRequire(modName) {
     console.log('[Telemetry] Auto-instrumentations not available - using manual instrumentation only');
   }
 
-  const sdk = new NodeSDK({
-    traceExporter: new OTLPTraceExporter(),
-    metricExporter: new OTLPMetricExporter(),
-    ...(histogramViews ? { views: histogramViews } : {}),
-    instrumentations,
-    traceSampler: new AlwaysOnSampler()
-  });
+    const sdk = new NodeSDK({
+      traceExporter: new OTLPTraceExporter(),
+      metricExporter: new OTLPMetricExporter(),
+      ...(histogramViews ? { views: histogramViews } : {}),
+      instrumentations,
+      traceSampler: new AlwaysOnSampler()
+    });
 
-   const startResult = sdk.start();
-   if (startResult && typeof startResult.then === 'function') {
-     await startResult;
+     const startResult = sdk.start();
+     if (startResult && typeof startResult.then === 'function') {
+       await startResult;
+     }
+
+     const shutdown = async () => {
+       try { await sdk.shutdown(); } catch {}
+     };
+     process.on('SIGTERM', shutdown);
+     process.on('SIGINT', shutdown);
+     process.on('exit', shutdown);
+
+     module.exports = sdk;
+   } catch (e) {
+     console.error('[OTEL]: NodeSDK bootstrap failed:', e?.stack || e?.message || e);
+     module.exports = null;
    }
-
-   const shutdown = async () => {
-     try { await sdk.shutdown(); } catch {}
-   };
-   process.on('SIGTERM', shutdown);
-   process.on('SIGINT', shutdown);
-   process.on('exit', shutdown);
-
-   module.exports = sdk;
- } catch (e) {
-   console.error('[OTEL]: NodeSDK bootstrap failed:', e?.stack || e?.message || e);
-   module.exports = null;
- }
-})();
+  })();
+}

@@ -8,16 +8,37 @@ import { XMLHttpRequestInstrumentation } from '@opentelemetry/instrumentation-xm
 import { SimpleSpanProcessor, AlwaysOnSampler } from '@opentelemetry/sdk-trace-base';
 import { context, trace } from '@opentelemetry/api';
 
-// CRITICAL: Install WebSocket instrumentation IMMEDIATELY before any other code runs
-// This must happen synchronously at module load time, not after async telemetry setup
-console.log('[DEBUG] webTracing.js module loading - checking WebSocket availability');
+// Check if telemetry is enabled before doing anything
+let telemetryEnabled = false;
+const readSettingsEnabled = () => {
+  try {
+    const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+    return settings?.telemetry?.enabled === true;
+  } catch {
+    return false;
+  }
+};
+try {
+  // Get telemetry settings from localStorage (synced from main process)
+  telemetryEnabled = readSettingsEnabled();
+  
+  if (!telemetryEnabled) {
+    console.log('[Renderer OTEL]: Telemetry disabled by user settings, skipping all initialization');
+  }
+} catch (error) {
+  console.warn('[Renderer OTEL]: Could not check user settings:', error.message);
+}
+
+console.log('[DEBUG] webTracing.js module loading - telemetry enabled:', telemetryEnabled);
 console.log('[DEBUG] window available:', typeof window !== 'undefined');
 console.log('[DEBUG] window.WebSocket available:', typeof window?.WebSocket === 'function');
 
-try {
-  if (!window.__KT_WEBSOCKET_INSTRUMENTED__ && typeof window.WebSocket === 'function') {
-    window.__KT_WEBSOCKET_INSTRUMENTED__ = true;
-    console.log('[Renderer OTEL]: Installing WebSocket instrumentation immediately at module load');
+// Only install WebSocket instrumentation if telemetry is enabled
+if (telemetryEnabled) {
+  try {
+    if (!window.__KT_WEBSOCKET_INSTRUMENTED__ && typeof window.WebSocket === 'function') {
+      window.__KT_WEBSOCKET_INSTRUMENTED__ = true;
+      console.log('[Renderer OTEL]: Installing WebSocket instrumentation immediately at module load');
     
     const NativeWS = window.WebSocket;
     
@@ -153,11 +174,25 @@ try {
     } catch {}
     
     // Replace global WebSocket immediately
+    window.__KT_ORIGINAL_WEBSOCKET__ = NativeWS;
     window.WebSocket = WSWrapper;
     console.log('[Renderer OTEL]: WebSocket instrumentation installed successfully');
+  } else {
+    console.log('[WebSocket Instrumentation]: Already instrumented or WebSocket not available');
   }
-} catch (e) {
-  console.error('[Renderer OTEL]: Failed to install WebSocket instrumentation:', e);
+} catch (err) {
+  console.error('[WebSocket Instrumentation]: Failed to install:', err.message);
+}
+}
+
+// If telemetry is disabled, ensure any previous wrapper is restored
+if (!telemetryEnabled && typeof window !== 'undefined') {
+  try {
+    if (window.__KT_ORIGINAL_WEBSOCKET__ && window.WebSocket !== window.__KT_ORIGINAL_WEBSOCKET__) {
+      window.WebSocket = window.__KT_ORIGINAL_WEBSOCKET__;
+      console.log('[WebSocket Instrumentation]: Telemetry disabled - restored native WebSocket');
+    }
+  } catch {}
 }
 
 // Telemetry Level Configuration and Sampling Utilities
@@ -269,12 +304,19 @@ console.log(`[Renderer OTEL] Telemetry sampling initialized:`, {
   startupWindowMs: 30000
 });
 
-// Guard: run only once
-if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
+// Guard: run only once AND only if telemetry is enabled
+if (!window.__KT_RENDERER_OTEL_INITIALIZED__ && telemetryEnabled) {
   window.__KT_RENDERER_OTEL_INITIALIZED__ = true;
 
   (async () => {
     try {
+      // Double-check telemetry is still enabled
+      const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+      if (settings?.telemetry?.enabled !== true) {
+        console.log('[Renderer OTEL]: Telemetry disabled, skipping initialization');
+        return;
+      }
+      
       console.log('[Renderer OTEL]: init starting...');
       // Fetch endpoint/headers from main via preload bridge (A2)
       const cfg = await window?.telemetry?.getOtelConfig?.();
@@ -1531,9 +1573,11 @@ if (!window.__KT_RENDERER_OTEL_INITIALIZED__) {
 
       console.log('[Renderer OTEL]: Web tracer initialized for kicktalk-renderer (IPC relay)');
     } catch (e) {
-      console.warn('[Renderer OTEL]: Initialization failed:', e?.message || e);
+      console.error('[Renderer OTEL]: Setup failed:', e?.message || e);
     }
   })();
+} else if (!telemetryEnabled) {
+  console.log('[Renderer OTEL]: Telemetry disabled by user settings, skipping OTEL initialization');
 }
 // Dev-only helper: serialize a test span to OTLP protobuf in renderer and relay via IPC.
 // Usage in DevTools: await window.emitRendererTestSpanRaw()
