@@ -39,9 +39,10 @@ import { getUserStvProfile, getChannelEmotes } from "../../utils/services/sevent
 
 import Store from "electron-store";
 
-const authStore = new Store({
-  fileExtension: "env",
-});
+try {
+  const authStore = new Store({
+    fileExtension: "env",
+  });
 
 // Get Silenced users and save the in local storage
 const saveSilencedUsers = async (sessionCookie, kickSession) => {
@@ -507,7 +508,30 @@ if (process.contextIsolated) {
     });
    } catch (error) {
     console.error("Failed to expose APIs:", error);
+    contextBridge.exposeInMainWorld("app", {
+      store: {
+        get: async () => undefined,
+        set: async () => {},
+        delete: async () => {},
+        onUpdate: () => () => {},
+      },
+    });
   }
-} else {
-  window.electron = electronAPI;
+  } else {
+    window.electron = electronAPI;
+  }
+} catch (error) {
+  console.error("Preload script failed:", error);
+  if (process.contextIsolated) {
+    contextBridge.exposeInMainWorld("app", {
+      store: {
+        get: async () => undefined,
+        set: async () => {},
+        delete: async () => {},
+        onUpdate: () => () => {},
+      },
+    });
+  } else {
+    window.electron = electronAPI;
+  }
 }
