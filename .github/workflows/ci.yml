@@ -133,6 +133,11 @@ jobs:
         shell: bash
         run: rm -rf dist
 
+      - name: Prebuild native deps (Windows pnpm)
+        if: matrix.os == 'windows-latest' && matrix.package-manager == 'pnpm'
+        shell: bash
+        run: pnpm exec electron-builder install-app-deps
+
       - name: Build Electron app (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
@@ -150,6 +155,8 @@ jobs:
         shell: bash
         env:
           USE_HARD_LINKS: false
+          DEBUG: electron-builder
+          ELECTRON_BUILDER_DEBUG: true
         run: |
           if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
             pnpm exec electron-builder --win --publish never
