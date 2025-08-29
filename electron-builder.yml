@@ -4,6 +4,18 @@ directories:
   buildResources: build
 files:
   - "!**/.vscode/*"
+  - "!**/.lgtm-data/**"
+  - "!**/.github/**"
+  - "!**/.git/**"
+  - "!dist/**"
+  - "!docs/**"
+  - "!manual-tests/**"
+  - "!tests/**"
+  - "!scripts/**"
+  - "!otel/**"
+  - "!data/**"
+  - "!Telemetryplan.md"
+  - "!RELEASE_NOTES_*.md"
   - "!src/*"
   - "!electron.vite.config.{js,ts,mjs,cjs}"
   - "!{.eslintignore,.eslintrc.cjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}"
