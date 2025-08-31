@@ -13,7 +13,6 @@ jobs:
     strategy:
       matrix:
         node-version: [20, 22]
-        package-manager: [pnpm, npm]
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -24,29 +23,7 @@ jobs:
         with:
           node-version: ${{ matrix.node-version }}
 
-      - name: Install pnpm
-        if: matrix.package-manager == 'pnpm'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      - name: Get pnpm store directory
-        if: matrix.package-manager == 'pnpm'
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        if: matrix.package-manager == 'pnpm'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Setup npm cache
-        if: matrix.package-manager == 'npm'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -55,19 +32,13 @@ jobs:
             ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        shell: bash
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm install --frozen-lockfile
-          else
-            npm install
-          fi
+        run: npm install
 
       # - name: Run linter
-      #   run: ${{ matrix.package-manager }} run lint
+      #   run: npm run lint
 
       - name: Build application
-        run: ${{ matrix.package-manager }} run build
+        run: npm run build
 
   test-builds:
     runs-on: ${{ matrix.os }}
@@ -75,7 +46,6 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        package-manager: [pnpm, npm]
 
     steps:
       - name: Checkout repository
@@ -86,30 +56,7 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install pnpm
-        if: matrix.package-manager == 'pnpm'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      - name: Get pnpm store directory
-        if: matrix.package-manager == 'pnpm'
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        if: matrix.package-manager == 'pnpm'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Setup npm cache
-        if: matrix.package-manager == 'npm'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -118,38 +65,22 @@ jobs:
             ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        shell: bash
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm install --frozen-lockfile
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Build application
-        run: ${{ matrix.package-manager }} run build
+        run: npm run build
 
       - name: Clean dist before packaging
         shell: bash
         run: rm -rf dist
-
-      - name: Prebuild native deps (Windows pnpm)
-        if: matrix.os == 'windows-latest' && matrix.package-manager == 'pnpm'
-        shell: bash
-        run: pnpm exec electron-builder install-app-deps
 
       - name: Build Electron app (Ubuntu)
         if: matrix.os == 'ubuntu-latest'
         shell: bash
         env:
           USE_HARD_LINKS: false
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --linux=AppImage --publish never
-          else
-            npx --no-install electron-builder --linux=AppImage --publish never
-          fi
-        
+        run: npx --no-install electron-builder --linux=AppImage --publish never
+
       - name: Build Electron app (Windows)
         if: matrix.os == 'windows-latest'
         shell: bash
@@ -157,30 +88,20 @@ jobs:
           USE_HARD_LINKS: false
           DEBUG: electron-builder
           ELECTRON_BUILDER_DEBUG: true
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --win --publish never
-          else
-            npx --no-install electron-builder --win --publish never
-          fi
+        run: npx --no-install electron-builder --win --publish never
 
       - name: Build Electron app (macOS)
         if: matrix.os == 'macos-latest'
         shell: bash
         env:
           USE_HARD_LINKS: false
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder --mac=dmg --publish never
-          else
-            npx --no-install electron-builder --mac=dmg --publish never
-          fi
+        run: npx --no-install electron-builder --mac=dmg --publish never
 
       - name: Upload artifacts (Windows)
         if: matrix.os == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: latest-windows-${{ matrix.package-manager }}
+          name: latest-windows
           path: |
             dist/*.exe
             dist/*.exe.blockmap
@@ -190,7 +111,7 @@ jobs:
         if: matrix.os == 'macos-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: latest-macos-${{ matrix.package-manager }}
+          name: latest-macos
           path: |
             dist/*.dmg
             dist/*.dmg.blockmap
@@ -202,6 +123,6 @@ jobs:
         if: matrix.os == 'ubuntu-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: latest-linux-${{ matrix.package-manager }}
+          name: latest-linux
           path: dist/*.AppImage
           retention-days: 7

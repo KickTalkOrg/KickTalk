@@ -28,7 +28,7 @@ try {
 
 // Only proceed with telemetry setup if enabled
 if (telemetryEnabled) {
-  // Best-effort resolver to handle AppImage + asar + pnpm layouts
+  // Best-effort resolver to handle AppImage and asar layouts
   // Tries normal require first, then falls back to app.asar.unpacked/node_modules
   function safeRequire(modName) {
   try {
@@ -47,7 +47,7 @@ if (telemetryEnabled) {
 }
 
   // Defer and guard all OpenTelemetry requires. In packaged builds (AppImage),
-  // pnpm's layout and asar can cause resolution issues. We avoid crashing the app
+  // certain packaging layouts and asar can cause resolution issues. We avoid crashing the app
   // if any telemetry dependency is unavailable by bailing out gracefully.
   let NodeSDK,
     diag,
@@ -56,9 +56,9 @@ if (telemetryEnabled) {
     OTLPTraceExporter,
     OTLPMetricExporter,
     AlwaysOnSampler,
-    getNodeAutoInstrumentations,
     View,
-    ExplicitBucketHistogramAggregation;
+    ExplicitBucketHistogramAggregation,
+    HttpInstrumentation;
   let __otelReady = true;
   try {
     ({ NodeSDK } = safeRequire('@opentelemetry/sdk-node'));
@@ -66,13 +66,7 @@ if (telemetryEnabled) {
     ({ OTLPTraceExporter } = safeRequire('@opentelemetry/exporter-trace-otlp-http'));
     ({ OTLPMetricExporter } = safeRequire('@opentelemetry/exporter-metrics-otlp-http'));
     ({ AlwaysOnSampler } = safeRequire('@opentelemetry/sdk-trace-base'));
-    // Load auto-instrumentations defensively to handle AppImage packaging issues
-    try {
-      ({ getNodeAutoInstrumentations } = safeRequire('@opentelemetry/auto-instrumentations-node'));
-    } catch (error) {
-      console.warn('[Telemetry] Auto-instrumentations not available:', error.message);
-      console.warn('[Telemetry] Continuing with manual instrumentation only...');
-    }
+    ({ HttpInstrumentation } = safeRequire('@opentelemetry/instrumentation-http'));
     // Views are optional; load defensively to avoid runtime mismatches across package versions
     try {
       ({ View, ExplicitBucketHistogramAggregation } = safeRequire('@opentelemetry/sdk-metrics'));
@@ -93,9 +87,6 @@ if (telemetryEnabled) {
      diag.setLogger(new DiagConsoleLogger(), level);
    }
 
-   const exporterEndpoint = process.env.OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
-     || process.env.OTEL_EXPORTER_OTLP_ENDPOINT
-     || '';
 
    // Define metric Views for histograms (optional)
   let histogramViews = undefined;
@@ -138,33 +129,21 @@ if (telemetryEnabled) {
     histogramViews = undefined;
   }
 
-  // Build instrumentations array conditionally
-  const instrumentations = [];
-  if (getNodeAutoInstrumentations && typeof getNodeAutoInstrumentations === 'function') {
-    try {
-      const autoInstrumentations = getNodeAutoInstrumentations({
-        '@opentelemetry/instrumentation-http': {
-          ignoreOutgoingRequestHook: (request) => {
-            try {
-               const host = request?.headers?.host || request?.hostname || '';
-               const path = request?.path || '';
-               const protocol = request?.protocol || 'https:';
-               const url = host ? `${protocol}//${host}${path}` : '';
-               if (host.includes('otlp-gateway')) return true;
-               if (exporterEndpoint && url && url.startsWith(exporterEndpoint.replace(/\/$/, ''))) return true;
-             } catch {}
-             return false;
-           }
-         }
-       });
-      instrumentations.push(...autoInstrumentations);
-      console.log('[Telemetry] Auto-instrumentations loaded successfully');
-    } catch (error) {
-      console.warn('[Telemetry] Failed to configure auto-instrumentations:', error.message);
-    }
-  } else {
-    console.log('[Telemetry] Auto-instrumentations not available - using manual instrumentation only');
-  }
+  // Using manual HTTP instrumentation (auto-instrumentations removed for packaged builds)
+  const instrumentations = [
+    new HttpInstrumentation({
+      ignoreOutgoingRequestHook: (request) => {
+        try {
+          const host = request?.headers?.host || request?.hostname || '';
+          // Ignore OTLP exporter requests to prevent instrumentation loops
+          if (host.includes('otlp-gateway')) return true;
+          if (host.includes('grafana.net')) return true;
+        } catch {}
+        return false;
+      }
+    })
+  ];
+  console.log('[Telemetry] Using manual HTTP instrumentation');
 
     const sdk = new NodeSDK({
       traceExporter: new OTLPTraceExporter(),
