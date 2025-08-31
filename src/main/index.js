@@ -141,7 +141,6 @@ try {
   metrics = {
     incrementOpenWindows: metricsModule.MetricsHelper?.incrementOpenWindows || (() => {}),
     decrementOpenWindows: metricsModule.MetricsHelper?.decrementOpenWindows || (() => {}),
-    recordError: metricsModule.MetricsHelper?.recordConnectionError || (() => {}),
     recordMessageSent: metricsModule.MetricsHelper?.recordMessageSent || (() => {}),
     recordMessageSendDuration: metricsModule.MetricsHelper?.recordMessageSendDuration || (() => {}),
     // API metrics
@@ -183,7 +182,6 @@ try {
   metrics = {
     incrementOpenWindows: () => {},
     decrementOpenWindows: () => {},
-    recordError: () => {},
     recordMessageSent: () => {},
     recordMessageSendDuration: () => {},
     // API metrics no-op
