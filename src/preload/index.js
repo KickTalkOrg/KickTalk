@@ -171,6 +171,13 @@ const initializePreload = async () => {
     }
 
     console.log("[Preload]: Initialization complete");
+    try {
+      // Notify the renderer process that preload work is finished
+      window.__KT_PRELOAD_READY__ = true;
+      window.dispatchEvent(new Event("preload-ready"));
+    } catch (e) {
+      console.warn("[Preload]: Failed to dispatch preload-ready event:", e);
+    }
   } catch (error) {
     console.error("[Preload]: Initialization failed:", error);
   }
