@@ -28,7 +28,7 @@ try {
 
 // Only proceed with telemetry setup if enabled
 if (telemetryEnabled) {
-  // Best-effort resolver to handle AppImage + asar + pnpm layouts
+  // Best-effort resolver to handle AppImage and asar layouts
   // Tries normal require first, then falls back to app.asar.unpacked/node_modules
   function safeRequire(modName) {
   try {
@@ -47,7 +47,7 @@ if (telemetryEnabled) {
 }
 
   // Defer and guard all OpenTelemetry requires. In packaged builds (AppImage),
-  // pnpm's layout and asar can cause resolution issues. We avoid crashing the app
+  // certain packaging layouts and asar can cause resolution issues. We avoid crashing the app
   // if any telemetry dependency is unavailable by bailing out gracefully.
   let NodeSDK,
     diag,

@@ -14,8 +14,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        package-manager: [pnpm, npm]
-        platform: 
+        platform:
           - 'macos-latest' # for Arm based macs (M1 and above).
           - 'macos-13' # for Intel based macs.
           - 'ubuntu-24.04'
@@ -40,30 +39,7 @@ jobs:
         with:
           node-version: 20
           
-      - name: Install pnpm
-        if: matrix.package-manager == 'pnpm'
-        uses: pnpm/action-setup@v4
-        with:
-          version: 9
-          run_install: false
-
-      - name: Get pnpm store directory
-        if: matrix.package-manager == 'pnpm'
-        shell: bash
-        run: |
-          echo "STORE_PATH=$(pnpm store path --silent)" >> $GITHUB_ENV
-
-      - name: Setup pnpm cache
-        if: matrix.package-manager == 'pnpm'
-        uses: actions/cache@v4
-        with:
-          path: ${{ env.STORE_PATH }}
-          key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-          restore-keys: |
-            ${{ runner.os }}-pnpm-store-
-
       - name: Setup npm cache
-        if: matrix.package-manager == 'npm'
         uses: actions/cache@v4
         with:
           path: ~/.npm
@@ -72,16 +48,10 @@ jobs:
             ${{ runner.os }}-npm-
 
       - name: Install dependencies
-        shell: bash
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm install --frozen-lockfile
-          else
-            npm install
-          fi
+        run: npm install
 
       - name: Build application
-        run: ${{ matrix.package-manager }} run build
+        run: npm run build
 
       - name: Clean dist before packaging
         shell: bash
@@ -89,12 +59,7 @@ jobs:
 
       - name: Build Electron app
         shell: bash
-        run: |
-          if [ "${{ matrix.package-manager }}" = "pnpm" ]; then
-            pnpm exec electron-builder ${{ matrix.args }}
-          else
-            npm exec --yes electron-builder -- ${{ matrix.args }}
-          fi
+        run: npm exec --yes electron-builder -- ${{ matrix.args }}
         env:
           # These are used for auto updates signing
           # APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -117,67 +82,34 @@ jobs:
           OTEL_NODE_RESOURCE_DETECTORS: env,host,os,serviceinstance
           MAIN_VITE_OTEL_DEPLOYMENT_ENV: production
           NODE_ENV: production
-
-
-      - name: Rename artifacts with package manager suffix
-        shell: bash
-        run: |
-          if [ -d "dist" ] && [ "$(ls -A dist)" ]; then
-            for file in dist/*; do
-              if [[ -f "$file" ]]; then
-                filename=$(basename "$file")
-                if [[ "$filename" == *.exe.blockmap ]]; then
-                  # Handle .exe.blockmap files
-                  name="${filename%.exe.blockmap}"
-                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.exe.blockmap"
-                elif [[ "$filename" == *.dmg.blockmap ]]; then
-                  # Handle .dmg.blockmap files
-                  name="${filename%.dmg.blockmap}"
-                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.dmg.blockmap"
-                elif [[ "$filename" == *.zip.blockmap ]]; then
-                  # Handle .zip.blockmap files
-                  name="${filename%.zip.blockmap}"
-                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.zip.blockmap"
-                else
-                  # Handle regular files
-                  extension="${filename##*.}"
-                  name="${filename%.*}"
-                  mv "$file" "dist/${name}-${{ matrix.package-manager }}.${extension}"
-                fi
-              fi
-            done
-          else
-            echo "No files found in dist directory"
-          fi
-
       - name: Upload artifacts (Windows)
         if: matrix.platform == 'windows-latest'
         uses: actions/upload-artifact@v4
         with:
-          name: windows-build-${{ matrix.package-manager }}
+          name: windows-build
           path: |
-            dist/*-${{ matrix.package-manager }}.exe
-            dist/*-${{ matrix.package-manager }}.exe.blockmap
+            dist/*.exe
+            dist/*.exe.blockmap
           retention-days: 7
 
       - name: Upload artifacts (macOS)
         if: contains(matrix.platform, 'macos')
         uses: actions/upload-artifact@v4
         with:
-          name: macos-build-${{ matrix.package-manager }}-${{ matrix.platform }}
+          name: macos-build-${{ matrix.platform }}
           path: |
-            dist/*-${{ matrix.package-manager }}.dmg
-            dist/*-${{ matrix.package-manager }}.dmg.blockmap
-            dist/*-${{ matrix.package-manager }}.zip
-            dist/*-${{ matrix.package-manager }}.zip.blockmap
+            dist/*.dmg
+            dist/*.dmg.blockmap
+            dist/*.zip
+            dist/*.zip.blockmap
           retention-days: 7
 
       - name: Upload artifacts (Linux)
         if: matrix.platform == 'ubuntu-24.04'
         uses: actions/upload-artifact@v4
         with:
-          name: linux-build-${{ matrix.package-manager }}
-          path: dist/*-${{ matrix.package-manager }}.AppImage
+          name: linux-build
+          path: dist/*.AppImage
           retention-days: 7
 
   release:
