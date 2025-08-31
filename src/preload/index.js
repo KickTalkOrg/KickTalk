@@ -156,6 +156,20 @@ const withAuth = async (func) => {
   return func(authSession.token, authSession.session);
 };
 
+// Simple readiness bridge for the renderer (contextIsolation-safe)
+let __preloadReady = false;
+let __preloadWaiters = [];
+const __signalPreloadReady = () => {
+  __preloadReady = true;
+  try {
+    __preloadWaiters.forEach((cb) => {
+      try { cb(); } catch {}
+    });
+  } finally {
+    __preloadWaiters = [];
+  }
+};
+
 // Initialize with error handling
 const initializePreload = async () => {
   try {
@@ -170,16 +184,23 @@ const initializePreload = async () => {
       console.log("[Preload]: Session invalid, skipping user-specific data");
     }
 
-    console.log("[Preload]: Initialization complete");
+    // Sync settings from main store into localStorage for renderer-only modules
     try {
-      // Notify the renderer process that preload work is finished
-      window.__KT_PRELOAD_READY__ = true;
-      window.dispatchEvent(new Event("preload-ready"));
+      const settings = await ipcRenderer.invoke("store:get", { key: undefined });
+      if (settings && typeof settings === 'object') {
+        localStorage.setItem('settings', JSON.stringify(settings));
+        console.log("[Preload]: Synchronized settings to localStorage");
+      }
     } catch (e) {
-      console.warn("[Preload]: Failed to dispatch preload-ready event:", e);
+      console.warn("[Preload]: Failed to sync settings to localStorage:", e?.message || e);
     }
+
+    console.log("[Preload]: Initialization complete");
   } catch (error) {
     console.error("[Preload]: Initialization failed:", error);
+  } finally {
+    // Always signal readiness to the renderer (success or failure)
+    __signalPreloadReady();
   }
 };
 
@@ -188,6 +209,27 @@ initializePreload();
 
 if (process.contextIsolated) {
   try {
+    // Expose preload readiness API to renderer safely
+    contextBridge.exposeInMainWorld("preload", {
+      isReady: () => __preloadReady,
+      onReady: (cb) => {
+        try {
+          if (typeof cb !== "function") return () => {};
+          if (__preloadReady) {
+            try { cb(); } catch {}
+            return () => {};
+          }
+          __preloadWaiters.push(cb);
+          // Return unsubscribe
+          return () => {
+            __preloadWaiters = __preloadWaiters.filter((fn) => fn !== cb);
+          };
+        } catch {
+          return () => {};
+        }
+      },
+    });
+
     // Telemetry bridge with IPC relay for CORS bypass
     contextBridge.exposeInMainWorld("telemetry", {
       getOtelConfig: () => ipcRenderer.invoke("otel:get-config"),
