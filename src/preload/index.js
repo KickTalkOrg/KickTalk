@@ -501,6 +501,8 @@ if (process.contextIsolated) {
           ipcRenderer.invoke("telemetry:recordReconnection", { chatroomId, reason }),
         recordAPIRequest: (endpoint, method, statusCode, duration) =>
           ipcRenderer.invoke("telemetry:recordAPIRequest", { endpoint, method, statusCode, duration }),
+        recordLiveStatusPoll: (duration, chatroomId, success) =>
+          ipcRenderer.invoke("telemetry:recordLiveStatusPoll", { duration, chatroomId, success }),
         recordSevenTVConnectionHealth: (chatroomsCount, connectionsCount, state) =>
           ipcRenderer.invoke("telemetry:recordSevenTVConnectionHealth", { chatroomsCount, connectionsCount, state }),
         recordSevenTVWebSocketCreated: (chatroomId, stvId, emoteSets) =>

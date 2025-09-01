@@ -2935,13 +2935,35 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
       if (chatrooms?.length === 0) return;
 
       for (const room of chatrooms) {
+        const pollStart = Date.now();
+        const pollSpan = startSpan('api:kick.get_channel_chatroom_info', {
+          chatroom_id: room.id
+        });
         try {
           const response = await window.app.kick.getChannelChatroomInfo(room.streamerData?.slug);
+          endSpanOk(pollSpan);
           const isLive = !!response?.data?.livestream?.is_live;
+          const duration = (Date.now() - pollStart) / 1000;
+          try {
+            const statusCode = response?.status || response?.data?.status?.code || 200;
+            await window.app?.telemetry?.recordAPIRequest?.('kick_get_channel_chatroom_info', 'GET', statusCode, duration);
+            await window.app?.telemetry?.recordLiveStatusPoll?.(duration, room.id, true);
+          } catch (telemetryError) {
+            console.warn('[Telemetry]: Failed to record live status poll:', telemetryError);
+          }
           if (isLive !== room.isStreamerLive) {
             useChatStore.getState().handleStreamStatus(room.id, response.data, isLive);
           }
         } catch (error) {
+          endSpanError(pollSpan, error);
+          const duration = (Date.now() - pollStart) / 1000;
+          try {
+            const statusCode = error?.response?.status || 0;
+            await window.app?.telemetry?.recordAPIRequest?.('kick_get_channel_chatroom_info', 'GET', statusCode, duration);
+            await window.app?.telemetry?.recordLiveStatusPoll?.(duration, room.id, false);
+          } catch (telemetryError) {
+            console.warn('[Telemetry]: Failed to record live status poll error:', telemetryError);
+          }
           console.error("[Live Status Poll]:", error);
         }
       }
