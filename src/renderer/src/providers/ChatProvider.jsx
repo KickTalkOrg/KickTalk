@@ -2922,6 +2922,34 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
   initializeDonationBadges();
 
+  // Poll livestream status for all chatrooms to catch missed updates
+  let liveStatusInterval = null;
+
+  const initializeLiveStatusPolling = () => {
+    if (liveStatusInterval) {
+      clearInterval(liveStatusInterval);
+    }
+
+    liveStatusInterval = setInterval(async () => {
+      const chatrooms = useChatStore.getState()?.chatrooms;
+      if (chatrooms?.length === 0) return;
+
+      for (const room of chatrooms) {
+        try {
+          const response = await window.app.kick.getChannelChatroomInfo(room.streamerData?.slug);
+          const isLive = !!response?.data?.livestream?.is_live;
+          if (isLive !== room.isStreamerLive) {
+            useChatStore.getState().handleStreamStatus(room.id, response.data, isLive);
+          }
+        } catch (error) {
+          console.error("[Live Status Poll]:", error);
+        }
+      }
+    }, 60 * 1000);
+  };
+
+  initializeLiveStatusPolling();
+
   // Cleanup when window is about to unload
   window.addEventListener("beforeunload", () => {
     useChatStore.getState().cleanupBatching();
@@ -2932,6 +2960,10 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
     if (donationBadgesInterval) {
       clearInterval(donationBadgesInterval);
+    }
+
+    if (liveStatusInterval) {
+      clearInterval(liveStatusInterval);
     }
   });
 }
