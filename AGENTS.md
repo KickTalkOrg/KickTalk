@@ -1,76 +1,70 @@
 # Repository Guidelines
 
-## Electron‑Vite First
+## Electron‑Vite Patterns
 
-- This is an electron‑vite + React app. Prefer electron‑vite patterns over raw Electron.
-- Env vars: use `import.meta.env` and scoped prefixes — `MAIN_VITE_*` (main), `PRELOAD_VITE_*` (preload), `RENDERER_VITE_*` (renderer), `VITE_*` (all). Unprefixed keys are ignored. You can customize prefixes via `envPrefix` or load with `loadEnv(mode)` in `electron.vite.config.mjs`.
-- Preloads: expose safe APIs via `contextBridge.exposeInMainWorld` with `contextIsolation: true`. From main, reference the built preload (e.g., `join(__dirname, '../preload/index.js')`). In ESM contexts, resolve with `fileURLToPath(new URL('../preload/index.js', import.meta.url))`.
+- App stack: electron‑vite + React. Prefer electron‑vite conventions over raw Electron.
+- Preload loading: from main, point to the built preload (e.g., `join(__dirname, '../preload/index.js')`); in ESM, use `fileURLToPath(new URL('../preload/index.js', import.meta.url))`.
+- Security: keep `contextIsolation: true`; avoid direct Node APIs in renderer.
+- Assets: resolve via Vite URLs (e.g., `new URL('./icon.png', import.meta.url)`).
 - Docs: when unsure, use Context7 to consult electron‑vite/Electron/Vite docs and confirm patterns.
 
-## Project Structure & Module Organization
+## Project Structure
 
-- Source: `src/`
-  - Main (Electron): `src/main/` (Node context)
-  - Preload bridges: `src/preload/` (expose minimal APIs via `contextBridge`)
-  - Renderer (React): `src/renderer/src/**` (components, hooks, assets, styles)
-  - Telemetry: `src/telemetry/**`, `src/renderer/src/telemetry/**`
-- Build output: bundled `out/`, packaged installers `dist/`
+- Source root: `src/`
+- Main (Electron, Node context): `src/main/`
+- Preload bridges: `src/preload/`
+- Renderer (React): `src/renderer/src/**` (components, hooks, assets, styles)
+- Telemetry: `src/telemetry/**`, `src/renderer/src/telemetry/**`
+- Build output: bundled `out/`; installers in `dist/`
 - Config: `electron.vite.config.mjs` (main, preload, renderer builds)
 - Docs/examples: `docs/`; load/perf artifacts: `tests/`
 
-## Build, Test, and Development Commands
+## Preload Bridges
 
-- `npm install`: install dependencies
-- `npm run dev`: start app in dev (Vite + Electron)
-- `npm run dev-hr`: dev with hot reload for main/preload
-- `npm run build`: bundle to `out/`
-- `npm start`: run packaged preview from `out/`
-- `npm run build:win | build:mac | build:linux`: create installers in `dist/`
-- `npm run lint` / `npm run lint:fix`: check/fix ESLint issues
-- `npm run format`: format with Prettier
-
-## Coding Style & Naming Conventions
-
-- Lint/format: ESLint (`eslint.config.js`) + Prettier; run before PRs
-- React components: PascalCase in `src/renderer/src/components/` (e.g., `TitleBar.jsx`)
-- Hooks/utilities: camelCase (e.g., `useClickOutside.jsx`, `chatUtils.js`)
-- Styles: SCSS under `src/renderer/src/assets/styles/**`
-- Avoid direct Node APIs in renderer; add preload bridges instead
-
-## Testing Guidelines
-
-- Current: no formal unit tests configured
-- If adding tests: prefer Vitest + React Testing Library
-- Naming: `Component.test.jsx`; colocate next to file or in `__tests__/`
-- Keep tests fast and deterministic; mock Electron bridges
-
-## Commit & Pull Request Guidelines
-
-- Commits: Conventional Commits (`feat:`, `fix:`, `chore:`, `build:` …)
-- PRs must include: clear description, linked issues, before/after screenshots for UI changes, and risk/telemetry notes
-- CI hygiene: run `npm run lint` and `npm run build` locally; do not commit `dist/`
-
-## Security & Configuration Tips
-
-- Env vars: scope with `MAIN_VITE_*`, `PRELOAD_VITE_*`, `RENDERER_VITE_*`; use `VITE_*` for non-secrets shared across contexts
-- Secrets: keep in `process.env`/`MAIN_VITE_*`; never expose to renderer
-- Create `.env` from `.env.example`; packaging excludes docs/tests — avoid bloat
+- API surface: expose minimal, purpose‑built functions via `contextBridge.exposeInMainWorld`.
+- Isolation: keep `contextIsolation: true` and avoid exposing raw Node.
+- Contract: document each exposed method and validate inputs on the main side.
 
 ## IPC Model
 
-- Bridge: expose minimal, purpose‑built functions in preload; no raw Node APIs in renderer.
 - Request/response: main registers `ipcMain.handle('channel', fn)`; renderer calls `ipcRenderer.invoke('channel', payload)`.
 - Events: use `ipcRenderer.send`/`ipcMain.on` for fire‑and‑forget; prefer namespaced channels like `app:settings:get`.
 - Safety: validate/sanitize payloads in main; avoid wildcards and dynamic eval.
 - Example: renderer `await window.electron.ping()` ↔ main `ipcMain.handle('ping', () => 'pong')`.
 
+## Env & Secrets
+
+- Access: use `import.meta.env` with electron‑vite’s scoped prefixes.
+- Default prefixes (active):
+  - Context‑scoped: `MAIN_VITE_*` (main), `PRELOAD_VITE_*` (preload), `RENDERER_VITE_*` (renderer)
+  - Shared non‑secrets: `VITE_*`
+  - Unprefixed keys are ignored by Vite.
+- KickTalk naming:
+  - Use `MAIN_VITE_KT_*`, `PRELOAD_VITE_KT_*`, `RENDERER_VITE_KT_*` for app‑specific vars per context.
+  - Avoid bare `KT_*` in renderer; it is not exposed via `import.meta.env` with the default config.
+  - If you need bare `KT_*` available, add an `envPrefix` override in `electron.vite.config.mjs` (not enabled now).
+- Secrets: keep in `process.env`/`MAIN_VITE_*` (main only); never expose secrets to renderer.
+- Setup: create `.env` from `.env.example`. Packaging excludes docs/tests—avoid bloat.
+
 ## Telemetry
 
-- OpenTelemetry: instrumented in `src/telemetry/**` and `src/renderer/src/telemetry/**`.
-- Export: sends traces/metrics directly to Grafana Cloud’s OTLP HTTP endpoint (no collector) for simplicity.
-- Config: set OTLP endpoint/keys via `.env` (main process `process.env` or `MAIN_VITE_*`); never expose secrets to renderer.
+- Instrumentation: OpenTelemetry under `src/telemetry/**` and `src/renderer/src/telemetry/**`.
+- Export: send traces/metrics directly to Grafana Cloud via OTLP HTTP (no collector).
+- Config: set OTLP endpoint/keys via `.env` using main‑safe prefixes (see “Env & Secrets”). Never expose secrets to renderer.
 
-## Electron‑Vite Notes
+## Testing
 
-- Preload entry: `src/preload/index.js`; load from main with `preload: join(__dirname, '../preload/index.js')`
-- Keep `contextIsolation: true`; resolve assets via Vite (e.g., `new URL('./icon.png', import.meta.url)`).
+- Status: no formal unit tests configured.
+- If adding tests: use Vitest + React Testing Library.
+- Naming: `Component.test.jsx`; colocate next to file or use `__tests__/`.
+- Guidance: keep tests fast/deterministic; mock Electron bridges.
+
+## Dev & Build
+
+- See `README.md` for development commands (`npm run dev`, build/package, lint/format).
+
+## Commits & PRs
+
+- Conventional Commits (`feat:`, `fix:`, `chore:`, `build:` …).
+- PRs: include description, linked issues, before/after screenshots for UI changes, and risk/telemetry notes.
+- CI hygiene: run lint/build locally; do not commit `dist/`.
