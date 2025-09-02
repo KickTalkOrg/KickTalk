@@ -295,6 +295,22 @@ class SharedKickPusher extends EventTarget {
                 },
               }),
             );
+          } else {
+            // Unexpected: message-scoped event not on a chatroom channel
+            console.warn('[SharedKickPusher] Unmapped message event', {
+              event: jsonData.event,
+              channel: jsonData.channel,
+            });
+            try {
+              const err = new Error('Unmapped Kick message event');
+              window.app?.telemetry?.recordError?.(err, {
+                component: 'kick_websocket_shared',
+                operation: 'message_event_unmapped',
+                websocket_event: jsonData.event,
+                websocket_channel: jsonData.channel,
+                chatrooms_tracked: this.chatrooms?.size || 0,
+              });
+            } catch (_) {}
           }
         }
 
@@ -309,6 +325,7 @@ class SharedKickPusher extends EventTarget {
           jsonData.event === `App\\Events\\PollUpdateEvent` ||
           jsonData.event === `App\\Events\\PollDeleteEvent`
         ) {
+          // First try mapping from chatroom channel name
           const chatroomId = this.extractChatroomIdFromChannel(jsonData.channel);
           if (chatroomId) {
             this.dispatchEvent(
@@ -321,6 +338,65 @@ class SharedKickPusher extends EventTarget {
                 },
               }),
             );
+          } else {
+            // Try mapping streamer and livestream scoped channels
+            let mappedAny = false;
+
+            // If the event arrives on a streamer channel (e.g., channel.<streamerId>),
+            // map it to all chatrooms matching that streamer id.
+            const byStreamer = this.extractChatroomIdsFromStreamerChannel(jsonData.channel);
+            if (byStreamer.length > 0) {
+              mappedAny = true;
+              byStreamer.forEach((id) => {
+                this.dispatchEvent(
+                  new CustomEvent("channel", {
+                    detail: {
+                      chatroomId: id,
+                      event: jsonData.event,
+                      data: jsonData.data,
+                      channel: jsonData.channel,
+                    },
+                  }),
+                );
+              });
+            }
+
+            // Try mapping private livestream channel (e.g., private-livestream.<id>)
+            const byLivestream = this.extractChatroomIdsFromLivestreamChannel(jsonData.channel);
+            if (byLivestream.length > 0) {
+              mappedAny = true;
+              byLivestream.forEach((id) => {
+                this.dispatchEvent(
+                  new CustomEvent("channel", {
+                    detail: {
+                      chatroomId: id,
+                      event: jsonData.event,
+                      data: jsonData.data,
+                      channel: jsonData.channel,
+                    },
+                  }),
+                );
+              });
+            }
+
+            // If still unmapped, log and send telemetry so we can analyze
+            if (!mappedAny) {
+              console.warn('[SharedKickPusher] Unmapped channel event', {
+                event: jsonData.event,
+                channel: jsonData.channel,
+                dataPreview: (typeof jsonData.data === 'string' ? jsonData.data.slice(0, 200) : '')
+              });
+              try {
+                const err = new Error('Unmapped Kick channel event');
+                window.app?.telemetry?.recordError?.(err, {
+                  component: 'kick_websocket_shared',
+                  operation: 'channel_event_unmapped',
+                  websocket_event: jsonData.event,
+                  websocket_channel: jsonData.channel,
+                  chatrooms_tracked: this.chatrooms?.size || 0,
+                });
+              } catch (_) {}
+            }
           }
         }
       } catch (error) {
@@ -453,6 +529,37 @@ class SharedKickPusher extends EventTarget {
     // Extract chatroom ID from channel names like "chatrooms.12345.v2"
     const match = channel.match(/chatrooms\.(\d+)(?:\.v2)?$/);
     return match ? match[1] : null;
+  }
+
+  // Some Kick events (e.g., StreamerIsLive/StopStreamBroadcast) arrive on
+  // streamer channels like "channel.<streamerId>" or "channel_<streamerId>".
+  // Map those to the associated chatroom ids we track so the renderer updates state.
+  extractChatroomIdsFromStreamerChannel(channel) {
+    const m = channel.match(/^channel[_.](\d+)$/);
+    if (!m) return [];
+    const streamerId = m[1];
+    const ids = [];
+    for (const [chatroomId, info] of this.chatrooms) {
+      if (String(info?.streamerId) === String(streamerId)) {
+        ids.push(chatroomId);
+      }
+    }
+    return ids;
+  }
+
+  // Map private livestream channel (e.g., "private-livestream.<livestreamId>") to chatroom(s)
+  extractChatroomIdsFromLivestreamChannel(channel) {
+    const m = channel.match(/^private-livestream\.(\d+)$/);
+    if (!m) return [];
+    const livestreamId = m[1];
+    const ids = [];
+    for (const [chatroomId, info] of this.chatrooms) {
+      const currentLiveId = info?.chatroomData?.streamerData?.livestream?.id;
+      if (currentLiveId && String(currentLiveId) === String(livestreamId)) {
+        ids.push(chatroomId);
+      }
+    }
+    return ids;
   }
 
   close() {

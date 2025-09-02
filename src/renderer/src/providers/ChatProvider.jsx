@@ -44,6 +44,10 @@ const endSpanError = (span, err) => {
   try { span?.end?.(); } catch {}
 };
 
+// Track initial vs. subsequent WebSocket connections per chatroom to trigger
+// a one-shot reconcile after reconnect (no periodic polling).
+const __wsConnectedOnce = new Map();
+
 // Lightweight renderer health reporter (behind telemetry.enabled)
 const startRendererHealthReporting = (intervalMs = 30000) => {
   let timer = null;
@@ -856,6 +860,25 @@ const useChatStore = create((set, get) => ({
         timestamp: new Date().toISOString(),
       });
       endSpanOk(s);
+
+      // One-shot reconcile on reconnect: if we've connected before for this
+      // chatroom, fetch fresh channel info once to sync live status/title in
+      // case events were missed during suspend.
+      const wasConnectedBefore = __wsConnectedOnce.get(chatroom.id) === true;
+      __wsConnectedOnce.set(chatroom.id, true);
+      if (wasConnectedBefore) {
+        setTimeout(async () => {
+          try {
+            const response = await window.app.kick.getChannelChatroomInfo(chatroom?.streamerData?.slug);
+            if (response?.data) {
+              const isLive = !!response.data?.livestream?.is_live;
+              get().handleStreamStatus(chatroom.id, response.data, isLive);
+            }
+          } catch (error) {
+            console.warn('[Reconnect Reconcile]: Failed to refresh channel info:', error?.message || error);
+          }
+        }, 1500);
+      }
       return;
     });
 

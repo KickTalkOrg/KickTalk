@@ -484,6 +484,11 @@ const getChannelInfo = async (channelName) => {
 const getChannelChatroomInfo = async (channelName) => {
   try {
     const response = await axios.get(`${APIUrl}/api/v2/channels/${channelName}`, {
+      // Add cache busting to ensure livestream status is fresh
+      params: { t: Date.now() },
+      headers: {
+        "Cache-Control": "no-cache",
+      },
       referrer: `https://kick.com/`,
       referrerPolicy: "strict-origin-when-cross-origin",
       method: "GET",
