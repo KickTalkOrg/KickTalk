@@ -55,22 +55,6 @@ const apiRequests = meter.createCounter('kicktalk_api_requests_total', {
   unit: '1'
 });
 
-// Livestream status polling metrics
-const liveStatusPolls = meter.createCounter('kicktalk_livestream_status_polls_total', {
-  description: 'Total number of livestream status poll requests',
-  unit: '1'
-});
-
-const liveStatusPollErrors = meter.createCounter('kicktalk_livestream_status_poll_errors_total', {
-  description: 'Total number of errors encountered while polling livestream status',
-  unit: '1'
-});
-
-const liveStatusPollDuration = meter.createHistogram('kicktalk_livestream_status_poll_duration_seconds', {
-  description: 'Duration of livestream status poll requests',
-  unit: 's'
-});
-
 // Resource Metrics (using observableGauges for real-time values)
 const memoryUsage = meter.createObservableGauge('kicktalk_memory_usage_bytes', {
   description: 'Application memory usage in bytes',
@@ -355,20 +339,6 @@ const MetricsHelper = {
       method,
       status_code: statusCode.toString()
     });
-  },
-
-  recordLiveStatusPoll(duration, chatroomId, success = true) {
-    liveStatusPolls.add(1, {
-      chatroom_id: chatroomId,
-      success: success.toString()
-    });
-    liveStatusPollDuration.record(duration, {
-      chatroom_id: chatroomId,
-      success: success.toString()
-    });
-    if (!success) {
-      liveStatusPollErrors.add(1, { chatroom_id: chatroomId });
-    }
   },
 
   // Utility function to time operations
@@ -677,9 +647,6 @@ module.exports = {
     messageSendDuration,
     apiRequestDuration,
     apiRequests,
-    liveStatusPolls,
-    liveStatusPollErrors,
-    liveStatusPollDuration,
     memoryUsage,
     cpuUsage,
     openHandles,

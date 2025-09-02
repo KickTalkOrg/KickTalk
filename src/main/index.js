@@ -145,7 +145,6 @@ try {
     recordMessageSendDuration: metricsModule.MetricsHelper?.recordMessageSendDuration || (() => {}),
     // API metrics
     recordAPIRequest: metricsModule.MetricsHelper?.recordAPIRequest || (() => {}),
-    recordLiveStatusPoll: metricsModule.MetricsHelper?.recordLiveStatusPoll || (() => {}),
     recordMessageReceived: metricsModule.MetricsHelper?.recordMessageReceived || (() => {}),
     recordRendererMemory: metricsModule.MetricsHelper?.recordRendererMemory || (() => {}),
     recordDomNodeCount: metricsModule.MetricsHelper?.recordDomNodeCount || (() => {}),
@@ -187,7 +186,6 @@ try {
     recordMessageSendDuration: () => {},
     // API metrics no-op
     recordAPIRequest: () => {},
-    recordLiveStatusPoll: () => {},
     recordMessageReceived: () => {},
     recordRendererMemory: () => {},
     recordDomNodeCount: () => {},
@@ -1686,12 +1684,6 @@ ipcMain.handle("telemetry:recordReconnection", (e, { chatroomId, reason }) => {
 ipcMain.handle("telemetry:recordAPIRequest", (e, { endpoint, method, statusCode, duration }) => {
   if (isTelemetryEnabled()) {
     metrics.recordAPIRequest(endpoint, method, statusCode, duration);
-  }
-});
-
-ipcMain.handle("telemetry:recordLiveStatusPoll", (e, { duration, chatroomId, success }) => {
-  if (isTelemetryEnabled()) {
-    metrics.recordLiveStatusPoll(duration, chatroomId, success);
   }
 });
 

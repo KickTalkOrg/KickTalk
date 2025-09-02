@@ -44,6 +44,10 @@ const endSpanError = (span, err) => {
   try { span?.end?.(); } catch {}
 };
 
+// Track initial vs. subsequent WebSocket connections per chatroom to trigger
+// a one-shot reconcile after reconnect (no periodic polling).
+const __wsConnectedOnce = new Map();
+
 // Lightweight renderer health reporter (behind telemetry.enabled)
 const startRendererHealthReporting = (intervalMs = 30000) => {
   let timer = null;
@@ -856,6 +860,25 @@ const useChatStore = create((set, get) => ({
         timestamp: new Date().toISOString(),
       });
       endSpanOk(s);
+
+      // One-shot reconcile on reconnect: if we've connected before for this
+      // chatroom, fetch fresh channel info once to sync live status/title in
+      // case events were missed during suspend.
+      const wasConnectedBefore = __wsConnectedOnce.get(chatroom.id) === true;
+      __wsConnectedOnce.set(chatroom.id, true);
+      if (wasConnectedBefore) {
+        setTimeout(async () => {
+          try {
+            const response = await window.app.kick.getChannelChatroomInfo(chatroom?.streamerData?.slug);
+            if (response?.data) {
+              const isLive = !!response.data?.livestream?.is_live;
+              get().handleStreamStatus(chatroom.id, response.data, isLive);
+            }
+          } catch (error) {
+            console.warn('[Reconnect Reconcile]: Failed to refresh channel info:', error?.message || error);
+          }
+        }, 1500);
+      }
       return;
     });
 
@@ -2922,56 +2945,6 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
   initializeDonationBadges();
 
-  // Poll livestream status for all chatrooms to catch missed updates
-  let liveStatusInterval = null;
-
-  const initializeLiveStatusPolling = () => {
-    if (liveStatusInterval) {
-      clearInterval(liveStatusInterval);
-    }
-
-    liveStatusInterval = setInterval(async () => {
-      const chatrooms = useChatStore.getState()?.chatrooms;
-      if (chatrooms?.length === 0) return;
-
-      for (const room of chatrooms) {
-        const pollStart = Date.now();
-        const pollSpan = startSpan('api:kick.get_channel_chatroom_info', {
-          chatroom_id: room.id
-        });
-        try {
-          const response = await window.app.kick.getChannelChatroomInfo(room.streamerData?.slug);
-          endSpanOk(pollSpan);
-          const isLive = !!response?.data?.livestream?.is_live;
-          const duration = (Date.now() - pollStart) / 1000;
-          try {
-            const statusCode = response?.status || response?.data?.status?.code || 200;
-            await window.app?.telemetry?.recordAPIRequest?.('kick_get_channel_chatroom_info', 'GET', statusCode, duration);
-            await window.app?.telemetry?.recordLiveStatusPoll?.(duration, room.id, true);
-          } catch (telemetryError) {
-            console.warn('[Telemetry]: Failed to record live status poll:', telemetryError);
-          }
-          if (isLive !== room.isStreamerLive) {
-            useChatStore.getState().handleStreamStatus(room.id, response.data, isLive);
-          }
-        } catch (error) {
-          endSpanError(pollSpan, error);
-          const duration = (Date.now() - pollStart) / 1000;
-          try {
-            const statusCode = error?.response?.status || 0;
-            await window.app?.telemetry?.recordAPIRequest?.('kick_get_channel_chatroom_info', 'GET', statusCode, duration);
-            await window.app?.telemetry?.recordLiveStatusPoll?.(duration, room.id, false);
-          } catch (telemetryError) {
-            console.warn('[Telemetry]: Failed to record live status poll error:', telemetryError);
-          }
-          console.error("[Live Status Poll]:", error);
-        }
-      }
-    }, 60 * 1000);
-  };
-
-  initializeLiveStatusPolling();
-
   // Cleanup when window is about to unload
   window.addEventListener("beforeunload", () => {
     useChatStore.getState().cleanupBatching();
@@ -2982,10 +2955,6 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
     if (donationBadgesInterval) {
       clearInterval(donationBadgesInterval);
-    }
-
-    if (liveStatusInterval) {
-      clearInterval(liveStatusInterval);
     }
   });
 }
