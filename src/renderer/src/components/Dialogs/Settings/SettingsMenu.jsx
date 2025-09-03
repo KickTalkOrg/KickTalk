@@ -29,6 +29,14 @@ const SettingsMenu = ({ activeSection, setActiveSection, onLogout }) => (
             General
           </button>
         </div>
+
+        <div className="settingsMenuSectionItem">
+          <button
+            className={clsx("settingsMenuSectionItemBtn", { active: activeSection === "externalPlayers" })}
+            onClick={() => setActiveSection("externalPlayers")}>
+            External Players
+          </button>
+        </div>
       </div>
       <div className="settingsMenuSection">
         <div className="settingsMenuSectionHeader">

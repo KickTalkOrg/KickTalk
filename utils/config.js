@@ -184,6 +184,34 @@ const schema = {
     enum: ["light", "dark"],
     default: "dark",
   },
+  streamlink: {
+    type: "object",
+    properties: {
+      enabled: {
+        type: "boolean",
+        default: false,
+      },
+      quality: {
+        type: "string",
+        enum: ["best", "worst", "audio_only", "1080p60", "1080p", "720p60", "720p", "480p", "360p", "160p"],
+        default: "best",
+      },
+      player: {
+        type: "string",
+        default: "vlc",
+      },
+      customArgs: {
+        type: "string",
+        default: "--hls-live-edge 2 --hls-segment-stream-data --stream-segment-threads 5",
+      },
+    },
+    default: {
+      enabled: false,
+      quality: "best",
+      player: "vlc",
+      customArgs: "--hls-live-edge 2 --hls-segment-stream-data --stream-segment-threads 5",
+    },
+  },
   zoomFactor: {
     type: "number",
     default: 1,

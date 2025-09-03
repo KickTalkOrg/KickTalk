@@ -924,4 +924,202 @@ const NotificationsSection = ({ settingsData, onChange }) => {
   );
 };
 
-export { GeneralSection, ChatroomSection, CosmeticsSection, NotificationsSection };
+const ExternalPlayersSection = ({ settingsData, onChange }) => {
+  return (
+    <div className="settingsContentSection">
+      <div className="settingsSectionHeader">
+        <h4>External Players</h4>
+        <p>Configure external media players like Streamlink for better streaming performance.</p>
+      </div>
+
+      <div className="settingsItems">
+        <div className="settingsItem">
+          <div
+            className={clsx("settingSwitchItem", {
+              active: settingsData?.streamlink?.enabled,
+            })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Enable Streamlink</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Enable Streamlink integration to open streams in external media players. Requires Streamlink to be installed.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <Switch
+              checked={settingsData?.streamlink?.enabled || false}
+              onCheckedChange={(checked) =>
+                onChange("streamlink", {
+                  ...settingsData?.streamlink,
+                  enabled: checked,
+                })
+              }
+            />
+          </div>
+        </div>
+
+        <div className="settingsItem">
+          <div
+            className={clsx("settingSwitchItem", {
+              active: settingsData?.streamlink?.enabled && settingsData?.streamlink?.quality !== "best",
+            })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Stream Quality</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Select the preferred stream quality. "best" automatically chooses the highest available quality.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <DropdownMenu value={settingsData?.streamlink?.quality || "best"}>
+              <DropdownMenuTrigger asChild>
+                <button className="timestampFormat" disabled={!settingsData?.streamlink?.enabled}>
+                  {settingsData?.streamlink?.quality || "best"}
+                  <img src={CaretDownIcon} width={14} height={14} alt="Chevron" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom">
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "best" })}
+                  value="best">
+                  best
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "1080p60" })}
+                  value="1080p60">
+                  1080p60
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "1080p" })}
+                  value="1080p">
+                  1080p
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "720p60" })}
+                  value="720p60">
+                  720p60
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "720p" })}
+                  value="720p">
+                  720p
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "480p" })}
+                  value="480p">
+                  480p
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "360p" })}
+                  value="360p">
+                  360p
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "160p" })}
+                  value="160p">
+                  160p
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "audio_only" })}
+                  value="audio_only">
+                  audio_only
+                </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => onChange("streamlink", { ...settingsData?.streamlink, quality: "worst" })}
+                  value="worst">
+                  worst
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+        <div className="settingsItem">
+          <div className={clsx("settingNumericItem", {
+            active: settingsData?.streamlink?.enabled && settingsData?.streamlink?.player,
+          })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Player Command</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Specify the media player command (e.g., "vlc", "mpv", "/usr/bin/vlc"). Default is VLC. Leave empty to use Streamlink's automatic player detection.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Default: vlc"
+              value={settingsData?.streamlink?.player || ""}
+              disabled={!settingsData?.streamlink?.enabled}
+              onChange={(e) =>
+                onChange("streamlink", {
+                  ...settingsData?.streamlink,
+                  player: e.target.value,
+                })
+              }
+              className={clsx("settingTextInput", {
+                active: settingsData?.streamlink?.enabled && settingsData?.streamlink?.player,
+              })}
+            />
+          </div>
+        </div>
+
+        <div className="settingsItem">
+          <div className={clsx("settingNumericItem", {
+            active: settingsData?.streamlink?.enabled && settingsData?.streamlink?.customArgs,
+          })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Custom Arguments</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Additional Streamlink arguments. Default includes optimized low-latency settings for minimal stream delay. Advanced users can modify or add more arguments.</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <input
+              type="text"
+              placeholder="Default: --hls-live-edge 2 --hls-segment-stream-data --stream-segment-threads 5"
+              value={settingsData?.streamlink?.customArgs || ""}
+              disabled={!settingsData?.streamlink?.enabled}
+              onChange={(e) =>
+                onChange("streamlink", {
+                  ...settingsData?.streamlink,
+                  customArgs: e.target.value,
+                })
+              }
+              className={clsx("settingTextInput", {
+                active: settingsData?.streamlink?.enabled && settingsData?.streamlink?.customArgs,
+              })}
+            />
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export { GeneralSection, ChatroomSection, CosmeticsSection, NotificationsSection, ExternalPlayersSection };

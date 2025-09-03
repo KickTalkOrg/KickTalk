@@ -22,6 +22,7 @@ const StreamerInfo = memo(
     const [showPinnedMessage, setShowPinnedMessage] = useState(true);
     // const [showPollMessage, setShowPollMessage] = useState(false);
     const [showStreamerCard, setShowStreamerCard] = useState(false);
+    const [streamlinkSettings, setStreamlinkSettings] = useState({ enabled: false, quality: "best" });
 
     const refresh7TVEmotes = useChatStore((state) => state.refresh7TVEmotes);
     const refreshKickEmotes = useChatStore((state) => state.refreshKickEmotes);
@@ -42,6 +43,21 @@ const StreamerInfo = memo(
       //   setShowPollMessage(true);
       // }
     }, [pinDetails]);
+
+    // Get Streamlink settings
+    useEffect(() => {
+      const getStreamlinkSettings = async () => {
+        try {
+          const settings = await window.app.store.get("streamlink");
+          if (settings) {
+            setStreamlinkSettings(settings);
+          }
+        } catch (error) {
+          console.error("Failed to get Streamlink settings:", error);
+        }
+      };
+      getStreamlinkSettings();
+    }, []);
 
     const handleRefresh7TV = () => {
       refresh7TVEmotes(chatroomId);
@@ -160,6 +176,21 @@ const StreamerInfo = memo(
           <ContextMenuItem onSelect={() => window.open(`https://player.kick.com/${streamerData?.slug}`, "_blank")}>
             Open Player in Browser
           </ContextMenuItem>
+          {streamlinkSettings.enabled && (
+            <ContextMenuItem onSelect={async () => {
+              try {
+                const result = await window.app.utils.launchStreamlink(streamerData?.slug);
+                if (!result.success) {
+                  console.error("Failed to launch Streamlink:", result.error);
+                  // Optionally show user notification here
+                }
+              } catch (error) {
+                console.error("Error launching Streamlink:", error);
+              }
+            }}>
+              Open Stream in Streamlink ({streamlinkSettings.quality})
+            </ContextMenuItem>
+          )}
           {canModerate && (
             <ContextMenuItem onSelect={() => window.open(`https://kick.com/${streamerData?.slug}/moderator`, "_blank")}>
               Open Mod View in Browser

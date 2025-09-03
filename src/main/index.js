@@ -59,6 +59,7 @@ import Store from "electron-store";
 import store from "../../utils/config";
 import fs from "fs";
 import { randomUUID, randomBytes } from "crypto";
+import { spawn } from "child_process";
 
 // Reusable crypto-grade request ID generator
 const genRequestId = () => {
@@ -2107,5 +2108,171 @@ ipcMain.handle("replyThreadDialog:close", () => {
     }
   } catch (error) {
     console.error("[Reply Thread Dialog]: Error closing dialog:", error);
+  }
+});
+
+// Streamlink Integration
+const findStreamlink = () => {
+  const platform = process.platform;
+  let possiblePaths = [];
+
+  if (platform === "win32") {
+    // Windows common installation paths
+    const programFiles = process.env["PROGRAMFILES"] || "C:\\Program Files";
+    const programFilesX86 = process.env["PROGRAMFILES(X86)"] || "C:\\Program Files (x86)";
+    const localAppData = process.env["LOCALAPPDATA"] || "C:\\Users\\%USERNAME%\\AppData\\Local";
+    
+    possiblePaths = [
+      join(programFiles, "Streamlink", "bin", "streamlink.exe"),
+      join(programFilesX86, "Streamlink", "bin", "streamlink.exe"),
+      join(localAppData, "Programs", "Python", "Python*", "Scripts", "streamlink.exe"),
+      "streamlink.exe" // Check PATH
+    ];
+  } else if (platform === "darwin") {
+    // macOS common paths
+    possiblePaths = [
+      "/usr/local/bin/streamlink",
+      "/opt/homebrew/bin/streamlink",
+      "/usr/bin/streamlink",
+      "streamlink" // Check PATH
+    ];
+  } else {
+    // Linux and other Unix-like systems
+    possiblePaths = [
+      "/usr/bin/streamlink",
+      "/usr/local/bin/streamlink",
+      "/home/linuxbrew/.linuxbrew/bin/streamlink",
+      "streamlink" // Check PATH
+    ];
+  }
+
+  // Check each possible path
+  for (const path of possiblePaths) {
+    try {
+      if (path === "streamlink" || path === "streamlink.exe") {
+        // For PATH check, we'll let spawn handle it
+        return path;
+      } else {
+        // Check if file exists for absolute paths
+        if (fs.existsSync(path)) {
+          return path;
+        }
+      }
+    } catch (error) {
+      // Continue checking other paths
+      continue;
+    }
+  }
+
+  return null;
+};
+
+const launchStreamlink = async (username) => {
+  if (!username) {
+    throw new Error("Username is required to launch Streamlink");
+  }
+
+  // Get user settings
+  const streamlinkSettings = store.get("streamlink", {
+    enabled: false,
+    quality: "best",
+    player: "",
+    customArgs: ""
+  });
+
+  // Check if Streamlink is enabled
+  if (!streamlinkSettings.enabled) {
+    throw new Error("Streamlink is disabled. Enable it in Settings > External Players.");
+  }
+
+  const streamlinkPath = findStreamlink();
+  
+  if (!streamlinkPath) {
+    throw new Error("Streamlink not found. Please install Streamlink to use this feature.");
+  }
+
+  const streamUrl = `https://kick.com/${username}`;
+  const quality = streamlinkSettings.quality || "best";
+  
+  // Build arguments array
+  let args = [streamUrl, quality];
+
+  // Add player argument if specified
+  if (streamlinkSettings.player && streamlinkSettings.player.trim()) {
+    args.push("--player", streamlinkSettings.player.trim());
+  }
+
+  // Parse and add custom arguments
+  if (streamlinkSettings.customArgs && streamlinkSettings.customArgs.trim()) {
+    const customArgs = streamlinkSettings.customArgs.trim().split(/\s+/);
+    args = args.concat(customArgs);
+  }
+
+  console.log(`[Streamlink]: Launching ${streamlinkPath} ${args.join(" ")}`);
+
+  return new Promise((resolve, reject) => {
+    const child = spawn(streamlinkPath, args, {
+      detached: true,
+      stdio: 'ignore'
+    });
+
+    child.on('error', (error) => {
+      console.error("[Streamlink]: Launch failed:", error);
+      if (error.code === 'ENOENT') {
+        reject(new Error("Streamlink not found. Please install Streamlink to use this feature."));
+      } else {
+        reject(new Error(`Failed to launch Streamlink: ${error.message}`));
+      }
+    });
+
+    child.on('spawn', () => {
+      console.log(`[Streamlink]: Successfully launched for ${username} (${quality})`);
+      child.unref(); // Allow the parent process to exit independently
+      resolve({ 
+        success: true, 
+        username, 
+        streamUrl, 
+        quality,
+        player: streamlinkSettings.player || "default",
+        args: args.join(" ")
+      });
+    });
+
+    // Set a timeout to handle cases where spawn event doesn't fire
+    setTimeout(() => {
+      if (child.pid) {
+        console.log(`[Streamlink]: Process spawned with PID ${child.pid}`);
+        child.unref();
+        resolve({ 
+          success: true, 
+          username, 
+          streamUrl, 
+          quality,
+          player: streamlinkSettings.player || "default",
+          args: args.join(" ")
+        });
+      }
+    }, 1000);
+  });
+};
+
+// Streamlink IPC Handlers
+ipcMain.handle("streamlink:launch", async (event, { username }) => {
+  try {
+    const result = await launchStreamlink(username);
+    return { success: true, ...result };
+  } catch (error) {
+    console.error("[Streamlink IPC]: Error launching:", error);
+    return { success: false, error: error.message };
+  }
+});
+
+ipcMain.handle("streamlink:checkAvailable", async () => {
+  try {
+    const streamlinkPath = findStreamlink();
+    return { available: !!streamlinkPath, path: streamlinkPath };
+  } catch (error) {
+    console.error("[Streamlink IPC]: Error checking availability:", error);
+    return { available: false, error: error.message };
   }
 });

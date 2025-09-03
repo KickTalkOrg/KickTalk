@@ -582,6 +582,42 @@
             }
           }
 
+          .settingTextInput {
+            padding: 6px 8px;
+            width: 120px;
+            border-radius: 4px;
+            background-color: #ffffff13;
+            color: rgba(255, 255, 255, 0.7);
+            border: none;
+            font-size: 13px;
+            font-weight: 500;
+            outline: none;
+            transition: 
+              background-color 0.2s ease-in-out,
+              opacity 0.2s ease-in-out,
+              font-weight 0.2s ease-in-out;
+
+            &:focus {
+              background-color: #ffffff24;
+              color: var(--text-primary);
+            }
+
+            &.active {
+              opacity: 1;
+              font-weight: 600;
+            }
+
+            &:not(.active) {
+              opacity: 0.6;
+              font-weight: 500;
+            }
+
+            &:disabled {
+              opacity: 0.3;
+              cursor: not-allowed;
+            }
+          }
+
           .highlightPhrasesHeader {
             display: flex;
             align-items: center;

@@ -461,6 +461,8 @@ if (process.contextIsolated) {
       // Utility functions
       utils: {
         openExternal: (url) => shell.openExternal(url),
+        launchStreamlink: async (username) => await ipcRenderer.invoke("streamlink:launch", { username }),
+        checkStreamlinkAvailable: async () => await ipcRenderer.invoke("streamlink:checkAvailable"),
       },
 
       store: {
