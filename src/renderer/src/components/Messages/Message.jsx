@@ -8,7 +8,7 @@ import { useShallow } from "zustand/shallow";
 import useCosmeticsStore from "../../providers/CosmeticsProvider";
 import useChatStore from "../../providers/ChatProvider";
 import ReplyMessage from "./ReplyMessage";
-import { escapeRegex } from "@utils/regex";
+import { createMentionRegex } from "@utils/regex";
 
 import {
   ContextMenu,
@@ -261,25 +261,7 @@ const Message = ({
   );
 
   // [Highlights]: Memoized mention regex for current user
-  const mentionRegex = useMemo(() => {
-    if (!username) return null;
-    
-    try {
-      const me = username.toLowerCase();
-      const bare = me.replace(/[-_]/g, "");
-      if (!bare) return null;
-      
-      const userPattern = bare
-        .split("")
-        .map((ch) => escapeRegex(ch))
-        .join("[-_]?");
-      // Allow start-of-line or any non-username char before '@'
-      // Use negative lookahead to avoid embedding into larger username characters after
-      return new RegExp(`(?:^|[^A-Za-z0-9_-])@${userPattern}(?![A-Za-z0-9_-])`, "i");
-    } catch {
-      return null;
-    }
-  }, [username]);
+  const mentionRegex = useMemo(() => createMentionRegex(username), [username]);
 
   // [Highlights]: Handles highlighting message phrases
   const shouldHighlightMessage = useMemo(() => {

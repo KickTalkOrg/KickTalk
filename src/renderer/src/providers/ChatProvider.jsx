@@ -9,7 +9,7 @@ import useCosmeticsStore from "./CosmeticsProvider";
 import { sendUserPresence } from "@utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "@utils/services/kick/kickAPI";
 import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
-import { escapeRegex } from "@utils/regex";
+import { createMentionRegex } from "@utils/regex";
 import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
 
@@ -1628,30 +1628,8 @@ const useChatStore = create((set, get) => ({
         try {
           // Use cached regex if username hasn't changed, otherwise rebuild
           if (cachedUsername !== username) {
-            // Build a strict, username-specific mention regex to avoid false positives
-            // - Requires an actual '@'
-            // - Matches your username exactly (case-insensitive)
-            // - Treats '_' and '-' as interchangeable (users may type either)
-            // - Enforces a boundary after the username (non-word or EOL)
-            const rawUser = username; // already lowercased above
-            // Collapse any hyphens/underscores in the stored username and allow optional [-_] between letters
-            const bare = rawUser.replace(/[-_]/g, "");
-            if (bare) {
-              const userPattern = bare
-                .split("")
-                .map((ch) => escapeRegex(ch))
-                .join("[-_]?");
-              // Allow start-of-line or any non-username char before '@'
-              // Allow optional '.' or ',' immediately after, and require whitespace or EOL
-              cachedMentionRegex = new RegExp(
-                `(?:^|[^A-Za-z0-9_-])@${userPattern}(?:[,.])?(?=\\s|$)`,
-                "i",
-              );
-              cachedUsername = username;
-            } else {
-              cachedMentionRegex = null;
-              cachedUsername = username;
-            }
+            cachedMentionRegex = createMentionRegex(username);
+            cachedUsername = username;
           }
 
           if (cachedMentionRegex && cachedMentionRegex.test(message.content)) {
