@@ -8,6 +8,7 @@ import { useShallow } from "zustand/shallow";
 import useCosmeticsStore from "../../providers/CosmeticsProvider";
 import useChatStore from "../../providers/ChatProvider";
 import ReplyMessage from "./ReplyMessage";
+import { escapeRegex } from "@utils/regex";
 
 import {
   ContextMenu,
@@ -259,9 +260,31 @@ const Message = ({
     [chatroomId, message, userChatroomInfo, chatroomName, allStvEmotes, subscriberBadges, settings, username],
   );
 
+  // [Highlights]: Memoized mention regex for current user
+  const mentionRegex = useMemo(() => {
+    if (!username) return null;
+    
+    try {
+      const me = username.toLowerCase();
+      const bare = me.replace(/[-_]/g, "");
+      if (!bare) return null;
+      
+      const userPattern = bare
+        .split("")
+        .map((ch) => escapeRegex(ch))
+        .join("[-_]?");
+      // Allow start-of-line or any non-username char before '@'
+      // Use negative lookahead to avoid embedding into larger username characters after
+      return new RegExp(`(?:^|[^A-Za-z0-9_-])@${userPattern}(?![A-Za-z0-9_-])`, "i");
+    } catch {
+      return null;
+    }
+  }, [username]);
+
   // [Highlights]: Handles highlighting message phrases
   const shouldHighlightMessage = useMemo(() => {
-    if (!settings?.notifications?.background || !settings?.notifications?.phrases?.length || type === "dialog") {
+    // Only skip in dialog view; background toggle controls whether we apply highlight style
+    if (type === "dialog") {
       return false;
     }
 
@@ -271,12 +294,28 @@ const Message = ({
     }
 
     // Check for self-mention in replies
-    if (message?.metadata?.original_sender?.id == userId && message?.sender?.id != userId) {
-      return true;
+    if (settings?.notifications?.background) {
+      if (message?.metadata?.original_sender?.id == userId && message?.sender?.id != userId) {
+        return true;
+      }
     }
 
-    // Check for highlight phrases
-    return settings.notifications.phrases.some((phrase) => message?.content?.toLowerCase().includes(phrase.toLowerCase()));
+    // Check for direct @mention of current user (case-insensitive),
+    // treating '-' and '_' as interchangeable and enforcing boundaries
+    if (settings?.notifications?.background && mentionRegex) {
+      const content = message?.content?.toLowerCase() || "";
+      if (mentionRegex.test(content)) {
+        return true;
+      }
+    }
+
+    // Check for highlight phrases (only if configured and background highlighting enabled)
+    if (settings?.notifications?.background && settings?.notifications?.phrases?.length) {
+      return settings.notifications.phrases.some((phrase) =>
+        message?.content?.toLowerCase().includes(phrase.toLowerCase()),
+      );
+    }
+    return false;
   }, [
     settings?.notifications?.background,
     settings?.notifications?.phrases,

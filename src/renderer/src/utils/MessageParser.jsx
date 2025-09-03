@@ -136,39 +136,70 @@ const rules = [
     component: ({ match, index, chatroomId, chatroomName, userChatroomInfo, type, subscriberBadges }) => {
       const { username } = match.groups;
 
+      // Extract parts to avoid including leading boundary in the highlighted span
+      const full = match[0];
+      const core = match[1] || `@${username}`; // captured (@username)
+      const punct = /[.,]$/.test(full) ? full.slice(-1) : ""; // optional trailing punctuation
+      const leadingLen = full.length - core.length - (punct ? 1 : 0);
+      const leading = leadingLen > 0 ? full.slice(0, leadingLen) : ""; // boundary char or empty
+
       if (type === "minified" || type === "reply") {
         return (
-          <span style={{ color: "#fff", fontWeight: "bold" }} key={`mention-${index}-${username}`}>
-            {match[0]}
-          </span>
+          <>
+            {leading}
+            <span style={{ color: "#fff", fontWeight: "bold" }} key={`mention-${index}-${username}`}>
+              {core}
+            </span>
+            {punct}
+          </>
         );
       }
 
       return (
-        <span
-          onClick={async () => {
-            const user = await window.app.kick.getUserChatroomInfo(chatroomName, username);
-            if (!user?.data?.id) return;
+        <>
+          {leading}
+          <span
+            onClick={async () => {
+              let user = null;
+              const base = (username && typeof username === "string" ? username.toLowerCase() : username) || "";
+              const variants = base.includes("-")
+                ? [base, base.replace(/-/g, "_")]
+                : base.includes("_")
+                ? [base, base.replace(/_/g, "-")]
+                : [base];
 
-            const sender = {
-              id: user.data.id,
-              username: user.data.username,
-              slug: user.data.slug,
-            };
+              for (const uname of variants) {
+                try {
+                  const res = await window.app.kick.getUserChatroomInfo(chatroomName, uname);
+                  if (res?.data?.id) {
+                    user = res;
+                    break;
+                  }
+                } catch {}
+              }
+              if (!user?.data?.id) return;
 
-            await window.app.userDialog.open({
-              sender,
-              fetchedUser: user?.data,
-              subscriberBadges,
-              chatroomId,
-              userChatroomInfo,
-              cords: [0, 300],
-            });
-          }}
-          style={{ color: "#fff", fontWeight: "bold", cursor: "pointer" }}
-          key={`mention-${index}-${username}`}>
-          {match[0]}
-        </span>
+              const sender = {
+                id: user.data.id,
+                username: user.data.username,
+                slug: user.data.slug,
+              };
+
+              await window.app.userDialog.open({
+                sender,
+                fetchedUser: user?.data,
+                subscriberBadges,
+                chatroomId,
+                userChatroomInfo,
+                cords: [0, 300],
+              });
+            }}
+            style={{ color: "#fff", fontWeight: "bold", cursor: "pointer" }}
+            key={`mention-${index}-${username}`}>
+            {core}
+          </span>
+          {punct}
+        </>
       );
     },
   },
