@@ -9,6 +9,7 @@ import useCosmeticsStore from "./CosmeticsProvider";
 import { sendUserPresence } from "@utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "@utils/services/kick/kickAPI";
 import { DEFAULT_CHAT_HISTORY_LENGTH } from "@utils/constants";
+import { createMentionRegex } from "@utils/regex";
 import { clearChatroomEmoteCache } from "../utils/MessageParser";
 import dayjs from "dayjs";
 
@@ -318,6 +319,10 @@ const getInitialState = () => {
     draftMessages: new Map(), // Store draft messages per chatroom
   };
 };
+
+// Cached mention regex to avoid rebuilding on every message
+let cachedMentionRegex = null;
+let cachedUsername = null;
 
 const useChatStore = create((set, get) => ({
   ...getInitialState(),
@@ -1596,32 +1601,61 @@ const useChatStore = create((set, get) => ({
       if (message.soundPlayed) return;
 
       const notificationSettings = await window.app.store.get("notifications");
-      if (!notificationSettings?.enabled || !notificationSettings?.sound || !notificationSettings?.phrases?.length) return;
+      // Only gate on notifications being enabled; sound and phrases are handled per-trigger below
+      if (!notificationSettings?.enabled) return;
 
       const userId = localStorage.getItem("kickId");
+      const username = (localStorage.getItem("kickUsername") || "").toLowerCase();
 
       // Skip own messages
       if (message?.sender?.id == userId) return;
 
-      // Only play sound for recent messages (within last 5 seconds)
+      // Only handle recent messages (within last 5 seconds)
       const messageTime = new Date(message.created_at || message.timestamp).getTime();
       if (Date.now() - messageTime > 5000) return;
 
       // Check if it's a reply to user's message first
       if (message?.metadata?.original_sender?.id == userId && message?.sender?.id != userId) {
-        get().playNotificationSound(chatroomId, message, notificationSettings);
+        if (notificationSettings?.sound) {
+          get().playNotificationSound(chatroomId, message, notificationSettings);
+        }
         get().addMention(chatroomId, message, "reply");
         return;
       }
 
-      // Otherwise check for highlight phrases
-      const hasHighlightPhrase = notificationSettings.phrases.some((phrase) =>
-        message.content?.toLowerCase().includes(phrase.toLowerCase()),
-      );
+      // Check for direct @mention of current user's username (case-insensitive)
+      if (username && message?.content) {
+        try {
+          // Use cached regex if username hasn't changed, otherwise rebuild
+          if (cachedUsername !== username) {
+            cachedMentionRegex = createMentionRegex(username);
+            cachedUsername = username;
+          }
 
-      if (hasHighlightPhrase) {
-        get().playNotificationSound(chatroomId, message, notificationSettings);
-        get().addMention(chatroomId, message, "highlight");
+          if (cachedMentionRegex && cachedMentionRegex.test(message.content)) {
+            if (notificationSettings?.sound) {
+              get().playNotificationSound(chatroomId, message, notificationSettings);
+            }
+            get().addMention(chatroomId, message, "mention");
+            return;
+          }
+        } catch (_) {
+          // Non-fatal; continue to phrase highlights
+        }
+      }
+
+      // Otherwise check for highlight phrases (if any configured)
+      if (notificationSettings?.phrases?.length) {
+        const hasHighlightPhrase = notificationSettings.phrases.some((phrase) =>
+          message.content?.toLowerCase().includes(phrase.toLowerCase()),
+        );
+
+        if (hasHighlightPhrase) {
+          if (notificationSettings?.sound) {
+            get().playNotificationSound(chatroomId, message, notificationSettings);
+          }
+          get().addMention(chatroomId, message, "highlight");
+        }
       }
     } catch (error) {
       console.error("[Notifications]: Error handling notification:", error);

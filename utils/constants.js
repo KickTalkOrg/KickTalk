@@ -2,7 +2,7 @@
 export const urlRegex = /(https?:\/\/[^\s]+)/g;
 export const kickEmoteRegex = /\[emote:(?<id>\d+)[:]?(?<name>[a-zA-Z0-9-_!]*)[:]?\]/g;
 export const kickEmoteInputRegex = /(?:^|\s)(:(?<emoteCase1>\w{3,}):)|(?:^|\s)(?<emoteCase2>\w{2,})\b/g;
-export const mentionRegex = /(?:^|\s)(@(?<username>[a-zA-Z0-9_]{3,})[,.]?)(?=\s|$)/g;
+export const mentionRegex = /(?:^|[^A-Za-z0-9_-])(@(?<username>[A-Za-z0-9_-]{3,}))(?:[,.])?(?![A-Za-z0-9_-])/g;
 export const kickClipRegex = /^https?:\/\/(www\.)?kick\.com\/.*\/clips\/.*/i;
 
 // Chat settings
