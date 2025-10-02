@@ -164,7 +164,7 @@ const MessagesHandler = memo(
           itemContent={itemContent}
           computeItemKey={computeItemKey}
           onScroll={handleScroll}
-          followOutput={isPaused ? false : () => true}
+          followOutput={isPaused ? false : "smooth"}
           initialTopMostItemIndex={filteredMessages?.length - 1}
           atBottomThreshold={6}
           overscan={20}
