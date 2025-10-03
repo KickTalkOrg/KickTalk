@@ -328,6 +328,7 @@ const Message = ({
           donatorBadges={donatorBadges}
           subscriberBadges={subscriberBadges}
           sevenTVEmotes={allStvEmotes}
+          sevenTVSettings={settings?.sevenTV}
           userStyle={userStyle}
           handleOpenUserDialog={handleOpenUserDialog}
           userChatroomInfo={userChatroomInfo}
