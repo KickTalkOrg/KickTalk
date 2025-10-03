@@ -29,10 +29,8 @@ const MessagesHandler = memo(
 
       return messages.filter((message) => {
         if (message?.chatroom_id !== chatroomId) return false;
-        if (message?.type === "system" || message?.type === "mod_action")
-          return true;
-        if (message?.type !== "reply" && message?.type !== "message")
-          return true;
+        if (message?.type === "system" || message?.type === "mod_action") return true;
+        if (message?.type !== "reply" && message?.type !== "message") return true;
 
         return message?.sender?.id && !silencedUserIds.has(message?.sender?.id);
       });
@@ -48,9 +46,7 @@ const MessagesHandler = memo(
 
         if (isNearBottom !== !isPaused) {
           setIsPaused(!isNearBottom);
-          useChatStore
-            .getState()
-            .handleChatroomPause(chatroomId, !isNearBottom);
+          useChatStore.getState().handleChatroomPause(chatroomId, !isNearBottom);
         }
       },
       [chatroomId, isPaused],
@@ -61,6 +57,12 @@ const MessagesHandler = memo(
       setIsPaused(newPausedState);
       useChatStore.getState().handleChatroomPause(chatroomId, newPausedState);
 
+      virtuosoRef.current?.scrollToIndex({
+        index: filteredMessages.length - 1,
+        align: "start",
+        behavior: "instant",
+      });
+
       if (!newPausedState) {
         setAtBottom(true);
       }
@@ -68,16 +70,8 @@ const MessagesHandler = memo(
 
     const itemContent = useCallback(
       (index, message) => {
-        // if (!message?.id) {
-        //   console.warn("[MessagesHandler]: Message without ID at index:", index);
-        //   return null;
-        // }
-
         // Hide mod actions if the setting is disabled
-        if (
-          message?.type === "mod_action" &&
-          !settings?.chatrooms?.showModActions
-        ) {
+        if (message?.type === "mod_action" && !settings?.chatrooms?.showModActions) {
           return false;
         }
 
@@ -99,33 +93,17 @@ const MessagesHandler = memo(
           />
         );
       },
-      [
-        chatroomId,
-        slug,
-        subscriberBadges,
-        allStvEmotes,
-        kickTalkBadges,
-        settings,
-        userChatroomInfo,
-        username,
-        userId,
-        donators,
-      ],
+      [chatroomId, slug, subscriberBadges, allStvEmotes, kickTalkBadges, settings, userChatroomInfo, username, userId, donators],
     );
 
     useEffect(() => {
       const loadSilencedUsers = () => {
         try {
-          const storedUsers = JSON.parse(
-            localStorage.getItem("silencedUsers") || "{}",
-          );
+          const storedUsers = JSON.parse(localStorage.getItem("silencedUsers") || "{}");
           const userIds = storedUsers?.data?.map((user) => user.id) || [];
           setSilencedUserIds(new Set(userIds));
         } catch (error) {
-          console.error(
-            "[MessagesHandler]: Error loading silenced users:",
-            error,
-          );
+          console.error("[MessagesHandler]: Error loading silenced users:", error);
           setSilencedUserIds(new Set());
         }
       };
@@ -152,12 +130,7 @@ const MessagesHandler = memo(
     );
 
     return (
-      <div
-        className="chatContainer"
-        style={{ height: "100%", flex: 1 }}
-        ref={chatContainerRef}
-        data-chatroom-id={chatroomId}
-      >
+      <div className="chatContainer" style={{ height: "100%", flex: 1 }} ref={chatContainerRef} data-chatroom-id={chatroomId}>
         <Virtuoso
           ref={virtuosoRef}
           data={filteredMessages}
@@ -167,9 +140,9 @@ const MessagesHandler = memo(
           followOutput={isPaused ? false : "smooth"}
           initialTopMostItemIndex={filteredMessages?.length - 1}
           atBottomThreshold={6}
-          overscan={20}
-          increaseViewportBy={200}
-          defaultItemHeight={45}
+          overscan={50}
+          increaseViewportBy={400}
+          defaultItemHeight={50}
           style={{
             height: "100%",
             width: "100%",
@@ -180,12 +153,7 @@ const MessagesHandler = memo(
         {!atBottom && (
           <div className="scrollToBottomBtn" onClick={togglePause}>
             Scroll To Bottom
-            <img
-              src={MouseScroll}
-              width={24}
-              height={24}
-              alt="Scroll To Bottom"
-            />
+            <img src={MouseScroll} width={24} height={24} alt="Scroll To Bottom" />
           </div>
         )}
       </div>
@@ -193,7 +161,6 @@ const MessagesHandler = memo(
   },
 );
 
-// Add displayName for debugging
 MessagesHandler.displayName = "MessagesHandler";
 
 export default MessagesHandler;
