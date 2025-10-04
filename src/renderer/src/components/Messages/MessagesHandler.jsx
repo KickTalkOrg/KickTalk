@@ -28,7 +28,7 @@ const MessagesHandler = memo(
       if (!messages?.length) return [];
 
       return messages.filter((message) => {
-        if (message?.chatroom_id !== chatroomId) return false;
+        if (message?.chatroom_id != chatroomId) return false;
         if (message?.type === "system" || message?.type === "mod_action") return true;
         if (message?.type !== "reply" && message?.type !== "message") return true;
 
