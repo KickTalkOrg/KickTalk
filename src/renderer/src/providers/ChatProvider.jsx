@@ -65,10 +65,10 @@ const useChatStore = create((set, get) => ({
   performPeriodicCleanup: () => {
     const state = get();
     console.log("[ChatProvider] Performing periodic cleanup...");
-    
-    // Clean up old presence updates
+
+    // [7TV]: Clean up old Presence Updates
     if (stvPresenceUpdates.size > 50) {
-      const cutoffTime = Date.now() - (PRESENCE_UPDATE_INTERVAL * 3);
+      const cutoffTime = Date.now() - PRESENCE_UPDATE_INTERVAL * 3;
       let cleanedCount = 0;
       for (const [id, timestamp] of stvPresenceUpdates.entries()) {
         if (timestamp < cutoffTime) {
@@ -76,25 +76,24 @@ const useChatStore = create((set, get) => ({
           cleanedCount++;
         }
       }
+
       if (cleanedCount > 0) {
         console.log(`[ChatProvider] Cleaned ${cleanedCount} old presence updates`);
       }
     }
-    
+
     // Clean up old chatters (older than 30 minutes)
-    const chatterCutoffTime = Date.now() - (30 * 60 * 1000); // 30 minutes
+    const chatterCutoffTime = Date.now() - 30 * 60 * 1000; // 30 minutes
     let totalChattersCleanedUp = 0;
-    
+
     Object.keys(state.chatters).forEach((chatroomId) => {
       const chatters = state.chatters[chatroomId] || [];
-      const activeChatters = chatters.filter(chatter => 
-        (chatter.lastSeen || 0) > chatterCutoffTime
-      );
-      
+      const activeChatters = chatters.filter((chatter) => (chatter.lastSeen || 0) > chatterCutoffTime);
+
       if (activeChatters.length !== chatters.length) {
         const cleanedCount = chatters.length - activeChatters.length;
         totalChattersCleanedUp += cleanedCount;
-        
+
         set((prevState) => ({
           chatters: {
             ...prevState.chatters,
@@ -103,16 +102,16 @@ const useChatStore = create((set, get) => ({
         }));
       }
     });
-    
+
     if (totalChattersCleanedUp > 0) {
       console.log(`[ChatProvider] Cleaned ${totalChattersCleanedUp} old chatters across all chatrooms`);
     }
-    
+
     // Clean up batching if it gets too large
     if (window.__chatMessageBatch && Object.keys(window.__chatMessageBatch).length > 50) {
       console.log("[ChatProvider] Cleaning up old message batches...");
       Object.keys(window.__chatMessageBatch).forEach((chatroomId) => {
-        if (!state.chatrooms.some(room => room.id === chatroomId)) {
+        if (!state.chatrooms.some((room) => room.id === chatroomId)) {
           // Clean up batches for disconnected chatrooms
           if (window.__chatMessageBatch[chatroomId].timer) {
             clearTimeout(window.__chatMessageBatch[chatroomId].timer);
@@ -148,10 +147,10 @@ const useChatStore = create((set, get) => ({
 
     stvPresenceUpdates.set(userId, currentTime);
     sendUserPresence(stvId, userId);
-    
+
     // Clean up old entries to prevent memory leak
     if (stvPresenceUpdates.size > 100) {
-      const cutoffTime = currentTime - (PRESENCE_UPDATE_INTERVAL * 2);
+      const cutoffTime = currentTime - PRESENCE_UPDATE_INTERVAL * 2;
       for (const [id, timestamp] of stvPresenceUpdates.entries()) {
         if (timestamp < cutoffTime) {
           stvPresenceUpdates.delete(id);
@@ -829,19 +828,7 @@ const useChatStore = create((set, get) => ({
         lastSeen: Date.now(),
       };
 
-      let updatedChatters = [...chatters, chatterWithTimestamp];
-
-      // Implement size limit to prevent memory leaks
-      const MAX_CHATTERS = 1000; // Configurable limit
-      
-      if (updatedChatters.length > MAX_CHATTERS) {
-        // Sort by lastSeen timestamp (most recent first) and keep only the most recent chatters
-        updatedChatters = updatedChatters
-          .sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0))
-          .slice(0, MAX_CHATTERS);
-        
-        console.log(`[ChatProvider] Chatters list for ${chatroomId} trimmed to ${MAX_CHATTERS} entries`);
-      }
+      let updatedChatters = [...chatters, chatterWithTimestamp]?.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 
       return {
         chatters: {
@@ -1620,12 +1607,12 @@ const useChatStore = create((set, get) => ({
 
     set((state) => {
       let updatedMentions = [...(state.mentions[chatroomId] || []), mention];
-      
+
       // Limit mentions to prevent memory leak (keep most recent 200)
       if (updatedMentions.length > 200) {
         updatedMentions = updatedMentions.slice(-200);
       }
-      
+
       return {
         mentions: {
           ...state.mentions,
@@ -1843,9 +1830,12 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
   // Initialize periodic cleanup interval for memory management
   if (!memoryCleanupInterval) {
-    memoryCleanupInterval = setInterval(() => {
-      useChatStore.getState().performPeriodicCleanup();
-    }, 10 * 60 * 1000); // Run cleanup every 10 minutes
+    memoryCleanupInterval = setInterval(
+      () => {
+        useChatStore.getState().performPeriodicCleanup();
+      },
+      10 * 60 * 1000,
+    ); // Run cleanup every 10 minutes
     console.log("[ChatProvider] Initialized periodic memory cleanup");
   }
 
