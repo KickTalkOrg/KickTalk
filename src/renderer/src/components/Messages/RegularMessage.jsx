@@ -5,6 +5,7 @@ import { getTimestampFormat } from "../../utils/ChatUtils";
 import CopyIcon from "../../assets/icons/copy-simple-fill.svg?asset";
 import ReplyIcon from "../../assets/icons/reply-fill.svg?asset";
 import Pin from "../../assets/icons/push-pin-fill.svg?asset";
+import RetryIcon from "../../assets/icons/arrow-clockwise-fill.svg?asset";
 import clsx from "clsx";
 import ModActions from "./ModActions";
 import useChatStore from "../../providers/ChatProvider";
@@ -59,6 +60,12 @@ const RegularMessage = memo(
       getPinMessage(chatroomId, data);
     }, [message?.id, message?.chatroom_id, message?.content, message?.sender, chatroomName, getPinMessage, chatroomId]);
 
+    const handleRetryMessage = useCallback(() => {
+      if (message.isOptimistic && message.state === "failed" && message.tempId) {
+        useChatStore.getState().retryFailedMessage(chatroomId, message.tempId);
+      }
+    }, [message.isOptimistic, message.state, message.tempId, chatroomId]);
+
     const usernameStyle = useMemo(() => {
       if (userStyle?.paint) {
         return {
@@ -66,7 +73,9 @@ const RegularMessage = memo(
           filter: userStyle.paint.shadows,
         };
       }
-      return { color: message.sender.identity?.color };
+      return { 
+        color: message.sender.identity?.color || 'var(--text-primary)'
+      };
     }, [userStyle?.paint, message.sender.identity?.color]);
 
     const messageContent = useMemo(
@@ -97,7 +106,9 @@ const RegularMessage = memo(
     }, [canModerate, settings?.moderation?.quickModTools, message?.deleted, message?.sender?.username, chatroomName, username]);
 
     return (
-      <span className={`chatMessageContainer ${message.deleted ? "deleted" : ""}`}>
+      <span className={clsx("chatMessageContainer", {
+        deleted: message.deleted
+      })}>
         <div className="chatMessageUser">
           {settings?.general?.timestampFormat !== "disabled" && <span className="chatMessageTimestamp">{timestamp}</span>}
           {shouldShowModActions && <ModActions chatroomName={chatroomName} message={message} />}
@@ -127,21 +138,36 @@ const RegularMessage = memo(
         <div className="chatMessageContent">{messageContent}</div>
 
         <div className="chatMessageActions">
-          {canModerate && !message?.deleted && (
-            <button onClick={handlePinMessage} className="chatMessageActionButton">
-              <img src={Pin} alt="Pin Message" width={16} height={16} loading="lazy" />
-            </button>
-          )}
+          {message.isOptimistic && message.state === "failed" ? (
+            // Show retry and copy buttons for failed messages
+            <>
+              <button onClick={handleRetryMessage} className="chatMessageActionButton" title="Retry sending message">
+                <img src={RetryIcon} alt="Retry Message" width={16} height={16} loading="lazy" />
+              </button>
+              <button onClick={handleCopyMessage} className="chatMessageActionButton">
+                <img src={CopyIcon} alt="Copy Message" width={16} height={16} loading="lazy" />
+              </button>
+            </>
+          ) : (
+            // Show normal action buttons for successful messages
+            <>
+              {canModerate && !message?.deleted && (
+                <button onClick={handlePinMessage} className="chatMessageActionButton">
+                  <img src={Pin} alt="Pin Message" width={16} height={16} loading="lazy" />
+                </button>
+              )}
 
-          {!message?.deleted && (
-            <button onClick={handleReply} className="chatMessageActionButton">
-              <img src={ReplyIcon} alt={`Reply to ${message?.sender?.username}`} width={16} height={16} loading="lazy" />
-            </button>
-          )}
+              {!message?.deleted && (
+                <button onClick={handleReply} className="chatMessageActionButton">
+                  <img src={ReplyIcon} alt={`Reply to ${message?.sender?.username}`} width={16} height={16} loading="lazy" />
+                </button>
+              )}
 
-          <button onClick={handleCopyMessage} className="chatMessageActionButton">
-            <img src={CopyIcon} alt="Copy Message" width={16} height={16} loading="lazy" />
-          </button>
+              <button onClick={handleCopyMessage} className="chatMessageActionButton">
+                <img src={CopyIcon} alt="Copy Message" width={16} height={16} loading="lazy" />
+              </button>
+            </>
+          )}
         </div>
       </span>
     );
