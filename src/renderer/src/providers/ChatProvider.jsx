@@ -17,6 +17,8 @@ const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
 // Global connection manager instance
 let connectionManager = null;
 let initializationInProgress = false;
+// Periodic cleanup interval for memory management
+let memoryCleanupInterval = null;
 
 // Load initial state from local storage
 const getInitialState = () => {
@@ -113,6 +115,16 @@ const useChatStore = create((set, get) => ({
 
     stvPresenceUpdates.set(userId, currentTime);
     sendUserPresence(stvId, userId);
+
+    // Clean up old entries to prevent memory leak
+    if (stvPresenceUpdates.size > 100) {
+      const cutoffTime = currentTime - PRESENCE_UPDATE_INTERVAL * 2;
+      for (const [id, timestamp] of stvPresenceUpdates.entries()) {
+        if (timestamp < cutoffTime) {
+          stvPresenceUpdates.delete(id);
+        }
+      }
+    }
   },
 
   sendMessage: async (chatroomId, content) => {
@@ -1095,14 +1107,34 @@ const useChatStore = create((set, get) => ({
       const chatters = state.chatters[chatroomId] || [];
 
       // Check if chatter already exists
-      if (chatters?.some((c) => c.id === chatter.id)) {
-        return state;
+      const existingChatterIndex = chatters.findIndex((c) => c.id === chatter.id);
+      if (existingChatterIndex !== -1) {
+        // Update existing chatter's timestamp to mark as recently active
+        const updatedChatters = [...chatters];
+        updatedChatters[existingChatterIndex] = {
+          ...updatedChatters[existingChatterIndex],
+          lastSeen: Date.now(),
+        };
+        return {
+          chatters: {
+            ...state.chatters,
+            [chatroomId]: updatedChatters,
+          },
+        };
       }
+
+      // Add timestamp to new chatter
+      const chatterWithTimestamp = {
+        ...chatter,
+        lastSeen: Date.now(),
+      };
+
+      let updatedChatters = [...chatters, chatterWithTimestamp]?.sort((a, b) => (b.lastSeen || 0) - (a.lastSeen || 0));
 
       return {
         chatters: {
           ...state.chatters,
-          [chatroomId]: [...(state.chatters[chatroomId] || []), chatter],
+          [chatroomId]: updatedChatters,
         },
       };
     });
@@ -1884,12 +1916,21 @@ const useChatStore = create((set, get) => ({
       isRead: false,
     };
 
-    set((state) => ({
-      mentions: {
-        ...state.mentions,
-        [chatroomId]: [...(state.mentions[chatroomId] || []), mention],
-      },
-    }));
+    set((state) => {
+      let updatedMentions = [...(state.mentions[chatroomId] || []), mention];
+
+      // Limit mentions to prevent memory leak (keep most recent 200)
+      if (updatedMentions.length > 200) {
+        updatedMentions = updatedMentions.slice(-200);
+      }
+
+      return {
+        mentions: {
+          ...state.mentions,
+          [chatroomId]: updatedMentions,
+        },
+      };
+    });
 
     console.log(`[Mentions]: Added ${type} mention for chatroom ${chatroomId}:`, mention);
   },
@@ -2098,6 +2139,17 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
   initializeDonationBadges();
 
+  // Initialize periodic cleanup interval for memory management
+  if (!memoryCleanupInterval) {
+    memoryCleanupInterval = setInterval(
+      () => {
+        useChatStore.getState().performPeriodicCleanup();
+      },
+      10 * 60 * 1000,
+    ); // Run cleanup every 10 minutes
+    console.log("[ChatProvider] Initialized periodic memory cleanup");
+  }
+
   // Cleanup when window is about to unload
   window.addEventListener("beforeunload", () => {
     useChatStore.getState().cleanupBatching();
@@ -2108,6 +2160,10 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
     if (donationBadgesInterval) {
       clearInterval(donationBadgesInterval);
+    }
+
+    if (memoryCleanupInterval) {
+      clearInterval(memoryCleanupInterval);
     }
   });
 }
@@ -2132,7 +2188,8 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Cleanup component to handle unmounting
-export const ChatProviderCleanup = () => {
+export const 
+= () => {
   useEffect(() => {
     return () => useChatStore.getState().cleanupBatching();
   }, []);

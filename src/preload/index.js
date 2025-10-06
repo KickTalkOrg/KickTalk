@@ -282,6 +282,11 @@ if (process.contextIsolated) {
           ipcRenderer.on("autoUpdater:status", handler);
           return () => ipcRenderer.removeListener("autoUpdater:status", handler);
         },
+        onDismiss: (callback) => {
+          const handler = () => callback();
+          ipcRenderer.on("autoUpdater:dismiss", handler);
+          return () => ipcRenderer.removeListener("autoUpdater:dismiss", handler);
+        },
       },
 
       logs: {

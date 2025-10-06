@@ -36,28 +36,6 @@ const MessagesHandler = memo(
       });
     }, [messages, chatroomId, silencedUserIds]);
 
-    useEffect(() => {
-      if (filteredMessages.length > 0 && !isPaused) {
-        virtuosoRef.current?.scrollToIndex({
-          index: filteredMessages.length - 1,
-          behavior: "instant",
-          align: "end",
-        });
-      }
-    }, [chatroomId]);
-
-    useEffect(() => {
-      if (virtuosoRef.current && atBottom) {
-        setTimeout(() => {
-          virtuosoRef.current?.scrollToIndex({
-            index: filteredMessages.length - 1,
-            align: "start",
-            behavior: "instant",
-          });
-        }, 0);
-      }
-    }, [filteredMessages, atBottom]);
-
     const handleScroll = useCallback(
       (e) => {
         if (!e?.target) return;
@@ -79,23 +57,19 @@ const MessagesHandler = memo(
       setIsPaused(newPausedState);
       useChatStore.getState().handleChatroomPause(chatroomId, newPausedState);
 
-      if (!newPausedState && filteredMessages?.length) {
-        virtuosoRef.current?.scrollToIndex({
-          index: filteredMessages.length - 1,
-          behavior: "instant",
-          align: "end",
-        });
+      virtuosoRef.current?.scrollToIndex({
+        index: filteredMessages.length - 1,
+        align: "start",
+        behavior: "instant",
+      });
+
+      if (!newPausedState) {
         setAtBottom(true);
       }
     };
 
     const itemContent = useCallback(
       (index, message) => {
-        // if (!message?.id) {
-        //   console.warn("[MessagesHandler]: Message without ID at index:", index);
-        //   return null;
-        // }
-
         // Hide mod actions if the setting is disabled
         if (message?.type === "mod_action" && !settings?.chatrooms?.showModActions) {
           return false;
@@ -163,14 +137,12 @@ const MessagesHandler = memo(
           itemContent={itemContent}
           computeItemKey={computeItemKey}
           onScroll={handleScroll}
-          // followOutput={"auto"}
+          followOutput={isPaused ? false : "smooth"}
           initialTopMostItemIndex={filteredMessages?.length - 1}
-          // alignToBottom={true}
-          // atBottomStateChange={setAtBottom}
-          atBottomThreshold={100}
-          overscan={20}
-          increaseViewportBy={200}
-          defaultItemHeight={45}
+          atBottomThreshold={6}
+          overscan={50}
+          increaseViewportBy={400}
+          defaultItemHeight={50}
           style={{
             height: "100%",
             width: "100%",
@@ -189,7 +161,6 @@ const MessagesHandler = memo(
   },
 );
 
-// Add displayName for debugging
 MessagesHandler.displayName = "MessagesHandler";
 
 export default MessagesHandler;

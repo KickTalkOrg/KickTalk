@@ -20,6 +20,20 @@ const Updater = () => {
     };
   }, []);
 
+  // Listen for auto-update dismiss when user disables auto-update in settings
+  useEffect(() => {
+    const handleDismiss = () => {
+      setUpdateStatus("idle");
+      setUpdateInfo(null);
+    };
+
+    const cleanup = window.app.update.onDismiss(handleDismiss);
+
+    return () => {
+      cleanup();
+    };
+  }, []);
+
   const handleCheckForUpdate = async () => {
     setUpdateStatus("checking");
 
