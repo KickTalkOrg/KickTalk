@@ -2188,8 +2188,7 @@ if (process.env.NODE_ENV === "development") {
 }
 
 // Cleanup component to handle unmounting
-export const 
-= () => {
+export const ChatProviderCleanup = () => {
   useEffect(() => {
     return () => useChatStore.getState().cleanupBatching();
   }, []);
