@@ -63,40 +63,6 @@ const useChatStore = create((set, get) => ({
     }
   },
 
-  // Clean up connection manager
-  cleanupConnections: () => {
-    console.log("[ChatProvider] Cleaning up connections...");
-
-    // Reset initialization flag
-    initializationInProgress = false;
-
-    // Clean up batching
-    get().cleanupBatching();
-
-    // Clean up connection manager
-    if (connectionManager) {
-      connectionManager.cleanup();
-      connectionManager = null;
-    }
-
-    // Clean up individual connections (fallback)
-    const connections = get().connections;
-    Object.keys(connections).forEach(chatroomId => {
-      const connection = connections[chatroomId];
-      if (connection?.kickPusher) {
-        connection.kickPusher.close();
-      }
-      if (connection?.stvSocket) {
-        connection.stvSocket.close();
-      }
-    });
-
-    // Clear connections state
-    set({ connections: {} });
-
-    console.log("[ChatProvider] Connections cleaned up");
-  },
-
   // Get connection manager status for debugging
   getConnectionStatus: () => {
     if (connectionManager) {
@@ -110,18 +76,17 @@ const useChatStore = create((set, get) => ({
 
   // Debug function to toggle livestream status for testing
   debugToggleStreamStatus: (chatroomId, isLive) => {
-    console.log(`[DEBUG] Toggling stream status for chatroom ${chatroomId}: ${isLive ? 'LIVE' : 'OFFLINE'}`);
+    console.log(`[DEBUG] Toggling stream status for chatroom ${chatroomId}: ${isLive ? "LIVE" : "OFFLINE"}`);
     const mockEvent = {
       livestream: {
         id: Math.random().toString(),
         is_live: isLive,
         session_title: "Mock Stream Title",
         created_at: new Date().toISOString(),
-      }
+      },
     };
     get().handleStreamStatus(chatroomId, mockEvent, isLive);
   },
-
 
   // Handles Sending Presence Updates to 7TV for a chatroom
   sendPresenceUpdate: (stvId, userId) => {
@@ -711,93 +676,93 @@ const useChatStore = create((set, get) => ({
       // Create new connection manager
       connectionManager = new ConnectionManager();
 
-    // Set up event handlers for the shared connections
-    const eventHandlers = {
-      // KickPusher event handlers
-      onKickMessage: (event) => {
-        try {
-          const { chatroomId } = event.detail;
-          console.log(`[ChatProvider] Received kick message for chatroom ${chatroomId}:`, event.detail);
-          if (chatroomId) {
-            get().handleKickMessage(chatroomId, event.detail);
+      // Set up event handlers for the shared connections
+      const eventHandlers = {
+        // KickPusher event handlers
+        onKickMessage: (event) => {
+          try {
+            const { chatroomId } = event.detail;
+            // console.log(`[ChatProvider] Received kick message for chatroom ${chatroomId}:`, event.detail);
+            if (chatroomId) {
+              get().handleKickMessage(chatroomId, event.detail);
+            }
+          } catch (error) {
+            console.error("[ChatProvider] Error handling kick message:", error);
           }
-        } catch (error) {
-          console.error("[ChatProvider] Error handling kick message:", error);
-        }
-      },
-      onKickChannel: (event) => {
-        try {
-          const { chatroomId } = event.detail;
-          if (chatroomId) {
-            get().handleKickChannel(chatroomId, event.detail);
+        },
+        onKickChannel: (event) => {
+          try {
+            const { chatroomId } = event.detail;
+            if (chatroomId) {
+              get().handleKickChannel(chatroomId, event.detail);
+            }
+          } catch (error) {
+            console.error("[ChatProvider] Error handling kick channel event:", error);
           }
-        } catch (error) {
-          console.error("[ChatProvider] Error handling kick channel event:", error);
-        }
-      },
-      onKickConnection: (event) => {
-        try {
-          get().handleKickConnection(event.detail);
-        } catch (error) {
-          console.error("[ChatProvider] Error handling kick connection:", error);
-        }
-      },
-      onKickSubscriptionSuccess: (event) => {
-        try {
-          const { chatroomId } = event.detail;
-          if (chatroomId) {
-            console.log(`[ChatProvider] Subscription successful for chatroom: ${chatroomId}`);
-            // Use setTimeout to prevent immediate state update loops
-            setTimeout(() => {
-              get().addMessage(chatroomId, {
-                id: crypto.randomUUID(),
-                type: "system",
-                content: "connection-success",
-                chatroomNumber: chatroomId,
-                timestamp: new Date().toISOString(),
+        },
+        onKickConnection: (event) => {
+          try {
+            get().handleKickConnection(event.detail);
+          } catch (error) {
+            console.error("[ChatProvider] Error handling kick connection:", error);
+          }
+        },
+        onKickSubscriptionSuccess: (event) => {
+          try {
+            const { chatroomId } = event.detail;
+            if (chatroomId) {
+              console.log(`[ChatProvider] Subscription successful for chatroom: ${chatroomId}`);
+              // Use setTimeout to prevent immediate state update loops
+              setTimeout(() => {
+                get().addMessage(chatroomId, {
+                  id: crypto.randomUUID(),
+                  type: "system",
+                  content: "connection-success",
+                  chatroomNumber: chatroomId,
+                  timestamp: new Date().toISOString(),
+                });
+              }, 0);
+            }
+          } catch (error) {
+            console.error("[ChatProvider] Error handling kick subscription success:", error);
+          }
+        },
+        // 7TV event handlers
+        onStvMessage: (event) => {
+          try {
+            const { chatroomId } = event.detail;
+            if (chatroomId) {
+              get().handleStvMessage(chatroomId, event.detail);
+            } else {
+              // Broadcast to all chatrooms if no specific chatroom
+              chatrooms.forEach((chatroom) => {
+                get().handleStvMessage(chatroom.id, event.detail);
               });
-            }, 0);
+            }
+          } catch (error) {
+            console.error("[ChatProvider] Error handling 7TV message:", error);
           }
-        } catch (error) {
-          console.error("[ChatProvider] Error handling kick subscription success:", error);
-        }
-      },
-      // 7TV event handlers
-      onStvMessage: (event) => {
-        try {
-          const { chatroomId } = event.detail;
-          if (chatroomId) {
-            get().handleStvMessage(chatroomId, event.detail);
-          } else {
-            // Broadcast to all chatrooms if no specific chatroom
-            chatrooms.forEach(chatroom => {
-              get().handleStvMessage(chatroom.id, event.detail);
-            });
+        },
+        onStvOpen: (event) => {
+          try {
+            const { chatroomId } = event.detail;
+            if (chatroomId) {
+              console.log(`[ChatProvider] 7TV WebSocket connected for chatroom: ${chatroomId}`);
+            } else {
+              console.log("[ChatProvider] 7TV WebSocket connected for all chatrooms");
+            }
+          } catch (error) {
+            console.error("[ChatProvider] Error handling 7TV open:", error);
           }
-        } catch (error) {
-          console.error("[ChatProvider] Error handling 7TV message:", error);
-        }
-      },
-      onStvOpen: (event) => {
-        try {
-          const { chatroomId } = event.detail;
-          if (chatroomId) {
-            console.log(`[ChatProvider] 7TV WebSocket connected for chatroom: ${chatroomId}`);
-          } else {
-            console.log("[ChatProvider] 7TV WebSocket connected for all chatrooms");
+        },
+        onStvConnection: () => {
+          try {
+            console.log("[ChatProvider] 7TV shared connection established");
+          } catch (error) {
+            console.error("[ChatProvider] Error handling 7TV connection:", error);
           }
-        } catch (error) {
-          console.error("[ChatProvider] Error handling 7TV open:", error);
-        }
-      },
-      onStvConnection: () => {
-        try {
-          console.log("[ChatProvider] 7TV shared connection established");
-        } catch (error) {
-          console.error("[ChatProvider] Error handling 7TV connection:", error);
-        }
-      },
-    };
+        },
+      };
 
       try {
         console.log(`[ChatProvider] Initializing ${chatrooms.length} chatrooms with optimized connections...`);
@@ -818,9 +783,10 @@ const useChatStore = create((set, get) => ({
 
         // Show performance comparison in console
         console.log("[ChatProvider] 🚀 Performance improvement:");
-        console.log(`  - WebSocket connections: ${chatrooms.length * 2} → 2 (${((chatrooms.length * 2 - 2) / (chatrooms.length * 2) * 100).toFixed(1)}% reduction)`);
+        console.log(
+          `  - WebSocket connections: ${chatrooms.length * 2} → 2 (${(((chatrooms.length * 2 - 2) / (chatrooms.length * 2)) * 100).toFixed(1)}% reduction)`,
+        );
         console.log(`  - Expected startup time improvement: ~75% faster`);
-
       } catch (error) {
         console.error("[ChatProvider] ❌ Error during optimized initialization:", error);
         // Fallback to individual connections if shared connections fail
@@ -849,7 +815,7 @@ const useChatStore = create((set, get) => ({
 
   // Shared connection event handlers
   handleKickMessage: async (chatroomId, eventDetail) => {
-    console.log(`[ChatProvider] Processing kick message for chatroom ${chatroomId}:`, eventDetail);
+    // console.log(`[ChatProvider] Processing kick message for chatroom ${chatroomId}:`, eventDetail);
     const parsedEvent = JSON.parse(eventDetail.data);
 
     switch (eventDetail.event) {
@@ -870,12 +836,12 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           };
-          console.log(`[ChatProvider] Adding message to chatroom ${chatroomId}:`, messageWithTimestamp);
+          // console.log(`[ChatProvider] Adding message to chatroom ${chatroomId}:`, messageWithTimestamp);
           get().addMessage(chatroomId, messageWithTimestamp);
 
           // Verify the message was added
           const currentMessages = get().messages[chatroomId] || [];
-          console.log(`[ChatProvider] Chatroom ${chatroomId} now has ${currentMessages.length} messages`);
+          // console.log(`[ChatProvider] Chatroom ${chatroomId} now has ${currentMessages.length} messages`);
 
           if (parsedEvent?.type === "reply") {
             window.app.replyLogs.add({
@@ -996,7 +962,7 @@ const useChatStore = create((set, get) => ({
   handleKickConnection: (eventDetail) => {
     const { chatrooms } = eventDetail;
     if (chatrooms) {
-      chatrooms.forEach(chatroomId => {
+      chatrooms.forEach((chatroomId) => {
         get().addMessage(chatroomId, {
           id: crypto.randomUUID(),
           type: "system",
@@ -1085,7 +1051,6 @@ const useChatStore = create((set, get) => ({
   },
 
   addMessage: (chatroomId, message) => {
-
     set((state) => {
       const messages = state.messages[chatroomId] || [];
 
@@ -1112,7 +1077,6 @@ const useChatStore = create((set, get) => ({
       } else if (!state.isChatroomPaused?.[chatroomId] && updatedMessages.length > 200) {
         updatedMessages = updatedMessages.slice(-200);
       }
-
 
       return {
         messages: {
@@ -1152,7 +1116,7 @@ const useChatStore = create((set, get) => ({
       const isDuplicate = savedChatrooms.some(
         (chatroom) =>
           chatroom.username.toLowerCase() === username.toLowerCase() ||
-          chatroom.username.toLowerCase() === username.replaceAll("-", "_")
+          chatroom.username.toLowerCase() === username.replaceAll("-", "_"),
       );
 
       if (isDuplicate) {
@@ -1198,6 +1162,12 @@ const useChatStore = create((set, get) => ({
   removeChatroom: (chatroomId) => {
     console.log(`[ChatProvider]: Removing chatroom ${chatroomId}`);
 
+    // Use connection manager for shared connections
+    if (connectionManager) {
+      connectionManager.removeChatroom(chatroomId);
+    }
+
+    // Clean up any individual connections in state (works for both pooled and individual modes)
     const { connections } = get();
     const connection = connections[chatroomId];
     const stvSocket = connection?.stvSocket;
@@ -2143,21 +2113,21 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 }
 
 // Expose debug functions globally in development
-if (process.env.NODE_ENV === 'development') {
+if (process.env.NODE_ENV === "development") {
   window.debugKickTalk = {
     toggleStreamStatus: (chatroomId, isLive) => {
       useChatStore.getState().debugToggleStreamStatus(chatroomId, isLive);
     },
     getChatrooms: () => {
-      return useChatStore.getState().chatrooms.map(room => ({
+      return useChatStore.getState().chatrooms.map((room) => ({
         id: room.id,
         username: room.username,
-        isLive: room.isStreamerLive
+        isLive: room.isStreamerLive,
       }));
     },
     getConnectionStatus: () => {
       return useChatStore.getState().getConnectionStatus();
-    }
+    },
   };
 }
 
@@ -2169,6 +2139,5 @@ export const ChatProviderCleanup = () => {
 
   return null;
 };
-
 
 export default useChatStore;

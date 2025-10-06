@@ -108,9 +108,7 @@ class ConnectionManager {
     // Wait for both connections with timeout
     await Promise.race([
       Promise.all([kickPromise, stvPromise]),
-      new Promise((_, reject) =>
-        setTimeout(() => reject(new Error("Connection timeout")), 10000)
-      )
+      new Promise((_, reject) => setTimeout(() => reject(new Error("Connection timeout")), 10000)),
     ]);
 
     console.log("[ConnectionManager] Shared connections established");
@@ -130,7 +128,7 @@ class ConnectionManager {
       console.log(`[ConnectionManager] Processing batch ${i + 1}/${batches.length} (${batch.length} chatrooms)`);
 
       // Process batch in parallel
-      const batchPromises = batch.map(chatroom => this.addChatroom(chatroom));
+      const batchPromises = batch.map((chatroom) => this.addChatroom(chatroom));
       await Promise.allSettled(batchPromises);
 
       // Add delay between batches (except for the last one)
@@ -145,22 +143,13 @@ class ConnectionManager {
   async addChatroom(chatroom) {
     try {
       // Add to KickPusher
-      this.kickPusher.addChatroom(
-        chatroom.id,
-        chatroom.streamerData.id,
-        chatroom
-      );
+      this.kickPusher.addChatroom(chatroom.id, chatroom.streamerData.id, chatroom);
 
       // Add to 7TV WebSocket
       const stvId = chatroom.streamerData?.user_id || "0";
       const stvEmoteSetId = chatroom.channel7TVEmotes?.[0]?.id || "0";
 
-      this.stvWebSocket.addChatroom(
-        chatroom.id,
-        stvId,
-        stvId,
-        stvEmoteSetId
-      );
+      this.stvWebSocket.addChatroom(chatroom.id, chatroom.streamerData.user_id, stvId, stvEmoteSetId);
 
       // Fetch initial messages for this chatroom
       await this.fetchInitialMessages(chatroom);
@@ -187,9 +176,7 @@ class ConnectionManager {
     await this.fetchGlobalStvEmotes();
 
     // Batch fetch channel-specific emotes
-    const emoteFetchPromises = chatrooms.map(chatroom =>
-      this.fetchChatroomEmotes(chatroom)
-    );
+    const emoteFetchPromises = chatrooms.map((chatroom) => this.fetchChatroomEmotes(chatroom));
 
     // Process in batches to avoid overwhelming the APIs
     const emoteBatches = this.chunkArray(emoteFetchPromises, this.config.maxConcurrentEmoteFetches);
@@ -265,7 +252,7 @@ class ConnectionManager {
   }
 
   delay(ms) {
-    return new Promise(resolve => setTimeout(resolve, ms));
+    return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
   // Status methods
@@ -324,6 +311,7 @@ class ConnectionManager {
   async fetchInitialChatroomInfo(chatroom) {
     try {
       const response = await window.app.kick.getChannelChatroomInfo(chatroom.streamerData.slug);
+      console.log(response);
 
       if (!response?.data) {
         return;

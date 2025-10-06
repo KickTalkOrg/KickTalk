@@ -28,11 +28,8 @@ const ChatroomTab = memo(
     renameInputRef,
     settings,
   }) => {
-    // Use useShallow to prevent unnecessary re-renders and memoize the unread count calculation
-    const chatroomMessages = useChatStore(
-      useShallow((state) => state.messages[chatroom.id] || [])
-    );
-    
+    const chatroomMessages = useChatStore(useShallow((state) => state.messages[chatroom.id] || []));
+
     const unreadCount = useMemo(() => {
       return chatroomMessages.filter((message) => !message.isRead && message.type !== "system").length;
     }, [chatroomMessages]);
