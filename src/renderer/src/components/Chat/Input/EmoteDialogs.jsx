@@ -12,6 +12,7 @@ import UserIcon from "../../../assets/icons/user-fill.svg?asset";
 import useChatStore from "../../../providers/ChatProvider";
 import { useShallow } from "zustand/react/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../Shared/Tooltip";
+import { useAccessibleKickEmotes } from "./useAccessibleKickEmotes";
 
 const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChatroomInfo }) => {
   const [isSectionOpen, setIsSectionOpen] = useState(true);
@@ -290,7 +291,7 @@ const KickEmoteDialog = memo(
 
 const EmoteDialogs = memo(
   ({ chatroomId, handleEmoteClick, userChatroomInfo }) => {
-    const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
+    const kickEmotes = useAccessibleKickEmotes(chatroomId);
     const sevenTVEmotes = useChatStore(
       useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.channel7TVEmotes),
     );
@@ -313,7 +314,7 @@ const EmoteDialogs = memo(
       if (!kickEmotes?.length) return;
 
       const newRandomEmotes = [];
-      const globalSet = kickEmotes.find((set) => set.name === "Emojis");
+      const globalSet = kickEmotes.find((set) => set.sectionKind === "emoji");
       if (!globalSet?.emotes?.length) return;
 
       for (let i = 0; i < 10; i++) {
@@ -322,13 +323,17 @@ const EmoteDialogs = memo(
       }
 
       setRandomEmotes(newRandomEmotes);
-      setCurrentHoverEmote(newRandomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      if (newRandomEmotes.length > 0) {
+        setCurrentHoverEmote(newRandomEmotes[Math.floor(Math.random() * newRandomEmotes.length)]);
+      }
     }, [kickEmotes]);
 
     const getRandomKickEmote = useCallback(() => {
       if (!randomEmotes.length) return;
 
-      setCurrentHoverEmote(randomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      if (randomEmotes.length > 0) {
+        setCurrentHoverEmote(randomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      }
     }, [randomEmotes]);
 
     return (
