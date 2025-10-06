@@ -42,6 +42,7 @@ const getInitialState = () => {
     mentions: {}, // Store for all Mentions
     currentChatroomId: null, // Track the currently active chatroom
     hasMentionsTab: savedMentionsTab, // Track if mentions tab is enabled
+    draftMessages: new Map(), // Store draft messages per chatroom
   };
 };
 
@@ -2063,6 +2064,31 @@ const useChatStore = create((set, get) => ({
   removeMentionsTab: () => {
     set({ hasMentionsTab: false });
     localStorage.setItem("hasMentionsTab", "false");
+  },
+
+  // Draft message management
+  saveDraftMessage: (chatroomId, content) => {
+    set((state) => {
+      const newDraftMessages = new Map(state.draftMessages);
+      if (content.trim()) {
+        newDraftMessages.set(chatroomId, content);
+      } else {
+        newDraftMessages.delete(chatroomId);
+      }
+      return { draftMessages: newDraftMessages };
+    });
+  },
+
+  getDraftMessage: (chatroomId) => {
+    return get().draftMessages.get(chatroomId) || '';
+  },
+
+  clearDraftMessage: (chatroomId) => {
+    set((state) => {
+      const newDraftMessages = new Map(state.draftMessages);
+      newDraftMessages.delete(chatroomId);
+      return { draftMessages: newDraftMessages };
+    });
   },
 }));
 
