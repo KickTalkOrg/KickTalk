@@ -12,6 +12,7 @@ import UserIcon from "../../../assets/icons/user-fill.svg?asset";
 import useChatStore from "../../../providers/ChatProvider";
 import { useShallow } from "zustand/react/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../Shared/Tooltip";
+import { useAccessibleKickEmotes } from "./useAccessibleKickEmotes";
 
 const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChatroomInfo }) => {
   const [isSectionOpen, setIsSectionOpen] = useState(true);
@@ -114,6 +115,16 @@ const SevenTVEmoteDialog = memo(
         .filter((section) => section.emotes && section.emotes.length > 0);
     }, [sevenTVEmotes, searchTerm]);
 
+    // Compute a safe avatar URL for the channel section (if present)
+    const channelSet = useMemo(() => sevenTVEmotes?.find((set) => set.type === "channel"), [sevenTVEmotes]);
+    const channelAvatar = channelSet?.user?.avatar_url;
+    const channelAvatarSrc = useMemo(() => {
+      if (!channelAvatar) return STVLogo; // fallback to 7TV logo if missing
+      // If it's a full URL or Twitch CDN URL, use as-is; otherwise, prefix https:
+      if (channelAvatar.startsWith("http") || channelAvatar.includes("static-cdn.jtvnw.net")) return channelAvatar;
+      return `https:${channelAvatar}`;
+    }, [channelAvatar]);
+
     return (
       <>
         {isDialogOpen && (
@@ -142,12 +153,7 @@ const SevenTVEmoteDialog = memo(
                   <button
                     className={clsx("dialogHeadMenuItem", currentSection === "channel" && "active")}
                     onClick={() => setCurrentSection(currentSection === "channel" ? null : "channel")}>
-                    <img
-                      src={`${sevenTVEmotes?.find((set) => set.type === "channel")?.user?.avatar_url.includes("static-cdn.jtvnw.net") ? sevenTVEmotes?.find((set) => set.type === "channel")?.user?.avatar_url : `https:${sevenTVEmotes?.find((set) => set.type === "channel")?.user?.avatar_url}`}`}
-                      height={24}
-                      width={24}
-                      alt="Channel Emotes"
-                    />
+                    <img src={channelAvatarSrc} height={24} width={24} alt="Channel Emotes" />
                   </button>
                 )}
                 {sevenTVEmotes?.find((set) => set.type === "global" && set?.emotes?.length > 0) && (
@@ -285,7 +291,7 @@ const KickEmoteDialog = memo(
 
 const EmoteDialogs = memo(
   ({ chatroomId, handleEmoteClick, userChatroomInfo }) => {
-    const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
+    const kickEmotes = useAccessibleKickEmotes(chatroomId);
     const sevenTVEmotes = useChatStore(
       useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.channel7TVEmotes),
     );
@@ -308,7 +314,7 @@ const EmoteDialogs = memo(
       if (!kickEmotes?.length) return;
 
       const newRandomEmotes = [];
-      const globalSet = kickEmotes.find((set) => set.name === "Emojis");
+      const globalSet = kickEmotes.find((set) => set.sectionKind === "emoji");
       if (!globalSet?.emotes?.length) return;
 
       for (let i = 0; i < 10; i++) {
@@ -317,13 +323,17 @@ const EmoteDialogs = memo(
       }
 
       setRandomEmotes(newRandomEmotes);
-      setCurrentHoverEmote(newRandomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      if (newRandomEmotes.length > 0) {
+        setCurrentHoverEmote(newRandomEmotes[Math.floor(Math.random() * newRandomEmotes.length)]);
+      }
     }, [kickEmotes]);
 
     const getRandomKickEmote = useCallback(() => {
       if (!randomEmotes.length) return;
 
-      setCurrentHoverEmote(randomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      if (randomEmotes.length > 0) {
+        setCurrentHoverEmote(randomEmotes[Math.floor(Math.random() * randomEmotes.length)]);
+      }
     }, [randomEmotes]);
 
     return (
