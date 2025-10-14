@@ -14,7 +14,6 @@ import MentionsTab from "./Navbar/MentionsTab";
 
 const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
   const { settings } = useSettings();
-  const connections = useChatStore((state) => state.connections);
   const addChatroom = useChatStore((state) => state.addChatroom);
   const removeChatroom = useChatStore((state) => state.removeChatroom);
   const renameChatroom = useChatStore((state) => state.renameChatroom);
@@ -67,8 +66,6 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
   };
 
   const handleRemoveChatroom = async (chatroomId) => {
-    if (!connections[chatroomId]) return;
-
     const currentIndex = orderedChatrooms.findIndex((chatroom) => chatroom.id === chatroomId);
     await removeChatroom(chatroomId);
 
