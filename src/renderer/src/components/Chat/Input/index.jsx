@@ -18,6 +18,7 @@ import {
   KEY_SPACE_COMMAND,
   COMMAND_PRIORITY_CRITICAL,
   $getNodeByKey,
+  $createParagraphNode,
 } from "lexical";
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AutoFocusPlugin } from "@lexical/react/LexicalAutoFocusPlugin";
@@ -197,7 +198,7 @@ const KeyHandler = ({ chatroomId, onSendMessage, replyInputData, setReplyInputDa
   const userChatroomInfo = useChatStore(
     useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.userChatroomInfo),
   );
-  const chatters = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.chatters));
+  const chatters = useChatStore(useShallow((state) => state.chatters[chatroomId]));
   const kickEmotes = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes));
 
   const searchEmotes = useCallback(
@@ -765,6 +766,46 @@ const EmoteTransformer = ({ chatroomId }) => {
   }, [editor, kickEmotes]);
 };
 
+const DraftManager = ({ chatroomId }) => {
+  const [editor] = useLexicalComposerContext();
+  const saveDraftMessage = useChatStore((state) => state.saveDraftMessage);
+  const getDraftMessage = useChatStore((state) => state.getDraftMessage);
+  const clearDraftMessage = useChatStore((state) => state.clearDraftMessage);
+
+  // Save draft on editor content changes
+  useEffect(() => {
+    if (!editor) return;
+
+    const unregister = editor.registerUpdateListener(({ editorState }) => {
+      editorState.read(() => {
+        const content = $rootTextContent();
+        saveDraftMessage(chatroomId, content);
+      });
+    });
+
+    return unregister;
+  }, [editor, chatroomId, saveDraftMessage]);
+
+  // Restore draft when chatroom changes
+  useEffect(() => {
+    if (!editor) return;
+
+    const draft = getDraftMessage(chatroomId);
+    if (draft) {
+      editor.update(() => {
+        const root = $getRoot();
+        root.clear();
+        const textNode = $createTextNode(draft);
+        const paragraph = $createParagraphNode();
+        paragraph.append(textNode);
+        root.append(paragraph);
+      });
+    }
+  }, [editor, chatroomId, getDraftMessage]);
+
+  return null;
+};
+
 const EmoteHandler = ({ chatroomId, userChatroomInfo }) => {
   const [editor] = useLexicalComposerContext();
 
@@ -823,6 +864,9 @@ const ChatInput = memo(
   ({ chatroomId, isReplyThread = false, replyMessage = {}, settings }) => {
     const sendMessage = useChatStore((state) => state.sendMessage);
     const sendReply = useChatStore((state) => state.sendReply);
+    const saveDraftMessage = useChatStore((state) => state.saveDraftMessage);
+    const getDraftMessage = useChatStore((state) => state.getDraftMessage);
+    const clearDraftMessage = useChatStore((state) => state.clearDraftMessage);
     const chatroom = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)));
     const personalEmoteSets = useChatStore(useShallow((state) => state.personalEmoteSets));
     const [replyInputData, setReplyInputData] = useState(null);
@@ -917,9 +961,11 @@ const ChatInput = memo(
             sentMessages: [...(history?.sentMessages || []), content],
             selectedIndex: undefined,
           });
+          // Clear draft message when message is sent successfully
+          clearDraftMessage(chatroomId);
         }
       },
-      [chatroomId, chatroom, sendMessage, replyInputData, setReplyInputData, replyMessage],
+      [chatroomId, chatroom, sendMessage, replyInputData, setReplyInputData, replyMessage, clearDraftMessage],
     );
 
     return (
@@ -963,6 +1009,7 @@ const ChatInput = memo(
               setReplyInputData={setReplyInputData}
             />
             <EmoteTransformer chatroomId={chatroomId} />
+            <DraftManager chatroomId={chatroomId} />
             <HistoryPlugin />
             <AutoFocusPlugin />
           </LexicalComposer>

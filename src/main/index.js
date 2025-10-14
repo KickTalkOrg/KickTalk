@@ -46,30 +46,6 @@ const iconPath = process.platform === "win32"
   ? join(__dirname, "../../resources/icons/win/KickTalk_v1.ico")
   : join(__dirname, "../../resources/icons/KickTalk_v1.png");
 
-// Load metrics with fallback
-let metrics = null;
-try {
-  const telemetryModule = require("../telemetry/index.js");
-  metrics = telemetryModule.metrics;
-} catch (error) {
-  console.warn('[Telemetry]: Failed to load metrics:', error.message);
-  // Fallback no-op metrics
-  metrics = {
-    incrementOpenWindows: () => {},
-    decrementOpenWindows: () => {},
-    recordError: () => {},
-    recordMessageSent: () => {},
-    recordMessageSendDuration: () => {},
-    recordMessageReceived: () => {},
-    recordRendererMemory: () => {},
-    recordDomNodeCount: () => {},
-    incrementWebSocketConnections: () => {},
-    decrementWebSocketConnections: () => {},
-    recordConnectionError: () => {},
-    recordReconnection: () => {}
-  };
-}
-
 const authStore = new Store({
   fileExtension: "env",
   schema: {
@@ -280,6 +256,12 @@ ipcMain.handle("store:set", (e, { key, value }) => {
       mainWindow.setAlwaysOnTop(value.alwaysOnTop, "screen-saver", 1);
     } else if (process.platform === "linux") {
       mainWindow.setAlwaysOnTop(value.alwaysOnTop, "screen-saver", 1);
+    }
+
+    // Handle auto-update setting changes
+    if (value.hasOwnProperty('autoUpdate') && value.autoUpdate === false) {
+      // Dismiss any active update notifications when auto-update is disabled
+      mainWindow.webContents.send("autoUpdater:dismiss");
     }
   }
 
