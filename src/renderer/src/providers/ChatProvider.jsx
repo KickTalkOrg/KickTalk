@@ -2297,6 +2297,31 @@ const useChatStore = create((set, get) => ({
     set({ hasMentionsTab: false });
     localStorage.setItem("hasMentionsTab", "false");
   },
+
+  // Draft message management
+  saveDraftMessage: (chatroomId, content) => {
+    set((state) => {
+      const newDraftMessages = new Map(state.draftMessages);
+      if (content.trim()) {
+        newDraftMessages.set(chatroomId, content);
+      } else {
+        newDraftMessages.delete(chatroomId);
+      }
+      return { draftMessages: newDraftMessages };
+    });
+  },
+
+  getDraftMessage: (chatroomId) => {
+    return get().draftMessages.get(chatroomId) || '';
+  },
+
+  clearDraftMessage: (chatroomId) => {
+    set((state) => {
+      const newDraftMessages = new Map(state.draftMessages);
+      newDraftMessages.delete(chatroomId);
+      return { draftMessages: newDraftMessages };
+    });
+  },
 }));
 
 if (window.location.pathname === "/" || window.location.pathname.endsWith("index.html")) {
