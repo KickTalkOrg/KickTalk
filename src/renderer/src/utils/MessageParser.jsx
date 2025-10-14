@@ -34,12 +34,8 @@ const rules = [
   {
     // Kick Emote Rule
     regexPattern: kickEmoteRegex,
-    component: ({ match, index, type }) => {
+    component: ({ match, index }) => {
       const { id, name } = match.groups;
-
-      if (type === "reply") {
-        return name;
-      }
 
       return (
         <Emote
