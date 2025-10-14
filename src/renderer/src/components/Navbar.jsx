@@ -1,6 +1,6 @@
 import "../assets/styles/components/Navbar.scss";
 import clsx from "clsx";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import useChatStore from "../providers/ChatProvider";
 import Plus from "../assets/icons/plus-bold.svg?asset";
 import X from "../assets/icons/x-bold.svg?asset";
@@ -18,7 +18,10 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
   const removeChatroom = useChatStore((state) => state.removeChatroom);
   const renameChatroom = useChatStore((state) => state.renameChatroom);
   const reorderChatrooms = useChatStore((state) => state.reorderChatrooms);
-  const orderedChatrooms = useChatStore((state) => state.getOrderedChatrooms());
+  const chatrooms = useChatStore((state) => state.chatrooms);
+  const orderedChatrooms = useMemo(() => {
+    return [...chatrooms].sort((a, b) => (a.order || 0) - (b.order || 0));
+  }, [chatrooms]);
   const hasMentionsTab = useChatStore((state) => state.hasMentionsTab);
   const addMentionsTab = useChatStore((state) => state.addMentionsTab);
   const removeMentionsTab = useChatStore((state) => state.removeMentionsTab);

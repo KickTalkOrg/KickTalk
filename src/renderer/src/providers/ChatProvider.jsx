@@ -160,6 +160,11 @@ const useChatStore = create((set, get) => ({
   },
 
   sendMessage: async (chatroomId, content) => {
+    const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendMessage - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
+    
     try {
       const message = content.trim();
       console.info("Sending message to chatroom:", chatroomId);
@@ -199,6 +204,15 @@ const useChatStore = create((set, get) => ({
 
       // Send message to server
       const response = await window.app.kick.sendMessage(chatroomId, message);
+      const apiDuration = (Date.now() - apiStartTime) / 1000;
+      
+      // Record API request timing
+      try {
+        const statusCode = response?.status || response?.data?.status?.code || 200;
+        await window.app?.telemetry?.recordAPIRequest?.('kick_send_message', 'POST', statusCode, apiDuration);
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record API request:', telemetryError);
+      }
 
       // Clear timeout if request completes (success or known failure)
       clearTimeout(timeoutId);
@@ -234,6 +248,11 @@ const useChatStore = create((set, get) => ({
   },
 
   sendReply: async (chatroomId, content, metadata = {}) => {
+    const startTime = Date.now();
+    const chatroom = get().chatrooms.find(room => room.id === chatroomId);
+    const streamerName = chatroom?.streamerData?.user?.username || chatroom?.username || `chatroom_${chatroomId}`;
+    console.log(`[Telemetry] sendReply - chatroomId: ${chatroomId}, streamerName: ${streamerName}`);
+    
     try {
       const message = content.trim();
       console.info("Sending reply to chatroom:", chatroomId);
@@ -272,6 +291,15 @@ const useChatStore = create((set, get) => ({
 
       // Send reply to server
       const response = await window.app.kick.sendReply(chatroomId, message, metadata);
+      const apiDuration = (Date.now() - apiStartTime) / 1000;
+      
+      // Record API request timing
+      try {
+        const statusCode = response?.status || response?.data?.status?.code || 200;
+        await window.app?.telemetry?.recordAPIRequest?.('kick_send_reply', 'POST', statusCode, apiDuration);
+      } catch (telemetryError) {
+        console.warn('[Telemetry]: Failed to record API request:', telemetryError);
+      }
 
       // Clear timeout if request completes (success or known failure)
       clearTimeout(timeoutId);
@@ -395,7 +423,7 @@ const useChatStore = create((set, get) => ({
 
   connectToChatroom: async (chatroom) => {
     if (!chatroom?.id) return;
-    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id);
+    const pusher = new KickPusher(chatroom.id, chatroom.streamerData.id, chatroom.streamerData?.user?.username);
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {
@@ -1478,11 +1506,6 @@ const useChatStore = create((set, get) => ({
     localStorage.setItem("chatrooms", JSON.stringify(savedChatrooms.filter((room) => room.id !== chatroomId)));
   },
 
-  // Ordered Chatrooms
-  getOrderedChatrooms: () => {
-    return get().chatrooms.sort((a, b) => (a.order || 0) - (b.order || 0));
-  },
-
   updateChatroomOrder: (chatroomId, newOrder) => {
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => (room.id === chatroomId ? { ...room, order: newOrder } : room)),
@@ -1917,8 +1940,8 @@ const useChatStore = create((set, get) => ({
       });
     }
 
-    personalEmotes.sort((a, b) => a.name.localeCompare(b.name));
-    emotes.sort((a, b) => a.name.localeCompare(b.name));
+    personalEmotes = [...personalEmotes].sort((a, b) => a.name.localeCompare(b.name));
+    emotes = [...emotes].sort((a, b) => a.name.localeCompare(b.name));
 
     // Send emote update data to frontend for custom handling
     if (addedEmotes.length > 0 || removedEmotes.length > 0 || updatedEmotes.length > 0) {
@@ -2178,7 +2201,7 @@ const useChatStore = create((set, get) => ({
     });
 
     // Sort by timestamp, newest first
-    return allMentions.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return [...allMentions].sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   },
 
   // Get mentions for a specific chatroom
