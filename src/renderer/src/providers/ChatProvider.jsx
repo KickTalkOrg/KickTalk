@@ -147,6 +147,18 @@ const useChatStore = create((set, get) => ({
     }
   },
 
+  // Cache current user info for optimistic messages
+  cacheCurrentUser: async () => {
+    try {
+      const currentUser = await window.app.kick.getSelfInfo();
+      set((state) => ({ ...state, currentUser }));
+      return currentUser;
+    } catch (error) {
+      console.error("[Chat Store]: Failed to cache user info:", error);
+      return null;
+    }
+  },
+
   sendMessage: async (chatroomId, content) => {
     try {
       const message = content.trim();
