@@ -282,6 +282,11 @@ if (process.contextIsolated) {
           ipcRenderer.on("autoUpdater:status", handler);
           return () => ipcRenderer.removeListener("autoUpdater:status", handler);
         },
+        onDismiss: (callback) => {
+          const handler = () => callback();
+          ipcRenderer.on("autoUpdater:dismiss", handler);
+          return () => ipcRenderer.removeListener("autoUpdater:dismiss", handler);
+        },
       },
 
       logs: {
@@ -391,8 +396,30 @@ if (process.contextIsolated) {
         clearTokens: () => tokenManager.clearTokens(),
         getToken: () => tokenManager.getToken(),
       },
+
+      // Telemetry utilities
+      telemetry: {
+        recordMessageSent: (chatroomId, messageType, duration, success, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordMessageSent", { chatroomId, messageType, duration, success, streamerName }),
+        recordError: (error, context) =>
+          ipcRenderer.invoke("telemetry:recordError", { error, context }),
+        recordRendererMemory: (memory) =>
+          ipcRenderer.invoke("telemetry:recordRendererMemory", memory),
+        recordDomNodeCount: (count) =>
+          ipcRenderer.invoke("telemetry:recordDomNodeCount", count),
+        recordWebSocketConnection: (chatroomId, streamerId, connected, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordWebSocketConnection", { chatroomId, streamerId, connected, streamerName }),
+        recordConnectionError: (chatroomId, errorType) =>
+          ipcRenderer.invoke("telemetry:recordConnectionError", { chatroomId, errorType }),
+        recordMessageReceived: (chatroomId, messageType, senderId, streamerName) =>
+          ipcRenderer.invoke("telemetry:recordMessageReceived", { chatroomId, messageType, senderId, streamerName }),
+        recordReconnection: (chatroomId, reason) =>
+          ipcRenderer.invoke("telemetry:recordReconnection", { chatroomId, reason }),
+        recordAPIRequest: (endpoint, method, statusCode, duration) =>
+          ipcRenderer.invoke("telemetry:recordAPIRequest", { endpoint, method, statusCode, duration }),
+      },
     });
-  } catch (error) {
+   } catch (error) {
     console.error("Failed to expose APIs:", error);
   }
 } else {

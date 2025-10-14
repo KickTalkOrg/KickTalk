@@ -9,11 +9,13 @@ import GearIcon from "../assets/icons/gear-fill.svg?asset";
 import "../assets/styles/components/TitleBar.scss";
 import clsx from "clsx";
 import Updater from "./Updater";
+import useChatStore from "../providers/ChatProvider";
 
 const TitleBar = () => {
-  const { t } = useTranslation();
-  const [userData, setUserData] = useState(null);
+  const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [appInfo, setAppInfo] = useState({});
+  const currentUser = useChatStore((state) => state.currentUser);
+  const cacheCurrentUser = useChatStore((state) => state.cacheCurrentUser);
 
   useEffect(() => {
     const getAppInfo = async () => {
@@ -21,24 +23,13 @@ const TitleBar = () => {
       setAppInfo(appInfo);
     };
 
-    const fetchUserData = async () => {
-      try {
-        const data = await window.app.kick.getSelfInfo();
-        const kickId = localStorage.getItem("kickId");
-
-        if (!kickId && data?.id) {
-          localStorage.setItem("kickId", data.id);
-        }
-
-        setUserData(data);
-      } catch (error) {
-        console.error("[TitleBar]: Failed to fetch user data:", error);
-      }
-    };
-
     getAppInfo();
-    fetchUserData();
-  }, []);
+    
+    // Cache user info if not already cached
+    if (!currentUser) {
+      cacheCurrentUser();
+    }
+  }, [currentUser, cacheCurrentUser]);
 
   const handleAuthBtn = useCallback((e) => {
     const cords = [e.clientX, e.clientY];
@@ -52,16 +43,16 @@ const TitleBar = () => {
         <span>KickTalk {appInfo.appVersion}</span>
       </div>
 
-      <div className="titleBarSettings">
-        {userData?.id ? (
+      <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
+        {currentUser?.id ? (
           <button
             className="titleBarSettingsBtn"
             onClick={() =>
               window.app.settingsDialog.open({
-                userData,
+                userData: currentUser,
               })
             }>
-            <span className="titleBarUsername">{userData?.username || t('titleBar.loading')}</span>
+            <span className="titleBarUsername">{currentUser?.username || "Loading..."}</span>
             <div className="titleBarDivider" />
             <img className="titleBarSettingsIcon" src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
           </button>
@@ -75,7 +66,7 @@ const TitleBar = () => {
               className="titleBarSettingsBtn"
               onClick={() =>
                 window.app.settingsDialog.open({
-                  userData,
+                  userData: currentUser,
                 })
               }>
               <img src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
