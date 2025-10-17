@@ -82,6 +82,58 @@
     }
   }
 
+  // Optimistic message states
+  &.optimistic {
+    // Use visual indicators instead of opacity to preserve readability
+    border-left: 3px solid rgba(255, 255, 255, 0.3);
+    background: rgba(255, 255, 255, 0.03) !important;
+    
+    // Add a subtle loading animation
+    position: relative;
+    
+    &::before {
+      content: "";
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 3px;
+      background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.6), transparent);
+      animation: optimisticPulse 2s ease-in-out infinite;
+    }
+  }
+
+  // Loading animation for optimistic messages
+  @keyframes optimisticPulse {
+    0%, 100% { opacity: 0.3; }
+    50% { opacity: 1; }
+  }
+
+  &.failed {
+    opacity: 0.7;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border-left: 3px solid #ff4444;
+    background: rgba(255, 68, 68, 0.1) !important;
+    
+    // Add subtle red tint to text instead of aggressive filter
+    .chatMessageContent,
+    .chatMessageUsername,
+    .chatMessageTimestamp {
+      color: #ff6b6b !important;
+    }
+
+    &:hover {
+      opacity: 0.9;
+      background: rgba(255, 68, 68, 0.15) !important;
+    }
+
+    // Show retry button in action area for failed messages
+    .chatMessageActions {
+      opacity: 1; // Always show for failed messages
+    }
+  }
+
   &.dialogChatMessageItem {
     padding: 4px 16px;
   }

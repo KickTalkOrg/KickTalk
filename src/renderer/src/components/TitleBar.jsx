@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from "react";
+import { useTranslation } from "react-i18next";
 
 import Minus from "../assets/icons/minus-bold.svg?asset";
 import Square from "../assets/icons/square-bold.svg?asset";
@@ -8,11 +9,13 @@ import GearIcon from "../assets/icons/gear-fill.svg?asset";
 import "../assets/styles/components/TitleBar.scss";
 import clsx from "clsx";
 import Updater from "./Updater";
+import useChatStore from "../providers/ChatProvider";
 
 const TitleBar = () => {
-  const [userData, setUserData] = useState(null);
   const [settingsModalOpen, setSettingsModalOpen] = useState(false);
   const [appInfo, setAppInfo] = useState({});
+  const currentUser = useChatStore((state) => state.currentUser);
+  const cacheCurrentUser = useChatStore((state) => state.cacheCurrentUser);
 
   useEffect(() => {
     const getAppInfo = async () => {
@@ -20,24 +23,13 @@ const TitleBar = () => {
       setAppInfo(appInfo);
     };
 
-    const fetchUserData = async () => {
-      try {
-        const data = await window.app.kick.getSelfInfo();
-        const kickId = localStorage.getItem("kickId");
-
-        if (!kickId && data?.id) {
-          localStorage.setItem("kickId", data.id);
-        }
-
-        setUserData(data);
-      } catch (error) {
-        console.error("[TitleBar]: Failed to fetch user data:", error);
-      }
-    };
-
     getAppInfo();
-    fetchUserData();
-  }, []);
+    
+    // Cache user info if not already cached
+    if (!currentUser) {
+      cacheCurrentUser();
+    }
+  }, [currentUser, cacheCurrentUser]);
 
   const handleAuthBtn = useCallback((e) => {
     const cords = [e.clientX, e.clientY];
@@ -52,38 +44,34 @@ const TitleBar = () => {
       </div>
 
       <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
-        {userData?.id ? (
+        {currentUser?.id ? (
           <button
             className="titleBarSettingsBtn"
             onClick={() =>
               window.app.settingsDialog.open({
-                userData,
+                userData: currentUser,
               })
             }>
-            <span className="titleBarUsername">{userData?.username || "Loading..."}</span>
+            <span className="titleBarUsername">{currentUser?.username || "Loading..."}</span>
             <div className="titleBarDivider" />
-            <img className="titleBarSettingsIcon" src={GearIcon} width={16} height={16} alt="Settings" />
+            <img className="titleBarSettingsIcon" src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
           </button>
         ) : (
           <div className="titleBarLoginBtn">
             <button className="titleBarSignInBtn" onClick={handleAuthBtn}>
-              Sign In
+              {t('auth.signIn')}
             </button>
             <div className="titleBarDivider" />
             <button
               className="titleBarSettingsBtn"
               onClick={() =>
                 window.app.settingsDialog.open({
-                  userData,
+                  userData: currentUser,
                 })
               }>
-              <img src={GearIcon} width={16} height={16} alt="Settings" />
+              <img src={GearIcon} width={16} height={16} alt={t('titleBar.settings')} />
             </button>
           </div>
-        )}
-
-        {settingsModalOpen && (
-          <Settings settingsModalOpen={settingsModalOpen} setSettingsModalOpen={setSettingsModalOpen} appInfo={appInfo} />
         )}
       </div>
 
@@ -92,13 +80,13 @@ const TitleBar = () => {
       <div className="titleBarRight">
         <div className="titleBarControls">
           <button className="minimize" onClick={() => window.app.minimize()}>
-            <img src={Minus} width={12} height={12} alt="Minimize" />
+            <img src={Minus} width={12} height={12} alt={t('titleBar.minimize')} />
           </button>
           <button className="maximize" onClick={() => window.app.maximize()}>
-            <img src={Square} width={12} height={12} alt="Maximize" />
+            <img src={Square} width={12} height={12} alt={t('titleBar.maximize')} />
           </button>
           <button className="close" onClick={() => window.app.close()}>
-            <img src={X} width={14} height={14} alt="Close" />
+            <img src={X} width={14} height={14} alt={t('titleBar.close')} />
           </button>
         </div>
       </div>

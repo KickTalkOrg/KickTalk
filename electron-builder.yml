@@ -22,11 +22,13 @@ nsis:
   oneClick: true
   allowToChangeInstallationDirectory: false
 mac:
+  icon: resources/icons/mac/KickTalk_v1.png
   entitlementsInherit: build/entitlements.mac.plist
   notarize: false
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  icon: resources/icons/linux/KickTalk_v1.png
   target:
     - AppImage
     - snap

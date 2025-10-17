@@ -1,0 +1,19 @@
+# OTEL logs and temporary data
+logs/
+*.log
+*.log.*
+
+# Grafana runtime data (keep provisioning configs)
+grafana/data/
+grafana/runtime/
+
+# Prometheus data
+prometheus/data/
+
+# Temporary collector files
+collector-temp/
+*.tmp
+
+# Docker volumes (if using local bind mounts)
+data/
+storage/

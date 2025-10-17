@@ -20,6 +20,10 @@ const schema = {
         type: "boolean",
         default: false,
       },
+      compactChatroomsList: {
+        type: "boolean",
+        default: false,
+      },
       showTabImages: {
         type: "boolean",
         default: true,
@@ -34,6 +38,7 @@ const schema = {
       alwaysOnTop: false,
       dialogAlwaysOnTop: false,
       wrapChatroomsList: false,
+      compactChatroomsList: false,
       showTabImages: true,
       timestampFormat: "disabled",
     },

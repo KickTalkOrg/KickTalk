@@ -71,6 +71,88 @@
       }
     }
   }
+
+  &.compactChatroomList {
+    .chatroomStreamer {
+      min-width: 40px;
+      width: 40px;
+      padding: 0 8px;
+      justify-content: center;
+      position: relative;
+
+      .streamerInfo {
+        > span:first-of-type {
+          display: none;
+        }
+
+        .profileImage {
+          margin-right: 0;
+          width: 24px;
+          height: 24px;
+          border-radius: 4px;
+          transition: border 0.2s ease-in-out;
+        }
+
+        .unreadCountIndicator {
+          position: absolute;
+          top: 6px;
+          right: 6px;
+          margin-left: 0;
+        }
+      }
+
+      .closeChatroom {
+        display: none;
+      }
+
+      // Live indicator for compact mode
+      &.chatroomStreamerLive {
+        border-color: rgba(255, 35, 35, 0.3);
+
+        &.chatroomStreamerActive {
+          background: rgba(255, 84, 84, 0.2);
+        }
+      }
+    }
+
+    .chatroomsSeparator {
+      display: none;
+    }
+
+    &.wrapChatroomList {
+      .chatroomsList {
+        .navbarAddChatroomContainer {
+          .navbarAddChatroomButton {
+            height: 40px;
+            width: 40px;
+            padding: 0;
+
+            span {
+              display: none;
+            }
+          }
+        }
+      }
+    }
+  }
+}
+
+// Give mentions tab its own opacity behavior like other UI icons
+.chatroomStreamer:has(.profileImage[alt="Mentions"]) {
+  opacity: 1;
+
+  .streamerInfo .profileImage[alt="Mentions"] {
+    opacity: 0.5;
+    transition: opacity 0.2s ease-in-out;
+  }
+
+  &:hover .streamerInfo .profileImage[alt="Mentions"] {
+    opacity: 0.8;
+  }
+
+  &.chatroomStreamerActive .streamerInfo .profileImage[alt="Mentions"] {
+    opacity: 0.8;
+  }
 }
 
 .chatroomStreamer {
