@@ -11,6 +11,9 @@ import UnbanIcon from "../../assets/icons/circle-slash.svg?asset";
 import Check from "../../assets/icons/check-bold.svg?asset";
 import { KickBadges, KickTalkBadges, StvBadges } from "../Cosmetics/Badges";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../Shared/Tooltip";
+import log from "electron-log";
+console.log = log.log;
+
 
 // TODO: Add Kick Talk Badges to User Dialog
 // TODO: Add Paints to User Dialog
@@ -109,10 +112,16 @@ const User = () => {
     });
   };
 
+  const getRandomInt = (min, max) => {
+    min = Math.ceil(min);
+    max = Math.floor(max);
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+  };
+
   useEffect(() => {
     const dataCleanup = window.app.userDialog.onData(loadData);
     const updateCleanup = window.app.logs.onUpdate(updateData);
-
+    console.log(`[System]: ${userProfile?.username || "Unknown User"} dialog opened.`);
     return () => {
       dataCleanup();
       updateCleanup();
@@ -128,7 +137,7 @@ const User = () => {
   const silenceUser = useCallback(async () => {
     if (!dialogData?.sender?.id) return;
 
-    console.log("Silencing user", dialogData?.sender?.username);
+    console.log("[System]: " + dialogData?.sender?.username);
     const currentSilencedUsers = JSON.parse(localStorage.getItem("silencedUsers")) || { data: [] };
     const userIndex = currentSilencedUsers.data.findIndex((user) => user.id === dialogData?.sender?.id);
 
@@ -172,7 +181,12 @@ const User = () => {
         <div className="dialogHeader">
           <div className="dialogHeaderUser">
             <div className="dialogHeaderUserImage">
-              <img src={userProfile?.profile_pic || "https://kick.com/img/default-profile-pictures/default2.jpeg"} />
+              <img
+                src={
+                  userProfile?.profile_pic ||
+                  `https://kick.com/img/default-profile-pictures/default-avatar-${getRandomInt(1, 6)}.webp`
+                }
+              />
             </div>
             <div className="dialogHeaderUserInfo">
               <div className="dialogHeaderUserInfoProfile">

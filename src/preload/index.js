@@ -35,9 +35,13 @@ import {
   getUpdateTitle,
   getClearChatroom,
 } from "../../utils/services/kick/kickAPI";
-import { getUserStvProfile, getChannelEmotes } from "../../utils/services/seventv/stvAPI";
+import { getUserStvProfile, getChannelEmotes, getGlobalEmoteSet } from "../../utils/services/seventv/stvAPI";
+import log from "electron-log";
 
 import Store from "electron-store";
+
+console.log = log.log;
+
 
 const authStore = new Store({
   fileExtension: "env",
@@ -107,7 +111,7 @@ const validateSessionToken = async () => {
     // Get STV ID with error handling
     try {
       const stvData = await getUserStvProfile(data.id);
-      console.log("[Session Validation]: STV Data:", stvData);
+      //console.log("[Session Validation]: STV Data:", stvData);
       const personalEmoteSets = stvData?.emoteSets?.filter((set) => set.type === "personal");
       if (stvData) {
         localStorage.setItem("stvId", stvData.user_id);
@@ -158,7 +162,7 @@ const withAuth = async (func) => {
 // Initialize with error handling
 const initializePreload = async () => {
   try {
-    console.log("[Preload]: Starting initialization...");
+    console.log("[System]: Starting initialization...");
 
     // Validate session
     const isValidSession = await validateSessionToken();
@@ -166,12 +170,12 @@ const initializePreload = async () => {
     if (isValidSession) {
       await saveSilencedUsers(authSession.token, authSession.session);
     } else {
-      console.log("[Preload]: Session invalid, skipping user-specific data");
+      console.log("[System]: Session invalid, skipping user-specific data");
     }
 
-    console.log("[Preload]: Initialization complete");
+    console.log("[System]: Initialization complete");
   } catch (error) {
-    console.error("[Preload]: Initialization failed:", error);
+    console.error("[System]: Initialization failed:", error);
   }
 };
 
@@ -234,6 +238,17 @@ if (process.contextIsolated) {
 
           ipcRenderer.on("settingsDialog:data", handler);
           return () => ipcRenderer.removeListener("settingsDialog:data", handler);
+        },
+      },
+
+       logsDialog: {
+        open: (data) => ipcRenderer.invoke("logsDialog:open", { data }),
+        close: () => ipcRenderer.invoke("logsDialog:close"),
+        onData: (callback) => {
+          const handler = (_, data) => callback(data);
+
+          ipcRenderer.on("logsDialog:data", handler);
+          return () => ipcRenderer.removeListener("logsDialog:data", handler);
         },
       },
 
@@ -367,6 +382,7 @@ if (process.contextIsolated) {
       // 7TV API
       stv: {
         getChannelEmotes,
+        getGlobalEmoteSet,
       },
 
       // Utility functions
@@ -390,6 +406,18 @@ if (process.contextIsolated) {
         isValidToken: () => tokenManager.isValidToken(),
         clearTokens: () => tokenManager.clearTokens(),
         getToken: () => tokenManager.getToken(),
+      },
+
+      // Logs functions
+      logFile: {
+        read: async () => await ipcRenderer.invoke("read-log-file"),
+        watch: () => ipcRenderer.send("watch-log-file"),
+        unwatch: () => ipcRenderer.send("unwatch-log-file"),
+        onUpdate: (callback) => {
+          const handler = (_, content) => callback(content);
+          ipcRenderer.on("log-file-updated", handler);
+          return () => ipcRenderer.removeListener("log-file-updated", handler);
+        },
       },
     });
   } catch (error) {

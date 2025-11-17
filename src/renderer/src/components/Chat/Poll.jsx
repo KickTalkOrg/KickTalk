@@ -6,6 +6,10 @@ import CloseIcon from "../../assets/icons/x-bold.svg?asset";
 import TrashIcon from "../../assets/icons/trash-fill.svg?asset";
 import TrophyIcon from "../../assets/icons/trophy.svg?asset";
 import duration from "dayjs/plugin/duration";
+import log from "electron-log";
+
+console.log = log.log;
+
 
 dayjs.extend(duration);
 
@@ -105,27 +109,27 @@ const Poll = memo(
 
       if (pollDetails.remaining > 0) {
         endTime = currentTime + pollDetails.remaining * 1000;
-        console.log(`[Poll Event - ${chatroomId}]: Poll will end at ${new Date(endTime).toLocaleTimeString()}`);
+        console.log(`[Kick]: (Poll Event - ${chatroomId}) Poll will end at ${new Date(endTime).toLocaleTimeString()}`);
       } else {
         endTime = dayjs(pollDetails?.end_time || null);
-        console.log(`[Poll Event - ${chatroomId}]: Poll has already ended.`);
+        console.log(`[Kick]: (Poll Event - ${chatroomId}) Poll has already ended.`);
       }
 
       if (isPollEnded) {
         setPercentRemaining(0);
         console.log(
-          `[Poll Event - ${chatroomId}]: Poll has ended. Displaying results for ${pollDetails?.result_display_duration} seconds.`,
+          `[Kick]: (Poll Event - ${chatroomId}) Poll has ended. Displaying results for ${pollDetails?.result_display_duration} seconds.`,
         );
 
         try {
           // Log Votes for Each Option
           pollDetails.options.forEach((option) => {
-            console.log(`[Poll Event - ${chatroomId}]: Option ${option.id}-${option.label} has ${option.votes} votes.`);
+            console.log(`[Kick]: (Poll Event - ${chatroomId}) Option ${option.id}-${option.label} has ${option.votes} votes.`);
           });
 
           // Find Max Number of Possible Votes
           const maxVotes = Math.max(...pollDetails.options.map((opt) => opt.votes));
-          console.log(`[Poll Event - ${chatroomId}]: Max Number of Votes: ${maxVotes}`);
+          console.log(`[Kick]: (Poll Event - ${chatroomId}) Max Number of Votes: ${maxVotes}`);
 
           if (maxVotes > 0) {
             const optionsWithMaxVotes = pollDetails.options.filter((opt) => opt.votes === maxVotes);
@@ -133,7 +137,7 @@ const Poll = memo(
             if (optionsWithMaxVotes.length > 0) {
               setPollWinner(optionsWithMaxVotes[0].id);
               console.log(
-                `[Poll Event - ${chatroomId}]: Winner Option: ${optionsWithMaxVotes[0].id}-${optionsWithMaxVotes[0].label}`,
+                `[Kick]: (Poll Event - ${chatroomId}) Winner Option: ${optionsWithMaxVotes[0].id}-${optionsWithMaxVotes[0].label}`,
               );
             }
           }

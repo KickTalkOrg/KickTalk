@@ -7,7 +7,10 @@ import StvWebSocket from "../../../../utils/services/seventv/stvWebsocket";
 import useCosmeticsStore from "./CosmeticsProvider";
 import { sendUserPresence } from "../../../../utils/services/seventv/stvAPI";
 import { getKickTalkDonators } from "../../../../utils/services/kick/kickAPI";
+import log from "electron-log";
 import dayjs from "dayjs";
+
+console.log = log.log;
 
 let stvPresenceUpdates = new Map();
 let storeStvId = null;
@@ -61,13 +64,13 @@ const useChatStore = create((set, get) => ({
   // Handles Sending Presence Updates to 7TV for a chatroom
   sendPresenceUpdate: (stvId, userId) => {
     if (!stvId) {
-      console.log("[7tv Presence]: No STV ID provided, skipping presence update");
+      console.log("[7TV]: (Presence) No STV ID provided, skipping presence update");
       return;
     }
 
     const authTokens = window.app.auth.getToken();
     if (!authTokens?.token || !authTokens?.session) {
-      console.log("[7tv Presence]: No auth tokens available, skipping presence update");
+      console.log("[7TV]: (Presence) No auth tokens available, skipping presence update");
       return;
     }
 
@@ -75,7 +78,7 @@ const useChatStore = create((set, get) => ({
 
     if (stvPresenceUpdates.has(userId)) {
       const lastUpdateTime = stvPresenceUpdates.get(userId);
-      console.log("[7tv Presence]: Last update time for chatroom:", userId, lastUpdateTime, stvPresenceUpdates);
+      console.log("[7TV]: (Presence) Last update time for chatroom:", userId, lastUpdateTime, stvPresenceUpdates);
       if (currentTime - lastUpdateTime < PRESENCE_UPDATE_INTERVAL) {
         return;
       }
@@ -88,7 +91,7 @@ const useChatStore = create((set, get) => ({
   sendMessage: async (chatroomId, content) => {
     try {
       const message = content.trim();
-      console.info("Sending message to chatroom:", chatroomId);
+      console.info("[Kick]: Sending message to chatroom:", chatroomId);
 
       const response = await window.app.kick.sendMessage(chatroomId, message);
 
@@ -172,13 +175,13 @@ const useChatStore = create((set, get) => ({
 
     const existingConnection = get().connections[chatroom.id]?.stvSocket;
     if (existingConnection) {
-      console.log("Closing existing 7TV WebSocket for chatroom:", chatroom.id);
+      console.log("[7TV]: (EventAPI) Closing existing 7TV WebSocket for chatroom:", chatroom.id);
       existingConnection.close();
     }
 
     const stvSocket = new StvWebSocket(chatroom.streamerData.user_id, stvId, stvEmoteSets);
 
-    console.log("Connecting to 7TV WebSocket for chatroom:", chatroom.id);
+    console.log("[7TV]: (EventAPI) Connecting to 7TV WebSocket for chatroom:", chatroom.id);
 
     set((state) => ({
       connections: {
@@ -220,7 +223,7 @@ const useChatStore = create((set, get) => ({
     storeStvId = localStorage.getItem("stvId");
 
     stvSocket.addEventListener("open", () => {
-      console.log("7TV WebSocket connected for chatroom:", chatroom.id);
+      console.log("[7TV]: (EventAPI) 7TV WebSocket connected for chatroom:", chatroom.id);
 
       setTimeout(() => {
         const authTokens = window.app.auth.getToken();
@@ -228,13 +231,13 @@ const useChatStore = create((set, get) => ({
           sendUserPresence(storeStvId, chatroom.streamerData.user_id);
           stvPresenceUpdates.set(chatroom.streamerData.user_id, Date.now());
         } else {
-          console.log("[7tv Presence]: No STV ID or auth tokens available for WebSocket presence update");
+          console.log("[7TV]: (EventAPI)  No STV ID or auth tokens available for WebSocket presence update");
         }
       }, 2000);
     });
 
     stvSocket.addEventListener("close", () => {
-      console.log("7TV WebSocket disconnected for chatroom:", chatroom.id);
+      console.log("[7TV]: (EventAPI) WebSocket disconnected for chatroom:", chatroom.id);
       stvPresenceUpdates.delete(chatroom.streamerData.user_id);
     });
   },
@@ -245,7 +248,7 @@ const useChatStore = create((set, get) => ({
 
     // Connection Events
     pusher.addEventListener("connection", (event) => {
-      console.info("Connected to chatroom:", chatroom.id);
+      console.info("[7TV]: (EventAPI) Connected to chatroom:", chatroom.id);
       get().addMessage(chatroom.id, {
         id: crypto.randomUUID(),
         type: "system",
@@ -266,11 +269,11 @@ const useChatStore = create((set, get) => ({
           get().handleChatroomUpdated(chatroom.id, parsedEvent);
           break;
         case "App\\Events\\StreamerIsLive":
-          console.log("Streamer is live", parsedEvent);
+          console.log("[Kick]: Streamer is live", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, true);
           break;
         case "App\\Events\\StopStreamBroadcast":
-          console.log("Streamer is offline", parsedEvent);
+          console.log("[Kick]: Streamer is offline", parsedEvent);
           get().handleStreamStatus(chatroom.id, parsedEvent, false);
           break;
         case "App\\Events\\PinnedMessageCreatedEvent":
@@ -280,7 +283,7 @@ const useChatStore = create((set, get) => ({
           get().handlePinnedMessageDeleted(chatroom.id);
           break;
         case "App\\Events\\PollUpdateEvent":
-          console.log("Poll update event:", parsedEvent);
+          console.log("[Kick]: Poll update event:", parsedEvent);
           get().handlePollUpdate(chatroom.id, parsedEvent?.poll);
           break;
         case "App\\Events\\PollDeleteEvent":
@@ -370,7 +373,7 @@ const useChatStore = create((set, get) => ({
                   window.__chatMessageBatch[chatroom.id].queue = [];
                 }
               } catch (error) {
-                console.error("[Batching] Error flushing batch:", error);
+                console.error("[7TV]: (Batching)  Error flushing batch:", error);
               }
             };
 
@@ -451,7 +454,7 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.getSelfChatroomInfo(chatroom?.streamerData?.slug);
 
       if (!response?.data) {
-        console.log("[Initial User Chatroom Info]: No data received, skipping update");
+        console.log("[7TV]: (Initial User Chatroom Info) No data received, skipping update");
         return;
       }
 
@@ -471,7 +474,7 @@ const useChatStore = create((set, get) => ({
     fetchInitialUserChatroomInfo();
 
     const fetchEmotes = async () => {
-      console.log("[Kick Emotes]: Fetching emotes for chatroom:", chatroom?.streamerData?.slug);
+      console.log("[Kick]: (Emotes) Fetching emotes for chatroom:", chatroom?.streamerData?.slug);
       const data = await window.app.kick.getEmotes(chatroom?.streamerData?.slug);
       const currentChatroom = get().chatrooms.find((room) => room.id === chatroom.id);
 
@@ -514,7 +517,7 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.getChannelChatroomInfo(chatroom?.streamerData?.slug);
 
       if (!response?.data) {
-        console.log("[Initial Chatroom Info]: No data received, skipping update");
+        console.log("[Kick]: (Initial Chatroom Info) No data received, skipping update");
         return;
       }
 
@@ -553,7 +556,7 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.getInitialChatroomMessages(chatroom.streamerData.id);
 
       if (!response?.data?.data) {
-        console.log("[Initial Messages]: No data received, skipping update");
+        console.log("[Kick]: (Initial Messages) No data received, skipping update");
         return;
       }
 
@@ -578,7 +581,7 @@ const useChatStore = create((set, get) => ({
       const response = await window.app.kick.getInitialPollInfo(chatroom?.streamerData?.slug);
 
       if (!response) {
-        console.log("[Initial Poll Info]: No response received, skipping update");
+        console.log("[Kick]: (Initial Poll Info) No response received, skipping update");
         return;
       }
 
@@ -612,7 +615,7 @@ const useChatStore = create((set, get) => ({
 
       return donators;
     } catch (error) {
-      console.error("[Chat Provider]: Error fetching donators:", error);
+      console.error("[System]: (Chat Provider) Error fetching donators:", error);
       set({ donators: [] });
       return [];
     }
@@ -669,14 +672,14 @@ const useChatStore = create((set, get) => ({
         get().addMention(chatroomId, message, "highlight");
       }
     } catch (error) {
-      console.error("[Notifications]: Error handling notification:", error);
+      console.error("[System]: Error handling notification:", error);
     }
   },
 
   // Helper function to play notification sound
   playNotificationSound: async (chatroomId, message, settings) => {
     try {
-      console.log("[Notifications]: Playing notification sound");
+      console.log("[System]: Playing notification sound");
 
       const soundUrl = await window.app.notificationSounds.getSoundUrl(settings?.soundFile);
       const audio = new Audio(soundUrl);
@@ -684,7 +687,7 @@ const useChatStore = create((set, get) => ({
       await audio.play();
       get().getUpdateSoundPlayed(chatroomId, message.id);
     } catch (error) {
-      console.error("[Notifications]: Error playing notification sound:", error);
+      console.error("[System]: Error playing notification sound:", error);
     }
   },
 
@@ -788,12 +791,12 @@ const useChatStore = create((set, get) => ({
 
       return newChatroom;
     } catch (error) {
-      console.error("[Chatroom Store]: Error adding chatroom:", error);
+      console.error("[System]: (Chatroom Store) Error adding chatroom:", error);
     }
   },
 
   removeChatroom: (chatroomId) => {
-    console.log(`[ChatProvider]: Removing chatroom ${chatroomId}`);
+    console.log(`[System]: (Chat Provider) Removing chatroom ${chatroomId}`);
 
     const { connections } = get();
     const connection = connections[chatroomId];
@@ -962,7 +965,7 @@ const useChatStore = create((set, get) => ({
       await window.app.modActions.getDeleteMessage(chatroomId, messageId);
       return true;
     } catch (error) {
-      console.error("[Delete Message]: Error getting delete message:", error);
+      console.error("[Kick]: (Delete Message) Error getting delete message:", error);
 
       // if (error.response?.status === 400) {
       //   const errMsg = chatroomErrorHandler({ code: "DELETE_MESSAGE_ERROR" });
@@ -983,7 +986,7 @@ const useChatStore = create((set, get) => ({
       await window.app.kick.getPinMessage(messageData);
       return true;
     } catch (error) {
-      console.error("[Pin Message]: Error getting pin message:", error);
+      console.error("[Kick]: (Pin Message) Error getting pin message:", error);
       if (messageData?.type === "dialog") return false;
 
       if (error.response?.status === 400) {
@@ -1394,7 +1397,7 @@ const useChatStore = create((set, get) => ({
         });
       }
     } catch (error) {
-      console.error("[7TV Refresh]: Error refreshing emotes:", error);
+      console.error("[7TV]: (Emotes Refresh) Error refreshing emotes:", error);
       // Send system message on error
       get().addMessage(chatroomId, {
         id: crypto.randomUUID(),
@@ -1441,7 +1444,7 @@ const useChatStore = create((set, get) => ({
         });
       }
     } catch (error) {
-      console.error("[Kick Refresh]: Error refreshing emotes:", error);
+      console.error("[Kick]: (Emotes Refresh) Error refreshing emotes:", error);
       // Send system message on error
       get().addMessage(chatroomId, {
         id: crypto.randomUUID(),
@@ -1518,7 +1521,7 @@ const useChatStore = create((set, get) => ({
       },
     }));
 
-    console.log(`[Mentions]: Added ${type} mention for chatroom ${chatroomId}:`, mention);
+    console.log(`[System]: (Mentions) Added ${type} mention for chatroom ${chatroomId}:`, mention);
   },
 
   // Get all mentions across all chatrooms
@@ -1665,7 +1668,7 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
     }
 
     if (!storeStvId) {
-      console.log("[7tv Presence]: No 7TV ID found, skipping presence update checks");
+      console.log("[7TV]: (Presence) No 7TV ID found, skipping presence update checks");
       setTimeout(() => {
         storeStvId = localStorage.getItem("stvId");
         const authTokens = window.app.auth.getToken();
@@ -1673,7 +1676,7 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
         if (storeStvId && authTokens?.token && authTokens?.session) {
           initializePresenceUpdates();
         } else {
-          console.log("[7tv Presence]: No STV ID or auth tokens found after delay");
+          console.log("[7TV]: (Presence) No STV ID or auth tokens found after delay");
         }
       }, 8 * 1000); // 8 seconds delay
 
@@ -1683,19 +1686,19 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
     // Check for auth tokens before starting presence updates
     const authTokens = window.app.auth.getToken();
     if (!authTokens?.token || !authTokens?.session) {
-      console.log("[7tv Presence]: No auth tokens available, skipping presence update initialization");
+      console.log("[7TV]: (Presence) No auth tokens available, skipping presence update initialization");
       return;
     }
 
     // Send presence updates every 2 minutes
-    console.log("[7tv Presence]: Initializing presence update checks");
+    console.log("[7TV]: (Presence) Initializing presence update checks");
     presenceUpdatesInterval = setInterval(
       () => {
         const chatrooms = useChatStore.getState()?.chatrooms;
         if (chatrooms?.length === 0) return;
 
         chatrooms.forEach((chatroom) => {
-          console.log("[7tv Presence]: Sending presence check for chatroom:", chatroom.streamerData.user_id);
+          console.log("[7TV]: (Presence) Sending presence check for chatroom:", chatroom.streamerData.user_id);
           useChatStore.getState().sendPresenceUpdate(storeStvId, chatroom.streamerData.user_id);
         });
       },
@@ -1704,7 +1707,7 @@ if (window.location.pathname === "/" || window.location.pathname.endsWith("index
 
     return () => {
       if (presenceUpdatesInterval) {
-        console.log("[7tv Presence]: Clearing presence update checks");
+        console.log("[7TV]: (Presence) Clearing presence update checks");
         clearInterval(presenceUpdatesInterval);
       }
     };

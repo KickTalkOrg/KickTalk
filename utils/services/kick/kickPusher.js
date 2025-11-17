@@ -1,3 +1,6 @@
+import log from "electron-log";
+console.log = log.log;
+
 class KickPusher extends EventTarget {
   constructor(chatroomNumber, streamerId) {
     super();
@@ -11,10 +14,10 @@ class KickPusher extends EventTarget {
 
   connect() {
     if (!this.shouldReconnect) {
-      console.log("Not connecting to chatroom. Disabled reconnect.");
+      console.log("[Kick Pusher]: Not connecting to chatroom. Disabled reconnect.");
       return;
     }
-    console.log(`Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
+    console.log(`[Kick Pusher]: Connecting to chatroom: ${this.chatroomNumber} and streamerId: ${this.streamerId}`);
     this.chat = new WebSocket(
       "wss://ws-us2.pusher.com/app/32cbd69e4b950bf97679?protocol=7&client=js&version=8.4.0-rc2&flash=false",
     );
@@ -30,7 +33,7 @@ class KickPusher extends EventTarget {
     );
 
     this.chat.addEventListener("open", async () => {
-      console.log(`Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
+      console.log(`[Kick Pusher]: Connected to Kick.com Streamer Chat: ${this.chatroomNumber}`);
 
       setTimeout(() => {
         if (this.chat && this.chat.readyState === WebSocket.OPEN) {
@@ -51,28 +54,28 @@ class KickPusher extends EventTarget {
             );
           });
 
-          console.log(`Subscribed to Channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
+          console.log(`[Kick Pusher]: Subscribed to Channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
         }
       }, 1000);
     });
 
     this.chat.addEventListener("error", (error) => {
-      console.log(`Error occurred: ${error.message}`);
+      console.log(`[Kick Pusher]: Error occurred: ${error.message}`);
       this.dispatchEvent(new CustomEvent("error", { detail: error }));
     });
 
     this.chat.addEventListener("close", () => {
-      console.log(`Connection closed for chatroom: ${this.chatroomNumber}`);
+      console.log(`[Kick Pusher]: Connection closed for chatroom: ${this.chatroomNumber}`);
 
       this.dispatchEvent(new Event("close"));
 
       if (this.shouldReconnect) {
         setTimeout(() => {
-          console.log(`Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
+          console.log(`[Kick Pusher]: Attempting to reconnect to chatroom: ${this.chatroomNumber}...`);
           this.connect();
         }, this.reconnectDelay);
       } else {
-        console.log("Not reconnecting - connection was closed intentionally");
+        console.log("[Kick Pusher]: Not reconnecting - connection was closed intentionally");
       }
     });
 
@@ -85,7 +88,7 @@ class KickPusher extends EventTarget {
           jsonData.channel === `chatrooms.${this.chatroomNumber}.v2` &&
           jsonData.event === "pusher_internal:subscription_succeeded"
         ) {
-          console.log(`Subscription successful for chatroom: ${this.chatroomNumber}`);
+          console.log(`[Kick Pusher]: Subscription successful for chatroom: ${this.chatroomNumber}`);
           this.dispatchEvent(
             new CustomEvent("connection", {
               detail: {
@@ -98,13 +101,13 @@ class KickPusher extends EventTarget {
         }
 
         if (jsonData.event === "pusher:connection_established") {
-          console.log(`Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
+          console.log(`[Kick Pusher]: Connection established: socket ID - ${JSON.parse(jsonData.data).socket_id}`);
           this.socketId = JSON.parse(jsonData.data).socket_id;
 
           const user_id = localStorage.getItem("kickId");
 
           if (!user_id) {
-            console.log("[KickPusher] No user ID found, skipping private event subscriptions");
+            console.log("[Kick Pusher]: No user ID found, skipping private event subscriptions");
             this.reconnectDelay = 5000;
             return;
           }
@@ -113,7 +116,7 @@ class KickPusher extends EventTarget {
           const chatroom = chatrooms?.find((chatroom) => chatroom.id === this.chatroomNumber);
 
           if (!chatroom) {
-            console.log(`[KickPusher] Could not find chatroom data for ${this.chatroomNumber}`);
+            console.log(`[Kick Pusher]: Could not find chatroom data for ${this.chatroomNumber}`);
             this.reconnectDelay = 5000;
             return;
           }
@@ -121,11 +124,11 @@ class KickPusher extends EventTarget {
           // Subscribe to user-specific events (only once per user, regardless of chatroom)
           const userEvents = [`private-userfeed.${user_id}`, `private-channelpoints-${user_id}`];
 
-          console.log("[KickPusher] Subscribing to user events:", userEvents);
+          console.log("[Kick Pusher]: Subscribing to user events:", userEvents);
 
           userEvents.forEach(async (event) => {
             try {
-              console.log("[KickPusher] Subscribing to private event:", event);
+              console.log("[Kick Pusher]: Subscribing to private event:", event);
               const AuthToken = await window.app.kick.getKickAuthForEvents(event, this.socketId);
 
               if (AuthToken.auth) {
@@ -135,10 +138,10 @@ class KickPusher extends EventTarget {
                     data: { auth: AuthToken.auth, channel: event },
                   }),
                 );
-                console.log("[KickPusher] Subscribed to event:", event);
+                console.log("[Kick Pusher]: Subscribed to event:", event);
               }
             } catch (error) {
-              console.error("[KickPusher] Error subscribing to event:", error);
+              console.error("[Kick Pusher]: Error subscribing to event:", error);
             }
           });
 
@@ -149,7 +152,7 @@ class KickPusher extends EventTarget {
 
             try {
               console.log(
-                `[KickPusher] Subscribing to livestream event for chatroom ${this.chatroomNumber}:`,
+                `[Kick Pusher]: Subscribing to livestream event for chatroom ${this.chatroomNumber}:`,
                 liveEventToSubscribe,
               );
 
@@ -162,13 +165,13 @@ class KickPusher extends EventTarget {
                     data: { auth: AuthToken.auth, channel: liveEventToSubscribe },
                   }),
                 );
-                console.log("[KickPusher] Subscribed to livestream event:", liveEventToSubscribe);
+                console.log("[Kick Pusher]: Subscribed to livestream event:", liveEventToSubscribe);
               }
             } catch (error) {
-              console.error("[KickPusher] Error subscribing to livestream event:", error);
+              console.error("[Kick Pusher]: Error subscribing to livestream event:", error);
             }
           } else {
-            console.log(`[KickPusher] Chatroom ${this.chatroomNumber} is not live, skipping livestream subscription`);
+            console.log(`[Kick Pusher]: Chatroom ${this.chatroomNumber} is not live, skipping livestream subscription`);
           }
 
           this.reconnectDelay = 5000;
@@ -194,20 +197,20 @@ class KickPusher extends EventTarget {
           jsonData.event === `App\\Events\\PollDeleteEvent`
         ) {
           if (jsonData.event === `App\\Events\\PinnedMessageCreatedEvent`) {
-            console.log("[KickPusher] Pin created event received before dispatching");
+            console.log("[Kick Pusher]: Pin created event received before dispatching");
           } else if (jsonData.event === `App\\Events\\PinnedMessageDeletedEvent`) {
-            console.log("[KickPusher] Pin deleted event received before dispatching");
+            console.log("[Kick Pusher]: Pin deleted event received before dispatching");
           }
           this.dispatchEvent(new CustomEvent("channel", { detail: jsonData }));
         }
       } catch (error) {
-        console.log(`Error in message processing: ${error.message}`);
+        console.log(`[Kick Pusher]: Error in message processing: ${error.message}`);
         this.dispatchEvent(new CustomEvent("error", { detail: error }));
       }
     });
   }
   close() {
-    console.log(`Closing connection for chatroom ${this.chatroomNumber}`);
+    console.log(`[Kick Pusher]: Closing connection for chatroom ${this.chatroomNumber}`);
     this.shouldReconnect = false;
 
     if (this.chat && this.chat.readyState === WebSocket.OPEN) {
@@ -229,14 +232,14 @@ class KickPusher extends EventTarget {
           );
         });
 
-        console.log(`Unsubscribed from channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
+        console.log(`[Kick Pusher]: Unsubscribed from channel: chatrooms.${this.chatroomNumber}.v2 and chatrooms.${this.chatroomNumber}`);
 
         this.chat.close();
         this.chat = null;
 
-        console.log("WebSocket connection closed");
+        console.log("[Kick Pusher]: WebSocket connection closed");
       } catch (error) {
-        console.error("Error during closing of connection:", error);
+        console.error("[Kick Pusher]: Error during closing of connection:", error);
       }
     }
   }

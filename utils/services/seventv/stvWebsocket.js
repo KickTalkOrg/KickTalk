@@ -1,4 +1,7 @@
 // This websocket class originally made by https://github.com/Fiszh and edited by ftk789 and Drkness
+import log from "electron-log";
+
+console.log = log.log;
 
 const cosmetics = {
   paints: [],
@@ -143,7 +146,7 @@ const updateCosmetics = async (body) => {
       url: `https:${data.host.url}/${data.host.files[data.host.files.length - 1].name}`,
     });
   } else {
-    console.log("[7tv] Didn't process cosmetics:", body);
+    console.log("[7TV]: (EventAPI)  Didn't process cosmetics:", body);
   }
 };
 
@@ -162,26 +165,26 @@ class StvWebSocket extends EventTarget {
 
   connect() {
     if (!this.shouldReconnect) {
-      console.log(`[7TV]: Not connecting to WebSocket - reconnect disabled`);
+      console.log(`[7TV]: (EventAPI) Not connecting to WebSocket - reconnect disabled`);
       return;
     }
 
-    console.log(`[7TV]: Connecting to WebSocket (attempt ${this.reconnectAttempts + 1})`);
+    console.log(`[7TV]: (EventAPI) Connecting to WebSocket (attempt ${this.reconnectAttempts + 1})`);
 
     this.chat = new WebSocket("wss://events.7tv.io/v3?app=kicktalk&version=420.69");
 
     this.chat.onerror = (event) => {
-      console.log(`[7TV]: WebSocket error:`, event);
+      console.log(`[7TV]: (EventAPI) WebSocket error:`, event);
       this.handleConnectionError();
     };
 
     this.chat.onclose = (event) => {
-      console.log(`[7TV]: WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
+      console.log(`[7TV]: (EventAPI) WebSocket closed. Code: ${event.code}, Reason: ${event.reason}`);
       this.handleReconnection();
     };
 
     this.chat.onopen = async () => {
-      console.log(`[7TV]: Connection opened successfully`);
+      console.log(`[7TV]: (EventAPI) Connection opened successfully`);
 
       this.reconnectAttempts = 0;
 
@@ -215,12 +218,12 @@ class StvWebSocket extends EventTarget {
 
   handleConnectionError() {
     this.reconnectAttempts++;
-    console.log(`[7TV]: Connection error. Attempt ${this.reconnectAttempts}`);
+    console.log(`[7TV]: (EventAPI) Connection error. Attempt ${this.reconnectAttempts}`);
   }
 
   handleReconnection() {
     if (!this.shouldReconnect) {
-      console.log(`[7TV]: Reconnection disabled for chatroom ${this.channelKickID}`);
+      console.log(`[7TV]: (EventAPI) Reconnection disabled for chatroom ${this.channelKickID}`);
       return;
     }
 
@@ -229,7 +232,7 @@ class StvWebSocket extends EventTarget {
     const step = Math.min(this.reconnectAttempts, this.maxRetrySteps);
     const delay = this.startDelay * Math.pow(2, step - 1);
 
-    console.log(`[7TV]: Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
+    console.log(`[7TV]: (EventAPI) Reconnecting in ${delay}ms (attempt ${this.reconnectAttempts})`);
 
     setTimeout(() => {
       this.connect();
@@ -241,7 +244,7 @@ class StvWebSocket extends EventTarget {
    */
   subscribeToUserEvents() {
     if (!this.chat || this.chat.readyState !== WebSocket.OPEN) {
-      console.log(`[7TV]: Cannot subscribe to user events - WebSocket not ready`);
+      console.log(`[7TV]: (EventAPI) Cannot subscribe to user events - WebSocket not ready`);
       return;
     }
 
@@ -255,7 +258,7 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.send(JSON.stringify(subscribeUserMessage));
-    console.log(`[7TV]: Subscribed to user.* events`);
+    console.log(`[7TV]: (EventAPI) Subscribed to user.* events`);
   }
 
   /**
@@ -263,7 +266,7 @@ class StvWebSocket extends EventTarget {
    */
   subscribeToCosmeticEvents() {
     if (!this.chat || this.chat.readyState !== WebSocket.OPEN) {
-      console.log(`[7TV]: Cannot subscribe to cosmetic events - WebSocket not ready`);
+      console.log(`[7TV]: (EventAPI) Cannot subscribe to cosmetic events - WebSocket not ready`);
       return;
     }
 
@@ -277,7 +280,7 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.send(JSON.stringify(subscribeAllCosmetics));
-    console.log(`[7TV]: Subscribed to cosmetic.* events`);
+    console.log(`[7TV]: (EventAPI) Subscribed to cosmetic.* events`);
   }
 
   /**
@@ -285,7 +288,7 @@ class StvWebSocket extends EventTarget {
    */
   subscribeToEntitlementEvents() {
     if (!this.chat || this.chat.readyState !== WebSocket.OPEN) {
-      console.log(`[7TV]: Cannot subscribe to entitlement events - WebSocket not ready`);
+      console.log(`[7TV]: (EventAPI) Cannot subscribe to entitlement events - WebSocket not ready`);
       return;
     }
 
@@ -299,7 +302,7 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.send(JSON.stringify(subscribeAllEntitlements));
-    console.log(`[7TV]: Subscribed to entitlement.* events`);
+    console.log(`[7TV]: (EventAPI) Subscribed to entitlement.* events`);
 
     this.dispatchEvent(new CustomEvent("open", { detail: { body: "SUBSCRIBED", type: "entitlement.*" } }));
   }
@@ -310,7 +313,7 @@ class StvWebSocket extends EventTarget {
 
   subscribeToEmoteSetEvents() {
     if (!this.chat || this.chat.readyState !== WebSocket.OPEN) {
-      console.log(`[7TV]: Cannot subscribe to emote set events - WebSocket not ready`);
+      console.log(`[7TV]: (EventAPI) Cannot subscribe to emote set events - WebSocket not ready`);
       return;
     }
 
@@ -324,7 +327,7 @@ class StvWebSocket extends EventTarget {
     };
 
     this.chat.send(JSON.stringify(subscribeAllEmoteSets));
-    console.log(`[7TV]: Subscribed to emote_set.* events`);
+    console.log(`[7TV]: (EventAPI) Subscribed to emote_set.* events`);
   }
 
   setupMessageHandler() {
@@ -374,7 +377,7 @@ class StvWebSocket extends EventTarget {
             break;
         }
       } catch (error) {
-        console.log("Error parsing message:", error);
+        console.log("[7TV]: (EventAPI) Error parsing message:", error);
       }
     };
   }
@@ -384,22 +387,22 @@ class StvWebSocket extends EventTarget {
   }
 
   close() {
-    console.log(`[7TV]: Closing connection for chatroom ${this.channelKickID}`);
+    console.log(`[7TV]: (EventAPI) Closing connection for chatroom ${this.channelKickID}`);
     this.shouldReconnect = false;
 
     if (this.chat) {
       try {
         if (this.chat.readyState === WebSocket.OPEN || this.chat.readyState === WebSocket.CONNECTING) {
-          console.log(`[7TV]: WebSocket state: ${this.chat.readyState}, closing...`);
+          console.log(`[7TV]: (EventAPI) WebSocket state: ${this.chat.readyState}, closing...`);
           this.chat.close();
         }
         this.chat = null;
-        console.log(`[7TV]: Connection closed for chatroom ${this.channelKickID}`);
+        console.log(`[7TV]: (EventAPI) Connection closed for chatroom ${this.channelKickID}`);
       } catch (error) {
-        console.error(`[7TV]: Error during closing of connection for chatroom ${this.channelKickID}:`, error);
+        console.error(`[7TV]: (EventAPI) Error during closing of connection for chatroom ${this.channelKickID}:`, error);
       }
     } else {
-      console.log(`[7TV]: No active connection to close for chatroom ${this.channelKickID}`);
+      console.log(`[7TV]: (EventAPI) No active connection to close for chatroom ${this.channelKickID}`);
     }
   }
 }

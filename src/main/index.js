@@ -6,6 +6,11 @@ import Store from "electron-store";
 import store from "../../utils/config";
 import fs from "fs";
 import dotenv from "dotenv";
+import log from "electron-log";
+// const path = require("path"); // Removed duplicate import, using ES module import above
+
+console.log = log.log;
+
 dotenv.config();
 
 const isDev = process.env.NODE_ENV === "development";
@@ -75,6 +80,7 @@ let userDialog = null;
 let authDialog = null;
 let chattersDialog = null;
 let settingsDialog = null;
+let logsDialog = null;
 let searchDialog = null;
 let replyThreadDialog = null;
 let availableNotificationSounds = [];
@@ -94,7 +100,7 @@ const getNotificationSounds = () => {
       value: join(basePath, file),
     }));
 
-  console.log("Notification Sounds:", availableNotificationSounds);
+  console.log("[System]: Notification Sounds:", availableNotificationSounds);
   return availableNotificationSounds;
 };
 
@@ -130,7 +136,7 @@ const openNotificationFolder = async () => {
     fs.copyFileSync(selectedFile, destPath);
     getNotificationSounds();
 
-    console.log("[Notification Sounds]: File uploaded successfully:", fileName);
+    console.log("[System]: File uploaded successfully:", fileName);
 
     return {
       name: fileName.split(".")[0],
@@ -138,7 +144,7 @@ const openNotificationFolder = async () => {
       fileName: fileName,
     };
   } catch (error) {
-    console.error("[Notification Sounds]: Error uploading file:", error);
+    console.error("[System]: Error uploading file:", error);
     return null;
   }
 };
@@ -1051,10 +1057,12 @@ ipcMain.handle("searchDialog:close", () => {
     if (searchDialog) {
       searchDialog.close();
       searchDialog = null;
+      mainWindow.focus();
     }
   } catch (error) {
     console.error("[Search Dialog]: Error closing dialog:", error);
     searchDialog = null;
+    mainWindow.focus();
   }
 });
 
@@ -1129,10 +1137,96 @@ ipcMain.handle("settingsDialog:close", () => {
     if (settingsDialog) {
       settingsDialog.close();
       settingsDialog = null;
+      mainWindow.focus();
     }
   } catch (error) {
     console.error("[Settings Dialog]: Error closing dialog:", error);
     settingsDialog = null;
+    mainWindow.focus();
+  }
+});
+
+// Logs Dialog Handler
+ipcMain.handle("logsDialog:open", async (e, { data }) => {
+  //const settings = await store.get();
+
+  if (logsDialog) {
+    logsDialog.focus();
+    //logsDialog.webContents.send("logsDialog:data", { ...data, settings });
+    return;
+  }
+
+  const mainWindowPos = mainWindow.getPosition();
+
+  const currentDisplay = screen.getDisplayNearestPoint({
+    x: mainWindowPos[0],
+    y: mainWindowPos[1],
+  });
+  const newX = currentDisplay.bounds.x + Math.round((currentDisplay.bounds.width - 1200) / 2);
+  const newY = currentDisplay.bounds.y + Math.round((currentDisplay.bounds.height - 700) / 2);
+
+  logsDialog = new BrowserWindow({
+    width: 1200,
+    minWidth: 800,
+    height: 700,
+    minHeight: 600,
+    x: newX,
+    y: newY,
+    show: false,
+    resizable: true,
+    frame: false,
+    transparent: true,
+    backgroundColor: "#020a05",
+    roundedCorners: true,
+    parent: mainWindow,
+    icon: iconPath,
+    webPreferences: {
+      devtools: true,
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: join(__dirname, "../preload/index.js"),
+      sandbox: false,
+    },
+  });
+
+  if (isDev && process.env["ELECTRON_RENDERER_URL"]) {
+    logsDialog.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/logs.html`);
+  } else {
+    logsDialog.loadFile(join(__dirname, "../renderer/logs.html"));
+  }
+
+  logsDialog.once("ready-to-show", () => {
+    logsDialog.show();
+    // if (data) {
+    //   logsDialog.webContents.send("logsDialog:data", { ...data, settings });
+    // }
+    if (isDev) {
+      logsDialog.webContents.openDevTools();
+    }
+
+    logsDialog.webContents.setWindowOpenHandler((details) => {
+      shell.openExternal(details.url);
+      return { action: "deny" };
+    });
+  });
+
+  logsDialog.on("closed", () => {
+    logsDialog = null;
+    mainWindow.focus();
+  });
+});
+
+ipcMain.handle("logsDialog:close", () => {
+  try {
+    if (logsDialog) {
+      logsDialog.close();
+      logsDialog = null;
+      mainWindow.focus();
+    }
+  } catch (error) {
+    console.error("[Logs Dialog]: Error closing dialog:", error);
+    logsDialog = null;
+    mainWindow.focus();
   }
 });
 
@@ -1208,5 +1302,62 @@ ipcMain.handle("replyThreadDialog:close", () => {
   } catch (error) {
     console.error("[Reply Thread Dialog]: Error closing dialog:", error);
     replyThreadDialog = null;
+  }
+});
+
+// Logs dialog file watching
+const LOG_PATH = join(app.getPath("appData"), "kick-talk", "logs", "main.log");
+let logFileWatchers = new Map();
+
+ipcMain.on("watch-log-file", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!LOG_PATH || !win) return;
+
+  const key = `${win.id}:${LOG_PATH}`;
+  if (logFileWatchers.has(key)) return;
+
+  const sendContent = () => {
+    try {
+      const content = fs.readFileSync(LOG_PATH, "utf-8");
+      win.webContents.send("log-file-updated", content);
+    } catch (err) {
+      win.webContents.send("log-file-updated", "[Log file not found]");
+    }
+  };
+
+  sendContent();
+
+  let lastSize = 0;
+  const watcher = fs.watchFile(
+    LOG_PATH,
+    { interval: 200 },
+    (curr, prev) => {
+      if (curr.size !== lastSize) {
+        lastSize = curr.size;
+        setTimeout(sendContent, 50);
+      }
+    }
+  );
+
+  logFileWatchers.set(key, watcher);
+
+  const cleanup = () => {
+    if (logFileWatchers.has(key)) {
+      fs.unwatchFile(LOG_PATH);
+      logFileWatchers.delete(key);
+    }
+  };
+
+  event.sender.once("destroyed", cleanup);
+  win.once("closed", cleanup);
+});
+
+ipcMain.on("unwatch-log-file", (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  if (!LOG_PATH || !win) return;
+  const key = `${win.id}:${LOG_PATH}`;
+  if (logFileWatchers.has(key)) {
+    logFileWatchers.get(key).close();
+    logFileWatchers.delete(key);
   }
 });

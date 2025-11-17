@@ -52,6 +52,17 @@ const TitleBar = () => {
       </div>
 
       <div className={clsx("titleBarSettings", settingsModalOpen && "open")}>
+        <button
+            className="titleBarSettingsBtn"
+            onClick={() =>
+              window.app.logsDialog.open({
+                userData,
+              })
+            }>
+            <span className="titleBarUsername">Logs</span>
+            <div className="titleBarDivider" />
+            <img className="titleBarSettingsIcon" src={GearIcon} width={24} height={16} alt="Settings" />
+          </button>
         {userData?.id ? (
           <button
             className="titleBarSettingsBtn"

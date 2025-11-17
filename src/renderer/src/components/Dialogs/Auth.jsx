@@ -4,6 +4,9 @@ import GoogleIcon from "../../assets/logos/googleLogo.svg?asset";
 import AppleIcon from "../../assets/logos/appleLogo.svg?asset";
 import KickIconIcon from "../../assets/logos/kickLogoIcon.svg?asset";
 import GhostIcon from "../../assets/icons/ghost-fill.svg?asset";
+import log from "electron-log";
+console.log = log.log;
+
 const Auth = () => {
   const handleAuthLogin = (type) => {
     switch (type) {
@@ -20,7 +23,7 @@ const Auth = () => {
         window.app.authDialog.close();
         break;
       default:
-        console.log("[Auth Login]: Invalid action requested");
+        console.log("[System]: (Auth Login) Invalid action requested");
     }
   };
   return (
