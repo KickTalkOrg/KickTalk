@@ -7,6 +7,7 @@ import store from "../../utils/config";
 import fs from "fs";
 import dotenv from "dotenv";
 import log from "electron-log";
+import { chatLog  } from "./utils/chatroomLogs";
 // const path = require("path"); // Removed duplicate import, using ES module import above
 
 console.log = log.log;
@@ -1361,3 +1362,8 @@ ipcMain.on("unwatch-log-file", (event) => {
     logFileWatchers.delete(key);
   }
 });
+
+ipcMain.handle("chatLogs:chatLog", async (e, { data }) => {
+  return chatLog(data);
+});
+

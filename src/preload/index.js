@@ -309,6 +309,7 @@ if (process.contextIsolated) {
           ipcRenderer.on("chatLogs:updated", handler);
           return () => ipcRenderer.removeListener("chatLogs:updated", handler);
         },
+        chatLog: (data) => ipcRenderer.invoke("chatLogs:chatLog", { data }),
       },
 
       replyLogs: {
