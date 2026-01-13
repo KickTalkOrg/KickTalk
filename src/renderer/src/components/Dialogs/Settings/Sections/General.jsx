@@ -1,4 +1,5 @@
 import React, { useState, useCallback, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 import { Switch } from "../../../Shared/Switch";
 import { Slider } from "../../../Shared/Slider";
 import { Tooltip, TooltipContent, TooltipTrigger } from "../../../Shared/Tooltip";
@@ -9,25 +10,38 @@ import ColorPicker from "../../../Shared/ColorPicker";
 import folderOpenIcon from "../../../../assets/icons/folder-open-fill.svg?asset";
 import playIcon from "../../../../assets/icons/play-fill.svg?asset";
 import NotificationFilePicker from "../../../Shared/NotificationFilePicker";
+import LanguageSelector from "../../../Shared/LanguageSelector";
 import clsx from "clsx";
 
 const GeneralSection = ({ settingsData, onChange }) => {
+  const { t } = useTranslation();
   return (
     <div className="settingsContentGeneral">
       <div className="settingsContentSection">
         <div className="settingsSectionHeader">
-          <h4>General</h4>
-          <p>Select what general app settings you want to change.</p>
+          <h4>{t('settings.general.title')}</h4>
+          <p>{t('settings.general.description')}</p>
         </div>
 
         <div className="settingsItems">
+          {/* Language Selection */}
+          <div className="settingsItem">
+            <div className="settingsSectionSubHeader">
+              <h5>{t('settings.language')}</h5>
+              <p>{t('settings.languageDescription')}</p>
+            </div>
+            <div className="settingsItemContent">
+              <LanguageSelector />
+            </div>
+          </div>
+
           <div className="settingsItem">
             <div
               className={clsx("settingSwitchItem", {
                 active: settingsData?.general?.alwaysOnTop,
               })}>
               <div className="settingsItemTitleWithInfo">
-                <span className="settingsItemTitle">Always on Top</span>
+                <span className="settingsItemTitle">{t('settings.general.alwaysOnTop')}</span>
                 <Tooltip delayDuration={100}>
                   <TooltipTrigger asChild>
                     <button className="settingsInfoIcon">
@@ -106,6 +120,40 @@ const GeneralSection = ({ settingsData, onChange }) => {
                   onChange("general", {
                     ...settingsData?.general,
                     wrapChatroomsList: checked,
+                  })
+                }
+              />
+            </div>
+          </div>
+          <div className="settingsItem">
+            <div
+              className={clsx("settingSwitchItem", {
+                active: settingsData?.general?.compactChatroomsList,
+              })}
+            >
+              <div className="settingsItemTitleWithInfo">
+                <span className="settingsItemTitle">Compact Chatroom List</span>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button className="settingsInfoIcon">
+                      <img src={InfoIcon} width={14} height={14} alt="Info" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>
+                      Display chatroom tabs in a more compact layout to save
+                      space
+                    </p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Switch
+                checked={settingsData?.general?.compactChatroomsList || false}
+                onCheckedChange={(checked) =>
+                  onChange("general", {
+                    ...settingsData?.general,
+                    compactChatroomsList: checked,
                   })
                 }
               />
@@ -503,7 +551,6 @@ const CosmeticsSection = ({ settingsData, onChange }) => {
 };
 
 const NotificationsSection = ({ settingsData, onChange }) => {
-  const [notificationFiles, setNotificationFiles] = useState([]);
   const [openColorPicker, setOpenColorPicker] = useState(false);
 
   const handleColorChange = useCallback(
@@ -533,13 +580,8 @@ const NotificationsSection = ({ settingsData, onChange }) => {
 
   const getNotificationFiles = useCallback(async () => {
     const files = await window.app.notificationSounds.getAvailable();
-    setNotificationFiles(files);
     return files;
   }, []);
-
-  useEffect(() => {
-    getNotificationFiles();
-  }, [getNotificationFiles]);
 
   return (
     <div className="settingsContentSection">
@@ -809,6 +851,47 @@ const NotificationsSection = ({ settingsData, onChange }) => {
               ) : (
                 <p>No highlight phrases added.</p>
               )}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Telemetry Section */}
+      <div className="settingsContentSection">
+        <div className="settingsSectionHeader">
+          <h4>Telemetry & Analytics</h4>
+          <p>Control data collection and usage analytics.</p>
+        </div>
+
+        <div className="settingsItems">
+          <div className="settingsItem">
+            <div
+              className={clsx("settingSwitchItem", {
+                active: settingsData?.telemetry?.enabled,
+              })}>
+              <div className="settingsItemTitleWithInfo">
+                <span className="settingsItemTitle">Enable Telemetry</span>
+                <Tooltip delayDuration={100}>
+                  <TooltipTrigger asChild>
+                    <button className="settingsInfoIcon">
+                      <img src={InfoIcon} width={14} height={14} alt="Info" />
+                    </button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>Allow KickTalk to collect anonymous usage data to help improve the application. This includes app performance metrics, error reports, and feature usage statistics. No personal chat data is collected.</p>
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+
+              <Switch
+                checked={settingsData?.telemetry?.enabled || false}
+                onCheckedChange={(checked) =>
+                  onChange("telemetry", {
+                    ...settingsData?.telemetry,
+                    enabled: checked,
+                  })
+                }
+              />
             </div>
           </div>
         </div>

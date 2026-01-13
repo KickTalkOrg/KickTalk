@@ -1,10 +1,13 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import "../../assets/styles/dialogs/AuthDialog.scss";
 import GoogleIcon from "../../assets/logos/googleLogo.svg?asset";
 import AppleIcon from "../../assets/logos/appleLogo.svg?asset";
 import KickIconIcon from "../../assets/logos/kickLogoIcon.svg?asset";
 import GhostIcon from "../../assets/icons/ghost-fill.svg?asset";
+
 const Auth = () => {
+  const { t } = useTranslation();
   const handleAuthLogin = (type) => {
     switch (type) {
       case "kick":
@@ -26,36 +29,36 @@ const Auth = () => {
   return (
     <div className="authLoginContainer">
       <div className="authLoginHeader">
-        Sign in with your <br /> Kick account
+        {t('auth.signInWithKick')}
       </div>
       <div className="authLoginOptions">
         <div className="authLoginOption">
-          <p>Use username and password for login? Continue to Kick.com</p>
+          <p>{t('auth.kickLoginDescription')}</p>
           <button className="authLoginButton kick" onClick={() => handleAuthLogin("kick")}>
-            Login with Kick
+            {t('auth.loginWithKick')}
             <img src={KickIconIcon} height="16px" className="icon" alt="Kick" />
           </button>
         </div>
         <div className="authLoginOption">
-          <p>Already have a Kick account with Google or Apple login?</p>
+          <p>{t('auth.googleAppleDescription')}</p>
           <button className="authLoginButton google" onClick={() => handleAuthLogin("google")}>
-            Login with Google
+            {t('auth.loginWithGoogle')}
             <img src={GoogleIcon} className="icon" alt="Google" />
           </button>
           <button className="authLoginButton apple" onClick={() => handleAuthLogin("apple")}>
-            Login with Apple
+            {t('auth.loginWithApple')}
             <img src={AppleIcon} className="icon" alt="Apple" />
           </button>
         </div>
         <div className="authLoginOption">
           <button className="authAnonymousButton" onClick={() => handleAuthLogin("anonymous")}>
-            Continue anonymous
+            {t('auth.continueAnonymous')}
             <img src={GhostIcon} width={20} height={20} alt="Ghost" />
           </button>
         </div>
       </div>
       <p className="authDisclaimer">
-        <strong>Disclaimer:</strong> We do <strong>NOT</strong> save any emails or passwords.
+        <strong>Disclaimer:</strong> {t('auth.disclaimer')}
       </p>
     </div>
   );

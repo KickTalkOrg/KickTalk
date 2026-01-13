@@ -1,6 +1,8 @@
+import { useTranslation } from "react-i18next";
 import stvLogo from "../../assets/logos/stvLogo.svg?asset";
 
 const EmoteUpdateMessage = ({ message }) => {
+  const { t } = useTranslation();
   return (
     <>
       {message.data.added?.length > 0 &&
@@ -9,8 +11,10 @@ const EmoteUpdateMessage = ({ message }) => {
             <div className="emoteSetUpdateHeader">
               <img src={stvLogo} alt="7TV Logo" className="emoteSetUpdateLogo" />
               <div className="emoteSetUpdateTags">
-                <span className="emoteSetUpdateLabel">{message.data.setType === "personal" ? "Personal" : "Channel"}</span>
-                <span className="emoteSetUpdateLabel added">Added</span>
+                <span className="emoteSetUpdateLabel">
+                  {message.data.setType === "personal" ? t('messages.emoteUpdate.personal') : t('messages.emoteUpdate.channel')}
+                </span>
+                <span className="emoteSetUpdateLabel added">{t('messages.emoteUpdate.added')}</span>
               </div>
               {message.data.authoredBy && <span className="emoteSetUpdateAddedBy">{message.data.authoredBy?.display_name}</span>}
             </div>
@@ -19,7 +23,7 @@ const EmoteUpdateMessage = ({ message }) => {
                 <img src={`https://cdn.7tv.app/emote/${e.id}/1x.webp`} alt={e.name} className="emoteSetUpdateEmote" />
                 <div className="emoteSetUpdateEmoteInfo">
                   <span className="emoteSetUpdateEmoteName">{e.name}</span>
-                  <span className="emoteSetUpdateEmoteOwner">Made by: {e.owner?.display_name}</span>
+                  <span className="emoteSetUpdateEmoteOwner">{t('messages.emoteUpdate.madeBy', { creator: e.owner?.display_name })}</span>
                 </div>
               </div>
             </div>
@@ -31,8 +35,10 @@ const EmoteUpdateMessage = ({ message }) => {
             <div className="emoteSetUpdateHeader">
               <img src={stvLogo} alt="7TV Logo" className="emoteSetUpdateLogo" />
               <div className="emoteSetUpdateTags">
-                <span className="emoteSetUpdateLabel">{message.data.setType === "personal" ? "Personal" : "Channel"}</span>
-                <span className="emoteSetUpdateLabel removed">Removed</span>
+                <span className="emoteSetUpdateLabel">
+                  {message.data.setType === "personal" ? t('messages.emoteUpdate.personal') : t('messages.emoteUpdate.channel')}
+                </span>
+                <span className="emoteSetUpdateLabel removed">{t('messages.emoteUpdate.removed')}</span>
               </div>
               {message.data.authoredBy && <span className="emoteSetUpdateAddedBy">{message.data.authoredBy?.display_name}</span>}
             </div>
@@ -41,7 +47,7 @@ const EmoteUpdateMessage = ({ message }) => {
                 <img src={`https://cdn.7tv.app/emote/${e.id}/1x.webp`} alt={e.name} className="emoteSetUpdateEmote" />
                 <div className="emoteSetUpdateEmoteInfo">
                   <span className="emoteSetUpdateEmoteName">{e.name}</span>
-                  <span className="emoteSetUpdateEmoteOwner">Made by: {e.owner?.display_name}</span>
+                  <span className="emoteSetUpdateEmoteOwner">{t('messages.emoteUpdate.madeBy', { creator: e.owner?.display_name })}</span>
                 </div>
               </div>
             </div>
@@ -53,8 +59,10 @@ const EmoteUpdateMessage = ({ message }) => {
             <div className="emoteSetUpdateHeader">
               <img src={stvLogo} alt="7TV Logo" className="emoteSetUpdateLogo" />
               <div className="emoteSetUpdateTags">
-                <span className="emoteSetUpdateLabel">{message.data.setType === "personal" ? "Personal" : "Channel"}</span>
-                <span className="emoteSetUpdateLabel updated">Renamed</span>
+                <span className="emoteSetUpdateLabel">
+                  {message.data.setType === "personal" ? t('messages.emoteUpdate.personal') : t('messages.emoteUpdate.channel')}
+                </span>
+                <span className="emoteSetUpdateLabel updated">{t('messages.emoteUpdate.renamed')}</span>
               </div>
               {message.data.authoredBy && <span className="emoteSetUpdateAddedBy">{message.data.authoredBy?.display_name}</span>}
             </div>

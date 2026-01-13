@@ -1,0 +1,178 @@
+.language-selector {
+  position: relative;
+  display: inline-block;
+
+  .language-selector-button {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bg-input);
+    border: 1px solid var(--border-primary);
+    border-radius: 6px;
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    font-family: inherit;
+
+    &:hover {
+      background: var(--bg-hover);
+      border-color: var(--border-hover);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      background: var(--input-focus);
+      box-shadow: 0 0 0 1px var(--border-focus);
+    }
+
+    .language-flag {
+      font-size: 16px;
+      line-height: 1;
+      display: flex;
+      align-items: center;
+    }
+
+    .language-name {
+      min-width: 60px;
+      text-align: left;
+      color: var(--text-primary);
+      font-weight: 500;
+    }
+
+    .dropdown-arrow {
+      font-size: 10px;
+      transition: transform 0.2s ease;
+      color: var(--text-tertiary);
+      
+      &.rotated {
+        transform: rotate(180deg);
+      }
+    }
+  }
+
+  .language-dropdown {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-dialog-secondary);
+    border: 1px solid var(--border-dialog);
+    border-radius: 6px;
+    box-shadow: var(--shadow-dialog);
+    z-index: 1000;
+    overflow: hidden;
+    margin-top: 4px;
+    backdrop-filter: blur(10px);
+
+    .language-option {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 10px 12px;
+      background: transparent;
+      border: none;
+      color: var(--text-primary);
+      cursor: pointer;
+      transition: all 0.2s ease;
+      font-size: 14px;
+      font-family: inherit;
+
+      &:hover {
+        background: var(--bg-hover);
+        color: var(--text-primary);
+      }
+
+      &.active {
+        background: var(--bg-selected);
+        color: var(--text-primary);
+        font-weight: 600;
+        border-left: 3px solid var(--text-success);
+      }
+
+      .language-flag {
+        font-size: 16px;
+        line-height: 1;
+        display: flex;
+        align-items: center;
+      }
+
+      .language-name {
+        flex: 1;
+        text-align: left;
+        font-weight: 500;
+      }
+
+      .check-mark {
+        color: var(--text-success);
+        font-weight: bold;
+        font-size: 12px;
+      }
+    }
+  }
+
+  &.compact {
+    .language-selector-button {
+      padding: 6px 8px;
+      min-width: auto;
+
+      .language-name {
+        min-width: 30px;
+        font-size: 12px;
+        font-weight: 600;
+      }
+    }
+
+    .language-dropdown {
+      min-width: 120px;
+    }
+  }
+
+  &.open {
+    .language-selector-button {
+      border-color: var(--border-focus);
+      background: var(--input-focus);
+      box-shadow: 0 0 0 1px var(--border-focus);
+    }
+  }
+}
+
+/* Animation and smooth transitions - matching other components */
+.language-dropdown {
+  animation: fadeIn 0.2s ease-out, zoomIn 0.2s ease-out;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Focus and accessibility improvements */
+.language-selector-button:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: 2px;
+}
+
+.language-option:focus-visible {
+  outline: 2px solid var(--border-focus);
+  outline-offset: -2px;
+  background: var(--bg-hover);
+}
