@@ -164,11 +164,22 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
       }, 0);
     }
 
+    if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
+      e.preventDefault();
+      const requestedIndex = Number(e.key) - 1;
+      const openTabs = [...orderedChatrooms.map((chatroom) => chatroom.id), ...(hasMentionsTab ? ["mentions"] : [])];
+      const targetTabId = openTabs[requestedIndex];
+      if (targetTabId !== undefined) {
+        onSelectChatroom(targetTabId);
+      }
+      return;
+    }
+
     if (e.key === "Escape") {
       setActiveSection("chatroom");
       setShowNavbarDialog(false);
     }
-  }, []);
+  }, [orderedChatrooms, hasMentionsTab, onSelectChatroom]);
 
   useEffect(() => {
     window.addEventListener("keydown", handleNewChatroomKeyPress);

@@ -45,6 +45,25 @@ const getInitialState = () => {
   };
 };
 
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getMentionCandidates = (username = "") => {
+  const lower = username.toLowerCase().trim();
+  if (!lower) return [];
+
+  return [...new Set([lower, lower.replaceAll("-", "_"), lower.replaceAll("_", "-")])];
+};
+
+const hasDirectUserMention = (content, username) => {
+  if (!content || !username) return false;
+
+  const mentionCandidates = getMentionCandidates(username);
+  return mentionCandidates.some((candidate) => {
+    const mentionPattern = new RegExp(`(^|\\s)@${escapeRegex(candidate)}(?=[\\s.,!?;:)]|$)`, "i");
+    return mentionPattern.test(content);
+  });
+};
+
 const useChatStore = create((set, get) => ({
   ...getInitialState(),
 
@@ -1047,6 +1066,27 @@ const useChatStore = create((set, get) => ({
     }
   },
 
+  // Add mention whenever someone directly @mentions the logged in user.
+  handleDirectMention: (chatroomId, message) => {
+    try {
+      if (!message || message?.is_old) return;
+      if (message?.type !== "message" && message?.type !== "reply") return;
+
+      const kickUsername = localStorage.getItem("kickUsername");
+      const kickId = localStorage.getItem("kickId");
+      if (!kickUsername || !kickId) return;
+
+      // Ignore your own messages.
+      if (message?.sender?.id == kickId) return;
+
+      if (hasDirectUserMention(message?.content, kickUsername)) {
+        get().addMention(chatroomId, message, "mention");
+      }
+    } catch (error) {
+      console.error("[Mentions]: Error handling direct mention:", error);
+    }
+  },
+
   // Helper function to play notification sound
   playNotificationSound: async (chatroomId, message, settings) => {
     try {
@@ -1097,6 +1137,9 @@ const useChatStore = create((set, get) => ({
         },
       };
     });
+
+    // Always capture direct @mentions separately from notification settings.
+    get().handleDirectMention(chatroomId, message);
 
     // Handle Playing Notification Sounds
     get().handleNotification(chatroomId, message);
@@ -1892,32 +1935,58 @@ const useChatStore = create((set, get) => ({
 
   // Add a mention to the mentions
   addMention: (chatroomId, message, type) => {
-    const mention = {
-      id: crypto.randomUUID(),
-      messageId: message.id,
-      chatroomId,
-      message: {
-        id: message.id,
-        content: message.content,
-        sender: message.sender,
-        created_at: message.created_at || message.timestamp,
-        metadata: message.metadata,
-      },
-      chatroomInfo: (() => {
-        const chatroom = get().chatrooms.find((room) => room.id === chatroomId);
-        return {
-          slug: chatroom?.slug,
-          displayName: chatroom?.displayName || chatroom?.username,
-          streamerUsername: chatroom?.streamerData?.user?.username,
-        };
-      })(),
-      type, // reply highlight or regular message highlight
-      timestamp: new Date().toISOString(),
-      isRead: false,
+    const chatroom = get().chatrooms.find((room) => room.id === chatroomId);
+    const chatroomInfo = {
+      slug: chatroom?.slug,
+      displayName: chatroom?.displayName || chatroom?.username,
+      streamerUsername: chatroom?.streamerData?.user?.username,
     };
 
     set((state) => {
-      let updatedMentions = [...(state.mentions[chatroomId] || []), mention];
+      const existingMentions = state.mentions[chatroomId] || [];
+      const existingMentionIndex = existingMentions.findIndex((mention) => mention.messageId === message.id);
+
+      if (existingMentionIndex !== -1) {
+        const existingMention = existingMentions[existingMentionIndex];
+
+        // "mention" is the strongest signal. Upgrade existing items if needed.
+        if (type === "mention" && existingMention.type !== "mention") {
+          const updatedMentions = [...existingMentions];
+          updatedMentions[existingMentionIndex] = {
+            ...existingMention,
+            type: "mention",
+            isRead: false,
+            timestamp: new Date().toISOString(),
+          };
+          return {
+            mentions: {
+              ...state.mentions,
+              [chatroomId]: updatedMentions,
+            },
+          };
+        }
+
+        return state;
+      }
+
+      const mention = {
+        id: crypto.randomUUID(),
+        messageId: message.id,
+        chatroomId,
+        message: {
+          id: message.id,
+          content: message.content,
+          sender: message.sender,
+          created_at: message.created_at || message.timestamp,
+          metadata: message.metadata,
+        },
+        chatroomInfo,
+        type, // mention, reply, or highlight
+        timestamp: new Date().toISOString(),
+        isRead: false,
+      };
+
+      let updatedMentions = [...existingMentions, mention];
 
       // Limit mentions to prevent memory leak (keep most recent 200)
       if (updatedMentions.length > 200) {
@@ -1932,7 +2001,7 @@ const useChatStore = create((set, get) => ({
       };
     });
 
-    console.log(`[Mentions]: Added ${type} mention for chatroom ${chatroomId}:`, mention);
+    console.log(`[Mentions]: Added ${type} mention for chatroom ${chatroomId}`);
   },
 
   // Get all mentions across all chatrooms
