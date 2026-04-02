@@ -59,12 +59,18 @@ const schema = {
         type: "boolean",
         default: true,
       },
+      pauseOnMouseoverDuration: {
+        type: "string",
+        enum: ["disabled", "1", "2", "3", "5", "10", "15", "infinite"],
+        default: "disabled",
+      },
     },
     default: {
       showModActions: true,
       batchingInterval: 0,
       batching: false,
       showInfoBar: true,
+      pauseOnMouseoverDuration: "disabled",
     },
   },
   notifications: {

@@ -778,6 +778,21 @@
 }
 
 /** [Scroll to Bottom Component] **/
+.chatPausedIndicator {
+  position: absolute;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2;
+  pointer-events: none;
+  background: rgba(0, 0, 0, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+  color: #ffffff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
 .scrollToBottomBtn {
   position: absolute;
   bottom: 24px;

@@ -11,6 +11,17 @@ import playIcon from "../../../../assets/icons/play-fill.svg?asset";
 import NotificationFilePicker from "../../../Shared/NotificationFilePicker";
 import clsx from "clsx";
 
+const hoverPauseOptions = [
+  { value: "disabled", label: "Disabled" },
+  { value: "1", label: "1 second" },
+  { value: "2", label: "2 seconds" },
+  { value: "3", label: "3 seconds" },
+  { value: "5", label: "5 seconds" },
+  { value: "10", label: "10 seconds" },
+  { value: "15", label: "15 seconds" },
+  { value: "infinite", label: "Infinite" },
+];
+
 const GeneralSection = ({ settingsData, onChange }) => {
   return (
     <div className="settingsContentGeneral">
@@ -415,6 +426,52 @@ const ChatroomSection = ({ settingsData, onChange }) => {
                 })
               }
             />
+          </div>
+        </div>
+        <div className="settingsItem">
+          <div
+            className={clsx("settingSwitchItem", {
+              active: (settingsData?.chatrooms?.pauseOnMouseoverDuration || "disabled") !== "disabled",
+            })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Pause Chat on Mouseover</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Pause live chat while hovering, then resume on mouse movement or timeout</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <DropdownMenu value={settingsData?.chatrooms?.pauseOnMouseoverDuration || "disabled"}>
+              <DropdownMenuTrigger asChild>
+                <button className="timestampFormat">
+                  {(hoverPauseOptions.find(
+                    (option) => option.value === (settingsData?.chatrooms?.pauseOnMouseoverDuration || "disabled"),
+                  ) || hoverPauseOptions[0]).label}
+                  <img src={CaretDownIcon} width={14} height={14} alt="Chevron" />
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent side="bottom">
+                {hoverPauseOptions.map((option) => (
+                  <DropdownMenuItem
+                    key={option.value}
+                    onClick={() =>
+                      onChange("chatrooms", {
+                        ...settingsData?.chatrooms,
+                        pauseOnMouseoverDuration: option.value,
+                      })
+                    }
+                    value={option.value}>
+                    {option.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
           </div>
         </div>
       </div>
