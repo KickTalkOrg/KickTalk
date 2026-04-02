@@ -174,6 +174,21 @@
           text-transform: uppercase;
           background: rgba(255, 255, 255, 0.1);
           color: rgba(255, 255, 255, 0.5);
+
+          &.mentionType--mention {
+            background: rgba(96, 165, 250, 0.2);
+            color: rgb(147, 197, 253);
+          }
+
+          &.mentionType--reply {
+            background: rgba(52, 211, 153, 0.2);
+            color: rgb(110, 231, 183);
+          }
+
+          &.mentionType--highlight {
+            background: rgba(250, 204, 21, 0.2);
+            color: rgb(254, 240, 138);
+          }
         }
 
         .mentionChatroom {
@@ -232,6 +247,28 @@
       word-break: break-word;
       overflow-wrap: anywhere;
       max-width: 100%;
+
+      .mentionReplyContext {
+        width: 100%;
+        margin-bottom: 6px;
+        padding: 8px 10px;
+        border-left: 3px solid rgba(110, 231, 183, 0.7);
+        border-radius: 4px;
+        background: rgba(255, 255, 255, 0.045);
+        font-size: 13px;
+        line-height: 1.35;
+      }
+
+      .mentionReplyLabel {
+        color: rgba(110, 231, 183, 0.95);
+        font-weight: 700;
+        margin-right: 6px;
+      }
+
+      .mentionReplyText {
+        color: rgba(255, 255, 255, 0.75);
+        word-break: break-word;
+      }
 
       .chatroomBadge {
         width: 18px;

@@ -1198,7 +1198,6 @@ const useChatStore = create((set, get) => ({
         message?.sender?.id != userId
       ) {
         get().playNotificationSound(chatroomId, message, notificationSettings);
-        get().addMention(chatroomId, message, "reply");
         return;
       }
 
@@ -1234,6 +1233,26 @@ const useChatStore = create((set, get) => ({
       }
     } catch (error) {
       console.error("[Mentions]: Error handling direct mention:", error);
+    }
+  },
+
+  // Add a mention whenever someone replies directly to the logged in user.
+  handleDirectReplyMention: (chatroomId, message) => {
+    try {
+      if (!message || message?.is_old) return;
+      if (message?.type !== "reply") return;
+
+      const kickId = localStorage.getItem("kickId");
+      if (!kickId) return;
+
+      if (
+        message?.metadata?.original_sender?.id == kickId &&
+        message?.sender?.id != kickId
+      ) {
+        get().addMention(chatroomId, message, "reply");
+      }
+    } catch (error) {
+      console.error("[Mentions]: Error handling direct reply mention:", error);
     }
   },
 
@@ -1305,6 +1324,9 @@ const useChatStore = create((set, get) => ({
 
     // Always capture direct @mentions separately from notification settings.
     get().handleDirectMention(chatroomId, message);
+
+    // Always capture direct replies to your messages regardless of notification settings.
+    get().handleDirectReplyMention(chatroomId, message);
 
     // Handle Playing Notification Sounds
     get().handleNotification(chatroomId, message);

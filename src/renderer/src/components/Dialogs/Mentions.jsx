@@ -4,7 +4,12 @@ import { useShallow } from "zustand/shallow";
 import TrashIcon from "../../assets/icons/trash-fill.svg?asset";
 import "../../assets/styles/dialogs/mentions.scss";
 import clsx from "clsx";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "../Shared/Dropdown";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "../Shared/Dropdown";
 import CaretDownIcon from "../../assets/icons/caret-down-fill.svg?asset";
 import { MessageParser } from "../../utils/MessageParser";
 import ArrowRightIcon from "../../assets/icons/arrow-up-right-bold.svg?asset";
@@ -14,6 +19,12 @@ import relativeTime from "dayjs/plugin/relativeTime";
 import { KickBadges } from "../Cosmetics/Badges";
 
 dayjs.extend(relativeTime);
+
+const mentionTypeClassMap = {
+  mention: "mentionType--mention",
+  reply: "mentionType--reply",
+  highlight: "mentionType--highlight",
+};
 
 const Mentions = ({ setActiveChatroom, chatroomId }) => {
   const [selectedChatroom, setSelectedChatroom] = useState("all");
@@ -45,12 +56,17 @@ const Mentions = ({ setActiveChatroom, chatroomId }) => {
   );
 
   const filteredMentions = useMemo(() => {
-    const allMentions = selectedChatroom === "all" ? getAllMentions() : getChatroomMentions(selectedChatroom);
+    const allMentions =
+      selectedChatroom === "all"
+        ? getAllMentions()
+        : getChatroomMentions(selectedChatroom);
     return allMentions;
   }, [selectedChatroom, mentions, getChatroomMentions]);
 
   const unreadCount = useMemo(() => {
-    return selectedChatroom === "all" ? getUnreadMentionCount() : getChatroomUnreadMentionCount(selectedChatroom);
+    return selectedChatroom === "all"
+      ? getUnreadMentionCount()
+      : getChatroomUnreadMentionCount(selectedChatroom);
   }, [selectedChatroom, getUnreadMentionCount, getChatroomUnreadMentionCount]);
 
   const handleMarkAllAsRead = () => {
@@ -73,6 +89,16 @@ const Mentions = ({ setActiveChatroom, chatroomId }) => {
     return dayjs(timestamp).format("HH:mm A");
   };
 
+  const getReplyContext = (mention) => {
+    const originalMessage = mention?.message?.metadata?.original_message;
+    if (mention?.type !== "reply" || !originalMessage?.content) return null;
+
+    return {
+      content: originalMessage.content,
+      sender: mention?.message?.metadata?.original_sender?.username,
+    };
+  };
+
   return (
     <div className="mentionsDialog">
       <div className="mentionsHeader">
@@ -82,7 +108,11 @@ const Mentions = ({ setActiveChatroom, chatroomId }) => {
 
         <div className="mentionsGlobalActions">
           {filteredMentions.length > 0 && (
-            <button className="mentionsGlobalActionBtn" onClick={handleClearAll} title="Clear all mentions">
+            <button
+              className="mentionsGlobalActionBtn"
+              onClick={handleClearAll}
+              title="Clear all mentions"
+            >
               <span>Clear all</span>
               <img src={TrashIcon} alt="Clear all" width={16} height={16} />
             </button>
@@ -97,21 +127,34 @@ const Mentions = ({ setActiveChatroom, chatroomId }) => {
               <button className="mentionsFilterBtn">
                 {selectedChatroom === "all"
                   ? "All Chatrooms"
-                  : chatrooms.find((chatroom) => chatroom.id === selectedChatroom)?.displayName ||
-                    chatrooms.find((chatroom) => chatroom.id === selectedChatroom)?.username}
+                  : chatrooms.find(
+                      (chatroom) => chatroom.id === selectedChatroom,
+                    )?.displayName ||
+                    chatrooms.find(
+                      (chatroom) => chatroom.id === selectedChatroom,
+                    )?.username}
 
-                <img src={CaretDownIcon} alt="arrow down icon" width={16} height={16} />
+                <img
+                  src={CaretDownIcon}
+                  alt="arrow down icon"
+                  width={16}
+                  height={16}
+                />
               </button>
             </DropdownMenuTrigger>
             <DropdownMenuContent>
-              <DropdownMenuItem className="mentionsFilterItem" onClick={() => setSelectedChatroom("all")}>
+              <DropdownMenuItem
+                className="mentionsFilterItem"
+                onClick={() => setSelectedChatroom("all")}
+              >
                 All Chatrooms
               </DropdownMenuItem>
               {chatrooms.map((chatroom) => (
                 <DropdownMenuItem
                   className="mentionsFilterItem"
                   key={chatroom.id}
-                  onClick={() => setSelectedChatroom(chatroom.id)}>
+                  onClick={() => setSelectedChatroom(chatroom.id)}
+                >
                   {chatroom.displayName || chatroom.username}
                 </DropdownMenuItem>
               ))}
@@ -124,37 +167,86 @@ const Mentions = ({ setActiveChatroom, chatroomId }) => {
         {filteredMentions.length === 0 ? (
           <div className="mentionsEmpty">
             <img src={NOWWHAT} alt="No mentions" />
-            <p>{selectedChatroom === "all" ? "No Mentions..." : "No mentions in this chatroom..."}</p>
+            <p>
+              {selectedChatroom === "all"
+                ? "No Mentions..."
+                : "No mentions in this chatroom..."}
+            </p>
           </div>
         ) : (
           <div className="mentionsList">
             {filteredMentions.map((mention) => {
+              const replyContext = getReplyContext(mention);
+
               return (
-                <div key={mention.id} className={clsx("mentionItem", !mention.isRead && "unread")}>
+                <div
+                  key={mention.id}
+                  className={clsx("mentionItem", !mention.isRead && "unread")}
+                >
                   <div className="mentionHeader">
                     <div className="mentionMeta">
-                      <span className={clsx("mentionType")}>{mention.type}</span>
-                      <span className="mentionChatroom">
-                        #{mention.chatroomInfo?.displayName || mention.chatroomInfo?.streamerUsername}
+                      <span
+                        className={clsx(
+                          "mentionType",
+                          mentionTypeClassMap[mention?.type] ||
+                            "mentionType--mention",
+                        )}
+                      >
+                        {mention.type}
                       </span>
-                      <span className="mentionTime">{formatTimestamp(mention.timestamp)}</span>
+                      <span className="mentionChatroom">
+                        #
+                        {mention.chatroomInfo?.displayName ||
+                          mention.chatroomInfo?.streamerUsername}
+                      </span>
+                      <span className="mentionTime">
+                        {formatTimestamp(mention.timestamp)}
+                      </span>
                     </div>
 
                     <div className="mentionActions">
                       <button
                         className="mentionActionBtn"
                         onClick={() => setActiveChatroom(mention.chatroomId)}
-                        title="Go to channel">
-                        <img src={ArrowRightIcon} alt="Go to channel" width={14} height={14} />
+                        title="Go to channel"
+                      >
+                        <img
+                          src={ArrowRightIcon}
+                          alt="Go to channel"
+                          width={14}
+                          height={14}
+                        />
                       </button>
                     </div>
                   </div>
 
                   <div className="mentionMessage">
-                    {mention?.message?.sender?.identity?.badges?.length > 0 && (
-                      <KickBadges badges={mention?.message?.sender?.identity?.badges} />
+                    {replyContext && (
+                      <div className="mentionReplyContext">
+                        <span className="mentionReplyLabel">
+                          Replying to{" "}
+                          {replyContext.sender
+                            ? `@${replyContext.sender}`
+                            : "your message"}
+                          :
+                        </span>
+                        <span className="mentionReplyText">
+                          {replyContext.content}
+                        </span>
+                      </div>
                     )}
-                    <span className="mentionSender" style={{ color: mention?.message?.sender?.identity?.color }}>
+
+                    {mention?.message?.sender?.identity?.badges?.length > 0 && (
+                      <KickBadges
+                        badges={mention?.message?.sender?.identity?.badges}
+                      />
+                    )}
+                    <span
+                      className="mentionSender"
+                      style={{
+                        color: mention?.message?.sender?.identity?.color,
+                      }}
+                    >
                       {mention?.message?.sender?.username}:{" "}
                     </span>
 
