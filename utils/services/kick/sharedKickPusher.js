@@ -324,7 +324,44 @@ class SharedKickPusher extends EventTarget {
   extractChatroomIdFromChannel(channel) {
     // Extract chatroom ID from channel names like "chatrooms.12345.v2"
     const match = channel.match(/chatrooms\.(\d+)(?:\.v2)?$/);
-    return match ? match[1] : null;
+    if (match) return match[1];
+
+    // Fallback for chatroom channels like "chatroom_12345"
+    const chatroomMatch = channel.match(/chatroom_(\d+)$/);
+    if (chatroomMatch) return chatroomMatch[1];
+
+    // Fallback for streamer channels like "channel_12345" / "channel.12345"
+    const streamerChannelMatch = channel.match(/^(?:channel_|channel\.)(\d+)$/);
+    if (streamerChannelMatch) {
+      const streamerId = streamerChannelMatch[1];
+      for (const [chatroomId, chatroom] of this.chatrooms.entries()) {
+        if (String(chatroom?.streamerId) === String(streamerId)) {
+          return chatroomId;
+        }
+      }
+    }
+
+    // If channel exactly matches one of a tracked chatroom's known channels, use that.
+    for (const [chatroomId, chatroom] of this.chatrooms.entries()) {
+      if (chatroom?.channels?.includes(channel)) {
+        return chatroomId;
+      }
+    }
+
+    // Livestream scoped events (including pin updates) come through private-livestream channels.
+    // Map livestream ID back to a chatroom ID using the chatroom metadata we already store.
+    const livestreamMatch = channel.match(/private-livestreams?\.(\d+)$/);
+    if (!livestreamMatch) return null;
+
+    const livestreamId = livestreamMatch[1];
+    for (const [chatroomId, chatroom] of this.chatrooms.entries()) {
+      const chatroomLivestreamId = chatroom?.chatroomData?.streamerData?.livestream?.id;
+      if (chatroomLivestreamId && String(chatroomLivestreamId) === String(livestreamId)) {
+        return chatroomId;
+      }
+    }
+
+    return null;
   }
 
   close() {

@@ -26,7 +26,11 @@ const StreamerInfo = memo(
     const refresh7TVEmotes = useChatStore((state) => state.refresh7TVEmotes);
     const refreshKickEmotes = useChatStore((state) => state.refreshKickEmotes);
 
-    const pinDetails = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pinDetails));
+    const pinDetails = useChatStore(
+      (state) => state.chatrooms.find((room) => room.id === chatroomId)?.pinDetails,
+    );
+    const pinMessageIdentifier =
+      pinDetails?.message?.id || pinDetails?.message_id || pinDetails?.id;
     // const predictions = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.predictions));
 
     // const pollDetails = useChatStore(useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.pollDetails));
@@ -41,7 +45,7 @@ const StreamerInfo = memo(
       // if (pollDetails) {
       //   setShowPollMessage(true);
       // }
-    }, [pinDetails]);
+    }, [pinDetails, pinMessageIdentifier]);
 
     const handleRefresh7TV = () => {
       refresh7TVEmotes(chatroomId);
@@ -169,6 +173,7 @@ const StreamerInfo = memo(
 
         {pinDetails && (
           <Pin
+            key={pinMessageIdentifier || "active-pin"}
             pinDetails={pinDetails}
             subscriberBadges={streamerData?.subscriber_badges}
             chatroomName={streamerData?.user?.username}

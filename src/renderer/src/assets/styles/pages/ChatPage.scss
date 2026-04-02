@@ -780,8 +780,8 @@
 /** [Scroll to Bottom Component] **/
 .chatPausedIndicator {
   position: absolute;
-  right: 16px;
-  bottom: 16px;
+  left: 16px;
+  bottom: 8px;
   z-index: 2;
   pointer-events: none;
   background: rgba(0, 0, 0, 0.7);

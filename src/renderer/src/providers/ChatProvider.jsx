@@ -82,6 +82,29 @@ const hasDirectUserMention = (content, username) => {
   });
 };
 
+const normalizePinDetails = (event) => {
+  if (!event) return null;
+
+  const rawPinDetails = event?.pinned_message || event?.pinnedMessage || event;
+  if (!rawPinDetails) return null;
+
+  return {
+    ...rawPinDetails,
+    message: rawPinDetails?.message || event?.message || null,
+  };
+};
+
+const getPinMessageId = (pinDetails) => {
+  if (!pinDetails) return null;
+
+  return (
+    pinDetails?.message?.id ||
+    pinDetails?.message_id ||
+    pinDetails?.messageId ||
+    null
+  );
+};
+
 const useChatStore = create((set, get) => ({
   ...getInitialState(),
 
@@ -1640,6 +1663,7 @@ const useChatStore = create((set, get) => ({
   getPinMessage: async (chatroomId, messageData) => {
     try {
       await window.app.kick.getPinMessage(messageData);
+      get().refreshPinnedMessage(chatroomId);
       return true;
     } catch (error) {
       console.error("[Pin Message]: Error getting pin message:", error);
@@ -1661,15 +1685,69 @@ const useChatStore = create((set, get) => ({
     }
   },
 
-  handlePinnedMessageCreated: (chatroomId, event) => {
+  refreshPinnedMessage: async (chatroomId) => {
+    try {
+      const chatroom = get().chatrooms.find(
+        (room) => String(room.id) === String(chatroomId),
+      );
+      const channelId = chatroom?.streamerData?.id;
+      if (!channelId) return;
+
+      const response = await window.app.kick.getInitialChatroomMessages(channelId);
+      const pinnedMessage = response?.data?.data?.pinned_message;
+      const refreshedPinDetails = normalizePinDetails(pinnedMessage);
+      const refreshedPinMessageId = getPinMessageId(refreshedPinDetails);
+
+      const currentPinDetails = get().chatrooms.find(
+        (room) => String(room.id) === String(chatroomId),
+      )?.pinDetails;
+      const currentPinMessageId = getPinMessageId(currentPinDetails);
+
+      // Prevent stale refresh responses from overwriting newer realtime pin updates.
+      if (
+        currentPinMessageId &&
+        refreshedPinMessageId &&
+        String(currentPinMessageId) !== String(refreshedPinMessageId)
+      ) {
+        return;
+      }
+
+      if (refreshedPinDetails) {
+        get().handlePinnedMessageCreated(chatroomId, refreshedPinDetails, true);
+      } else if (!currentPinMessageId) {
+        get().handlePinnedMessageDeleted(chatroomId);
+      }
+    } catch (error) {
+      console.error(
+        `[Pinned Message]: Failed refreshing pinned message for chatroom ${chatroomId}:`,
+        error,
+      );
+    }
+  },
+
+  handlePinnedMessageCreated: (chatroomId, event, fromRefresh = false) => {
+    const pinDetails = normalizePinDetails(event);
+    if (!pinDetails) {
+      if (!fromRefresh) {
+        get().refreshPinnedMessage(chatroomId);
+      }
+      return;
+    }
+
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => {
-        if (room.id === chatroomId) {
-          return { ...room, pinDetails: event };
+        if (String(room.id) === String(chatroomId)) {
+          return { ...room, pinDetails: { ...pinDetails } };
         }
         return room;
       }),
     }));
+
+    // Some websocket variants only send pin metadata/id.
+    // In that case, fetch the authoritative pinned message payload.
+    if (!pinDetails?.message?.id && !fromRefresh) {
+      get().refreshPinnedMessage(chatroomId);
+    }
   },
 
   handlePollUpdate: (chatroomId, poll) => {
@@ -1697,7 +1775,7 @@ const useChatStore = create((set, get) => ({
   handlePinnedMessageDeleted: (chatroomId) => {
     set((state) => ({
       chatrooms: state.chatrooms.map((room) => {
-        if (room.id === chatroomId) {
+        if (String(room.id) === String(chatroomId)) {
           return { ...room, pinDetails: null };
         }
         return room;
@@ -1707,7 +1785,7 @@ const useChatStore = create((set, get) => ({
     // Update local storage
     const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
     const updatedChatrooms = savedChatrooms.map((room) =>
-      room.id === chatroomId ? { ...room, pinDetails: null } : room,
+      String(room.id) === String(chatroomId) ? { ...room, pinDetails: null } : room,
     );
     localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
   },
