@@ -232,15 +232,55 @@
 .chatInputActions {
   display: flex;
   align-items: center;
+  gap: 8px;
   padding: 0 12px;
-  min-width: 112px;
-  max-width: 112px;
-  justify-content: center;
+  min-width: fit-content;
+  max-width: 320px;
+  overflow-x: auto;
+  justify-content: flex-end;
   border-left: 1px solid var(--border-primary);
 
   &.replyThread {
     border-left: none;
     display: none;
+  }
+}
+
+.favoriteEmotesRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 196px;
+  overflow-x: auto;
+  padding: 2px;
+}
+
+.favoriteEmoteBtn {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 36px;
+  width: 36px;
+  height: 36px;
+  padding: 2px;
+  transition:
+    background-color 0.15s ease-in-out,
+    border-color 0.15s ease-in-out;
+
+  &:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+    border-color: rgba(255, 255, 255, 0.25);
+  }
+
+  > img {
+    max-height: 28px;
+    max-width: 28px;
+    width: auto;
+    height: auto;
   }
 }
 
@@ -526,6 +566,14 @@
       cursor: pointer;
       aspect-ratio: 1 / 1;
       position: relative;
+      transition:
+        border-color 0.15s ease-in-out,
+        background-color 0.15s ease-in-out;
+
+      &.favorite {
+        border-color: #ffbf47;
+        background: rgba(255, 191, 71, 0.08);
+      }
 
       &:disabled {
         opacity: 0.5;

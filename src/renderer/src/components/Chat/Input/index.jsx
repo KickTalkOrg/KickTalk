@@ -36,6 +36,7 @@ import { kickEmoteInputRegex } from "../../../../../../utils/constants";
 import XIcon from "../../../assets/icons/x-bold.svg?asset";
 import LockIcon from "../../../assets/icons/lock-simple-fill.svg?asset";
 import InfoBar from "./InfoBar";
+import FavoriteEmotes from "./FavoriteEmotes";
 
 const onError = (error) => {
   console.error(error);
@@ -962,8 +963,10 @@ const EmoteTransformer = ({ chatroomId }) => {
   }, [editor, kickEmotes]);
 };
 
-const EmoteHandler = ({ chatroomId, userChatroomInfo }) => {
+const EmoteHandler = ({ chatroomId, userChatroomInfo, onSendFavorite }) => {
   const [editor] = useLexicalComposerContext();
+  const favoriteEmotes = useChatStore(useShallow((state) => state.favoriteEmotes));
+  const toggleFavoriteEmote = useChatStore((state) => state.toggleFavoriteEmote);
 
   const handleEmoteClick = (emote) => {
     editor.focus();
@@ -979,11 +982,21 @@ const EmoteHandler = ({ chatroomId, userChatroomInfo }) => {
   };
 
   return (
-    <EmoteDialogs
-      chatroomId={chatroomId}
-      handleEmoteClick={handleEmoteClick}
-      userChatroomInfo={userChatroomInfo}
-    />
+    <>
+      <FavoriteEmotes
+        favoriteEmotes={favoriteEmotes}
+        onInsert={handleEmoteClick}
+        onSend={onSendFavorite}
+        onToggleFavorite={toggleFavoriteEmote}
+      />
+      <EmoteDialogs
+        chatroomId={chatroomId}
+        handleEmoteClick={handleEmoteClick}
+        userChatroomInfo={userChatroomInfo}
+        favoriteEmotes={favoriteEmotes}
+        onToggleFavorite={toggleFavoriteEmote}
+      />
+    </>
   );
 };
 
@@ -1199,6 +1212,7 @@ const ChatInput = memo(
               <EmoteHandler
                 chatroomId={chatroomId}
                 userChatroomInfo={chatroom?.userChatroomInfo}
+                onSendFavorite={handleSendMessage}
               />
             </div>
             <KeyHandler

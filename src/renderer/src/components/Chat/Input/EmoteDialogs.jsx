@@ -14,7 +14,16 @@ import { useShallow } from "zustand/react/shallow";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "../../Shared/Tooltip";
 import { useAccessibleKickEmotes } from "./useAccessibleKickEmotes";
 
-const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChatroomInfo }) => {
+const EmoteSection = ({
+  emotes,
+  title,
+  handleEmoteClick,
+  type,
+  section,
+  userChatroomInfo,
+  onToggleFavorite,
+  favoriteKeySet,
+}) => {
   const [isSectionOpen, setIsSectionOpen] = useState(true);
   const [visibleCount, setVisibleCount] = useState(20);
   const loadMoreTriggerRef = useRef(null);
@@ -55,14 +64,23 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChat
         </button>
       </div>
       <div className="emoteItems">
-        {emotes?.slice(0, visibleCount).map((emote, i) => (
+        {emotes?.slice(0, visibleCount).map((emote, i) => {
+          const emotePlatform = emote?.platform || type;
+          const isFavorite = favoriteKeySet?.has(`${emotePlatform}:${emote.id}`);
+
+          return (
           <Tooltip key={`${emote.id}-${emote.name}-${i}`} delayDuration={500}>
             <TooltipTrigger asChild>
               <button
                 disabled={type === "kick" && emote?.subscribers_only && !userChatroomInfo?.subscription}
                 onClick={() => handleEmoteClick(emote)}
+                onContextMenu={(e) => {
+                  e.preventDefault();
+                  onToggleFavorite?.({ ...emote, platform: emotePlatform });
+                }}
                 className={clsx(
                   "emoteItem",
+                  isFavorite && "favorite",
                   emote?.subscribers_only && !userChatroomInfo?.subscription && "emoteItemSubscriberOnly",
                 )}>
                 {type === "kick" ? (
@@ -89,10 +107,14 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChat
               </button>
             </TooltipTrigger>
             <TooltipContent>
-              <p>{emote.name}</p>
+              <p>
+                {emote.name}
+                {isFavorite ? " • Favorited" : " • Right-click to favorite"}
+              </p>
             </TooltipContent>
           </Tooltip>
-        ))}
+          );
+        })}
         {visibleCount < emotes.length && <div ref={loadMoreTriggerRef} className="loadMoreTrigger" />}
       </div>
     </div>
@@ -100,7 +122,7 @@ const EmoteSection = ({ emotes, title, handleEmoteClick, type, section, userChat
 };
 
 const SevenTVEmoteDialog = memo(
-  ({ isDialogOpen, sevenTVEmotes, handleEmoteClick }) => {
+  ({ isDialogOpen, sevenTVEmotes, handleEmoteClick, onToggleFavorite, favoriteKeySet }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [currentSection, setCurrentSection] = useState(null);
 
@@ -182,6 +204,8 @@ const SevenTVEmoteDialog = memo(
                           title={`${emoteSection?.setInfo?.name || "7TV Emotes"} ${searchTerm ? `[${emoteSection.emotes.length} matches]` : ""}`}
                           type={"7tv"}
                           handleEmoteClick={handleEmoteClick}
+                          onToggleFavorite={onToggleFavorite}
+                          favoriteKeySet={favoriteKeySet}
                         />
                       );
                     })}
@@ -197,7 +221,14 @@ const SevenTVEmoteDialog = memo(
 );
 
 const KickEmoteDialog = memo(
-  ({ isDialogOpen, kickEmotes, handleEmoteClick, userChatroomInfo }) => {
+  ({
+    isDialogOpen,
+    kickEmotes,
+    handleEmoteClick,
+    userChatroomInfo,
+    onToggleFavorite,
+    favoriteKeySet,
+  }) => {
     const [searchTerm, setSearchTerm] = useState("");
     const [currentSection, setCurrentSection] = useState(null);
 
@@ -274,6 +305,8 @@ const KickEmoteDialog = memo(
                       type={"kick"}
                       handleEmoteClick={handleEmoteClick}
                       userChatroomInfo={userChatroomInfo}
+                      onToggleFavorite={onToggleFavorite}
+                      favoriteKeySet={favoriteKeySet}
                     />
                   ))
               )}
@@ -290,7 +323,7 @@ const KickEmoteDialog = memo(
 );
 
 const EmoteDialogs = memo(
-  ({ chatroomId, handleEmoteClick, userChatroomInfo }) => {
+  ({ chatroomId, handleEmoteClick, userChatroomInfo, favoriteEmotes, onToggleFavorite }) => {
     const kickEmotes = useAccessibleKickEmotes(chatroomId);
     const sevenTVEmotes = useChatStore(
       useShallow((state) => state.chatrooms.find((room) => room.id === chatroomId)?.channel7TVEmotes),
@@ -300,6 +333,10 @@ const EmoteDialogs = memo(
     const allStvEmotes = useMemo(() => {
       return [...(personalEmoteSets || []), ...(sevenTVEmotes || [])];
     }, [personalEmoteSets, sevenTVEmotes]);
+    const favoriteKeySet = useMemo(
+      () => new Set((favoriteEmotes || []).map((emote) => `${emote.platform}:${emote.id}`)),
+      [favoriteEmotes],
+    );
 
     const [activeDialog, setActiveDialog] = useState(null);
     const [currentHoverEmote, setCurrentHoverEmote] = useState({});
@@ -364,18 +401,25 @@ const EmoteDialogs = memo(
             isDialogOpen={activeDialog === "7tv"}
             sevenTVEmotes={allStvEmotes}
             handleEmoteClick={handleEmoteClick}
+            onToggleFavorite={onToggleFavorite}
+            favoriteKeySet={favoriteKeySet}
           />
           <KickEmoteDialog
             isDialogOpen={activeDialog === "kick"}
             kickEmotes={kickEmotes}
             handleEmoteClick={handleEmoteClick}
             userChatroomInfo={userChatroomInfo}
+            onToggleFavorite={onToggleFavorite}
+            favoriteKeySet={favoriteKeySet}
           />
         </div>
       </TooltipProvider>
     );
   },
-  (prev, next) => prev.chatroomId === next.chatroomId && prev.userChatroomInfo === next.userChatroomInfo,
+  (prev, next) =>
+    prev.chatroomId === next.chatroomId &&
+    prev.userChatroomInfo === next.userChatroomInfo &&
+    prev.favoriteEmotes === next.favoriteEmotes,
 );
 
 export default EmoteDialogs;
