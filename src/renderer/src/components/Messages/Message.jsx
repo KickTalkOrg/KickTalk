@@ -20,6 +20,26 @@ import {
   ContextMenuTrigger,
 } from "../Shared/ContextMenu";
 
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+const getMentionCandidates = (username = "") => {
+  const lower = username.toLowerCase().trim();
+  if (!lower) return [];
+
+  return [...new Set([lower, lower.replaceAll("-", "_"), lower.replaceAll("_", "-")])];
+};
+
+const hasDirectUserMention = (content, username) => {
+  if (!content || !username) return false;
+
+  const mentionCandidates = getMentionCandidates(username);
+  return mentionCandidates.some((candidate) => {
+    const strictMentionPattern = new RegExp(`(^|\\s)@${escapeRegex(candidate)}(?=[\\s.,!?;:)]|$)`, "i");
+    const plainMentionPattern = new RegExp(`(^|\\s)${escapeRegex(candidate)}(?=[\\s.,!?;:)]|$)`, "i");
+    return strictMentionPattern.test(content) || plainMentionPattern.test(content);
+  });
+};
+
 const Message = ({
   message,
   userChatroomInfo,
@@ -260,12 +280,16 @@ const Message = ({
 
   // [Highlights]: Handles highlighting message phrases
   const shouldHighlightMessage = useMemo(() => {
-    if (!settings?.notifications?.background || !settings?.notifications?.phrases?.length || type === "dialog") {
+    if (!settings?.notifications?.background || type === "dialog") {
       return false;
     }
 
-    // Don't highlight your own messages (including replies)
-    if (message?.sender?.slug === username) {
+    if (message?.type !== "message" && message?.type !== "reply") {
+      return false;
+    }
+
+    // Don't highlight your own messages.
+    if (message?.sender?.id == userId) {
       return false;
     }
 
@@ -274,15 +298,21 @@ const Message = ({
       return true;
     }
 
+    if (hasDirectUserMention(message?.content, username)) {
+      return true;
+    }
+
     // Check for highlight phrases
-    return settings.notifications.phrases.some((phrase) => message?.content?.toLowerCase().includes(phrase.toLowerCase()));
+    return (settings?.notifications?.phrases || []).some((phrase) =>
+      message?.content?.toLowerCase().includes(phrase.toLowerCase()),
+    );
   }, [
     settings?.notifications?.background,
     settings?.notifications?.phrases,
     message?.content,
-    message?.sender?.slug,
     message?.sender?.id,
     message?.metadata?.original_sender?.id,
+    message?.type,
     type,
     username,
     userId,

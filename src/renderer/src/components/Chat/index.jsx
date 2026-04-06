@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { userKickTalkBadges } from "../../../../../utils/kickTalkBadges";
 import ChatInput from "./Input";
 import useChatStore from "../../providers/ChatProvider";
@@ -12,6 +12,8 @@ dayjs.extend(relativeTime);
 
 const Chat = ({ chatroomId, kickUsername, kickId, settings, updateSettings }) => {
   const [isSearchOpen, setIsSearchOpen] = useState(false);
+  const latestSearchContextRef = useRef({});
+  const chatroomSettingsRef = useRef(settings?.chatrooms || {});
 
   const chatroom = useChatStore((state) => state.chatrooms.filter((chatroom) => chatroom.id === chatroomId)[0]);
   const personalEmoteSets = useChatStore((state) => state.personalEmoteSets);
@@ -33,28 +35,66 @@ const Chat = ({ chatroomId, kickUsername, kickId, settings, updateSettings }) =>
     return [...(personalEmoteSets || []), ...(chatroom?.channel7TVEmotes || [])];
   }, [personalEmoteSets, chatroom?.channel7TVEmotes]);
 
+  useEffect(() => {
+    latestSearchContextRef.current = {
+      messages: messages || [],
+      chatroomId,
+      sevenTVEmotes: allStvEmotes,
+      settings,
+      subscriberBadges,
+      userChatroomInfo: chatroom?.userChatroomInfo,
+      chatroomSlug: chatroom?.slug,
+      chatroomName: chatroom?.streamerData?.user?.username,
+    };
+  }, [
+    messages,
+    chatroomId,
+    allStvEmotes,
+    settings,
+    subscriberBadges,
+    chatroom?.userChatroomInfo,
+    chatroom?.slug,
+    chatroom?.streamerData?.user?.username,
+  ]);
+
+  useEffect(() => {
+    chatroomSettingsRef.current = settings?.chatrooms || {};
+  }, [settings?.chatrooms]);
+
   // Ctrl + F to open search dialog
   const handleSearch = useCallback(() => {
+    const searchContext = latestSearchContextRef.current;
     setIsSearchOpen(true);
 
-    if (messages?.length > 0) {
+    if (searchContext?.messages?.length > 0) {
       window.app.searchDialog.open({
-        messages: messages || [],
-        chatroomId,
-        sevenTVEmotes: allStvEmotes,
-        settings,
-        subscriberBadges,
-        userChatroomInfo: chatroom?.userChatroomInfo,
-        chatroomSlug: chatroom?.slug,
-        chatroomName: chatroom?.streamerData?.user?.username,
+        messages: searchContext.messages,
+        chatroomId: searchContext.chatroomId,
+        sevenTVEmotes: searchContext.sevenTVEmotes,
+        settings: searchContext.settings,
+        subscriberBadges: searchContext.subscriberBadges,
+        userChatroomInfo: searchContext.userChatroomInfo,
+        chatroomSlug: searchContext.chatroomSlug,
+        chatroomName: searchContext.chatroomName,
       });
     }
-  }, [messages, isSearchOpen]);
+  }, []);
 
   useEffect(() => {
     const handleKeyDown = (e) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "f") {
+        e.preventDefault();
         handleSearch();
+        return;
+      }
+
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "e") {
+        e.preventDefault();
+        const chatroomSettings = chatroomSettingsRef.current || {};
+        updateSettings("chatrooms", {
+          ...chatroomSettings,
+          hideEmoteOnlyMessages: !chatroomSettings?.hideEmoteOnlyMessages,
+        });
       }
     };
 
@@ -63,7 +103,7 @@ const Chat = ({ chatroomId, kickUsername, kickId, settings, updateSettings }) =>
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [handleSearch]);
+  }, [handleSearch, updateSettings]);
 
   return (
     <div className="chatContainer">

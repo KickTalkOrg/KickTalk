@@ -401,6 +401,36 @@ const ChatroomSection = ({ settingsData, onChange }) => {
         <div className="settingsItem">
           <div
             className={clsx("settingSwitchItem", {
+              active: settingsData?.chatrooms?.hideEmoteOnlyMessages,
+            })}>
+            <div className="settingsItemTitleWithInfo">
+              <span className="settingsItemTitle">Hide Emote-Only Messages</span>
+              <Tooltip delayDuration={100}>
+                <TooltipTrigger asChild>
+                  <button className="settingsInfoIcon">
+                    <img src={InfoIcon} width={14} height={14} alt="Info" />
+                  </button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Hide messages that contain only emotes (toggle quickly with Ctrl+E)</p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+
+            <Switch
+              checked={settingsData?.chatrooms?.hideEmoteOnlyMessages || false}
+              onCheckedChange={(checked) =>
+                onChange("chatrooms", {
+                  ...settingsData?.chatrooms,
+                  hideEmoteOnlyMessages: checked,
+                })
+              }
+            />
+          </div>
+        </div>
+        <div className="settingsItem">
+          <div
+            className={clsx("settingSwitchItem", {
               active: settingsData?.chatrooms?.showInfoBar,
             })}>
             <div className="settingsItemTitleWithInfo">

@@ -4,6 +4,29 @@ import useChatStore from "../../providers/ChatProvider";
 import Message from "./Message";
 import MouseScroll from "../../assets/icons/mouse-scroll-fill.svg?asset";
 
+const kickInlineEmoteRegex = /\[emote:\d+[:]?[a-zA-Z0-9-_!]*[:]?\]/g;
+const tokenTrimRegex = /^[.,!?;:()[\]{}"'`]+|[.,!?;:()[\]{}"'`]+$/g;
+
+const isEmoteOnlyMessage = (content, stvEmoteNames) => {
+  if (!content || typeof content !== "string") return false;
+
+  const contentWithoutKickInlineEmotes = content.replaceAll(kickInlineEmoteRegex, " ");
+  const rawTokens = contentWithoutKickInlineEmotes
+    .split(/\s+/)
+    .map((token) => token.trim())
+    .filter(Boolean);
+
+  if (!rawTokens.length) return true;
+
+  const normalizedTokens = rawTokens
+    .map((token) => token.replace(tokenTrimRegex, ""))
+    .filter(Boolean);
+
+  if (!normalizedTokens.length) return true;
+
+  return normalizedTokens.every((token) => stvEmoteNames.has(token));
+};
+
 const MessagesHandler = memo(
   ({
     messages,
@@ -40,6 +63,16 @@ const MessagesHandler = memo(
 
     const isHoverPauseEnabled = hoverPauseDurationMs !== null;
     const isPaused = isScrollPaused || isHoverPaused;
+    const stvEmoteNames = useMemo(
+      () =>
+        new Set(
+          (allStvEmotes || [])
+            .flatMap((set) => set?.emotes || [])
+            .map((emote) => emote?.name)
+            .filter(Boolean),
+        ),
+      [allStvEmotes],
+    );
 
     const clearHoverPauseTimeout = useCallback(() => {
       if (hoverPauseTimeoutRef.current) {
@@ -55,10 +88,22 @@ const MessagesHandler = memo(
         if (message?.chatroom_id != chatroomId) return false;
         if (message?.type === "system" || message?.type === "mod_action") return true;
         if (message?.type !== "reply" && message?.type !== "message") return true;
+        if (
+          settings?.chatrooms?.hideEmoteOnlyMessages &&
+          isEmoteOnlyMessage(message?.content, stvEmoteNames)
+        ) {
+          return false;
+        }
 
         return message?.sender?.id && !silencedUserIds.has(message?.sender?.id);
       });
-    }, [messages, chatroomId, silencedUserIds]);
+    }, [
+      messages,
+      chatroomId,
+      silencedUserIds,
+      settings?.chatrooms?.hideEmoteOnlyMessages,
+      stvEmoteNames,
+    ]);
 
     useEffect(() => {
       latestFilteredMessageCountRef.current = filteredMessages.length;

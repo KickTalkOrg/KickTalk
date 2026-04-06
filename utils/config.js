@@ -41,6 +41,10 @@ const schema = {
   chatrooms: {
     type: "object",
     properties: {
+      hideEmoteOnlyMessages: {
+        type: "boolean",
+        default: false,
+      },
       showModActions: {
         type: "boolean",
         default: true,
@@ -66,6 +70,7 @@ const schema = {
       },
     },
     default: {
+      hideEmoteOnlyMessages: false,
       showModActions: true,
       batchingInterval: 0,
       batching: false,

@@ -234,9 +234,7 @@
   align-items: center;
   gap: 8px;
   padding: 0 12px;
-  min-width: fit-content;
-  max-width: 320px;
-  overflow-x: auto;
+  min-width: max-content;
   justify-content: flex-end;
   border-left: 1px solid var(--border-primary);
 
@@ -250,8 +248,6 @@
   display: flex;
   align-items: center;
   gap: 4px;
-  max-width: 196px;
-  overflow-x: auto;
   padding: 2px;
 }
 
