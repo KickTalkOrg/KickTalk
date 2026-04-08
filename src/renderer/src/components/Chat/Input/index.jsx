@@ -48,6 +48,14 @@ const theme = {
   placeholder: "editor-placeholder",
 };
 
+const slashCommands = [
+  { name: "user", description: "Open a user's profile card" },
+  { name: "ban", description: "Ban a user" },
+  { name: "timeout", description: "Timeout a user for N minutes" },
+  { name: "unban", description: "Unban a user" },
+  { name: "untimeout", description: "Remove a user's timeout" },
+];
+
 const messageHistory = new Map();
 
 const EmoteSuggestions = memo(
@@ -209,6 +217,65 @@ const ChatterSuggestions = memo(
   },
 );
 
+const CommandSuggestions = memo(
+  ({ suggestions, onSelect, selectedIndex }) => {
+    const suggestionsRef = useRef(null);
+    const selectedSuggestionRef = useRef(null);
+
+    useEffect(() => {
+      if (!suggestionsRef.current) return;
+
+      const selectedElement = selectedSuggestionRef.current;
+      if (!selectedElement) return;
+
+      selectedElement.scrollIntoView({ block: "center", behavior: "instant" });
+    }, [selectedIndex]);
+
+    if (!suggestions?.length) return null;
+
+    return (
+      <div
+        className={clsx(
+          "inputSuggestionsWrapper",
+          suggestions?.length && "show",
+        )}
+        ref={suggestionsRef}
+      >
+        <div className="inputSuggestions">
+          {suggestions.map((command, i) => {
+            return (
+              <div
+                key={command?.name}
+                ref={selectedIndex === i ? selectedSuggestionRef : null}
+                className={clsx(
+                  "inputSuggestion",
+                  selectedIndex === i && "selected",
+                )}
+                onClick={() => {
+                  onSelect(command);
+                }}
+              >
+                <div className="inputSuggestionInfo">
+                  <span>/{command?.name}</span>
+                  <div className="emoteTags">
+                    <span>{command?.description}</span>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    );
+  },
+  (prevProps, nextProps) => {
+    return (
+      prevProps.selectedIndex === nextProps.selectedIndex &&
+      prevProps.suggestions === nextProps.suggestions
+    );
+  },
+);
+
 const KeyHandler = ({
   chatroomId,
   onSendMessage,
@@ -220,6 +287,7 @@ const KeyHandler = ({
   const [editor] = useLexicalComposerContext();
   const [emoteSuggestions, setEmoteSuggestions] = useState([]);
   const [chatterSuggestions, setChatterSuggestions] = useState([]);
+  const [commandSuggestions, setCommandSuggestions] = useState([]);
   const [searchText, setSearchText] = useState("");
   const [tabSuggestions, setTabSuggestions] = useState([]);
   const [selectedTabIndex, setSelectedTabIndex] = useState(0);
@@ -227,6 +295,7 @@ const KeyHandler = ({
   // const [showChatters, setShowChatters] = useState(false);
   const [selectedEmoteIndex, setSelectedEmoteIndex] = useState(0);
   const [selectedChatterIndex, setSelectedChatterIndex] = useState(0);
+  const [selectedCommandIndex, setSelectedCommandIndex] = useState(0);
   const [position, setPosition] = useState(null);
   const [tabCycleInfo, setTabCycleInfo] = useState({
     originalWord: "",
@@ -330,6 +399,21 @@ const KeyHandler = ({
     [chatters],
   );
 
+  const searchCommands = useCallback((text) => {
+    const transformedText = text.toLowerCase();
+
+    const prefixMatches = slashCommands.filter((command) =>
+      command.name.toLowerCase().startsWith(transformedText),
+    );
+    const includesMatches = slashCommands.filter(
+      (command) =>
+        !command.name.toLowerCase().startsWith(transformedText) &&
+        command.name.toLowerCase().includes(transformedText),
+    );
+
+    return [...prefixMatches, ...includesMatches].slice(0, 10);
+  }, []);
+
   const insertEmote = useCallback(
     (emote) => {
       editor.update(() => {
@@ -403,6 +487,41 @@ const KeyHandler = ({
     [editor],
   );
 
+  const insertSlashCommand = useCallback(
+    (command) => {
+      editor.update(() => {
+        const selection = $getSelection();
+        if (!$isRangeSelection(selection)) return;
+
+        const node = selection.anchor.getNode();
+        if (!node) return;
+
+        const textContent = node.getTextContent();
+        const cursorOffset = selection.anchor.offset;
+
+        // Find last slash-command token before cursor.
+        const slashIndex = textContent.lastIndexOf("/", cursorOffset);
+        if (slashIndex === -1) return;
+
+        const textBeforeSlash = textContent.slice(0, slashIndex);
+        const textAfterCursor = textContent.slice(cursorOffset);
+
+        node.setTextContent(textBeforeSlash);
+        selection.insertNodes([$createTextNode(`/${command.name} `)]);
+
+        if (textAfterCursor) {
+          selection.insertNodes([$createTextNode(textAfterCursor)]);
+        }
+      });
+
+      setCommandSuggestions([]);
+      setSearchText("");
+      setSelectedCommandIndex(null);
+      setPosition(null);
+    },
+    [editor],
+  );
+
   useEffect(() => {
     if (!editor) return;
 
@@ -421,6 +540,13 @@ const KeyHandler = ({
           if (chatterSuggestions?.length) {
             setSelectedChatterIndex((prev) =>
               prev <= 0 ? chatterSuggestions.length - 1 : prev - 1,
+            );
+            return true;
+          }
+
+          if (commandSuggestions?.length) {
+            setSelectedCommandIndex((prev) =>
+              prev <= 0 ? commandSuggestions.length - 1 : prev - 1,
             );
             return true;
           }
@@ -471,6 +597,15 @@ const KeyHandler = ({
           if (chatterSuggestions?.length) {
             setSelectedChatterIndex((prev) =>
               prev === null || prev >= chatterSuggestions.length - 1
+                ? 0
+                : prev + 1,
+            );
+            return true;
+          }
+
+          if (commandSuggestions?.length) {
+            setSelectedCommandIndex((prev) =>
+              prev === null || prev >= commandSuggestions.length - 1
                 ? 0
                 : prev + 1,
             );
@@ -529,6 +664,11 @@ const KeyHandler = ({
               return true;
             }
 
+            if (commandSuggestions?.length > 0) {
+              insertSlashCommand(commandSuggestions[selectedCommandIndex ?? 0]);
+              return true;
+            }
+
             let content = "";
             editor.getEditorState().read(() => {
               content = $getRoot().getTextContent();
@@ -580,6 +720,10 @@ const KeyHandler = ({
           }
           if (chatterSuggestions?.length) {
             insertChatterMention(chatterSuggestions[selectedChatterIndex]);
+            return true;
+          }
+          if (commandSuggestions?.length) {
+            insertSlashCommand(commandSuggestions[selectedCommandIndex]);
             return true;
           }
           const selection = $getSelection();
@@ -711,21 +855,42 @@ const KeyHandler = ({
             const results = searchEmotes(query);
             setSearchText(query);
             setEmoteSuggestions(results);
+            setChatterSuggestions([]);
+            setCommandSuggestions([]);
             setSelectedEmoteIndex(0);
+            setSelectedChatterIndex(null);
+            setSelectedCommandIndex(null);
             setPosition([cursorOffset - query.length, cursorOffset]);
           } else if (currentWord.startsWith("@")) {
             const query = currentWord.slice(1);
             const results = searchChatters(query);
             setSearchText(query);
+            setEmoteSuggestions([]);
             setChatterSuggestions(results?.length ? results : null);
+            setCommandSuggestions([]);
+            setSelectedEmoteIndex(null);
             setSelectedChatterIndex(0);
+            setSelectedCommandIndex(null);
+            setPosition([cursorOffset - query.length, cursorOffset]);
+          } else if (currentWord.startsWith("/")) {
+            const query = currentWord.slice(1);
+            const results = searchCommands(query);
+            setSearchText(query);
+            setEmoteSuggestions([]);
+            setChatterSuggestions([]);
+            setCommandSuggestions(results?.length ? results : null);
+            setSelectedEmoteIndex(null);
+            setSelectedChatterIndex(null);
+            setSelectedCommandIndex(0);
             setPosition([cursorOffset - query.length, cursorOffset]);
           } else {
             setEmoteSuggestions([]);
             setChatterSuggestions([]);
+            setCommandSuggestions([]);
             setSearchText("");
             setSelectedEmoteIndex(null);
             setSelectedChatterIndex(null);
+            setSelectedCommandIndex(null);
             setPosition(null);
           }
         });
@@ -786,13 +951,17 @@ const KeyHandler = ({
     editor,
     searchEmotes,
     searchChatters,
+    searchCommands,
     emoteSuggestions,
     chatterSuggestions,
+    commandSuggestions,
     chatters,
     selectedEmoteIndex,
     selectedChatterIndex,
+    selectedCommandIndex,
     insertEmote,
     insertChatterMention,
+    insertSlashCommand,
     isReplyThread,
     onSendMessage,
     replyInputData,
@@ -846,6 +1015,11 @@ const KeyHandler = ({
         return;
       }
 
+      if (commandSuggestions?.length > 0) {
+        insertSlashCommand(commandSuggestions[selectedCommandIndex ?? 0]);
+        return;
+      }
+
       let content = "";
       editor.getEditorState().read(() => {
         content = $getRoot().getTextContent();
@@ -873,13 +1047,16 @@ const KeyHandler = ({
     editor,
     emoteSuggestions,
     chatterSuggestions,
+    commandSuggestions,
     onSendMessage,
     replyInputData,
     setReplyInputData,
     insertEmote,
     insertChatterMention,
+    insertSlashCommand,
     selectedEmoteIndex,
     selectedChatterIndex,
+    selectedCommandIndex,
     userChatroomInfo,
   ]);
 
@@ -897,6 +1074,11 @@ const KeyHandler = ({
         suggestions={chatterSuggestions}
         selectedIndex={selectedChatterIndex}
         onSelect={insertChatterMention}
+      />
+      <CommandSuggestions
+        suggestions={commandSuggestions}
+        selectedIndex={selectedCommandIndex}
+        onSelect={insertSlashCommand}
       />
     </>
   );
@@ -1093,18 +1275,20 @@ const ChatInput = memo(
 
     const handleSendMessage = useCallback(
       async (content) => {
-        if (content.startsWith("/")) {
-          const commandParts = content.slice(1).trim().split(" ");
-          const command = commandParts[0];
-          let usernameInput = commandParts[1];
-          if (!usernameInput) return;
+        const normalizedContent = content.trimStart();
+        if (normalizedContent.startsWith("/")) {
+          const commandParts = normalizedContent
+            .slice(1)
+            .trim()
+            .split(/\s+/)
+            .filter(Boolean);
+          const command = (commandParts[0] || "").toLowerCase();
+          let usernameInput = commandParts[1] || "";
 
-          // Strip out the '@' from the username if it exists
-          if (usernameInput.startsWith("@")) {
-            usernameInput = usernameInput.slice(1);
-          }
+          // Strip out '@' if user includes it.
+          if (usernameInput.startsWith("@")) usernameInput = usernameInput.slice(1);
 
-          if (command) {
+          if (command === "user" && usernameInput) {
             const user = await window.app.kick.getUserChatroomInfo(
               chatroom.username,
               usernameInput,
@@ -1127,6 +1311,50 @@ const ChatInput = memo(
               cords: [0, 300],
             });
 
+            return;
+          }
+
+          if (command === "ban" && usernameInput) {
+            const moderationChannelName = chatroom?.slug || chatroom?.username;
+            if (!moderationChannelName) return;
+            await window.app.modActions.getBanUser(
+              moderationChannelName,
+              usernameInput,
+            );
+            return;
+          }
+
+          if ((command === "unban" || command === "untimeout") && usernameInput) {
+            const moderationChannelName = chatroom?.slug || chatroom?.username;
+            if (!moderationChannelName) return;
+            await window.app.modActions.getUnbanUser(
+              moderationChannelName,
+              usernameInput,
+            );
+            return;
+          }
+
+          if (command === "timeout" && usernameInput) {
+            let durationInput = commandParts[2];
+
+            // Support both `/timeout user 10` and `/timeout 10 user`.
+            if (/^\d+$/.test(usernameInput) && commandParts[2]) {
+              durationInput = usernameInput;
+              usernameInput = commandParts[2];
+            }
+
+            if (usernameInput.startsWith("@")) usernameInput = usernameInput.slice(1);
+
+            const duration = Number.parseInt(durationInput, 10);
+            if (!Number.isFinite(duration) || duration < 1) return;
+            const moderationChannelName = chatroom?.slug || chatroom?.username;
+            if (!moderationChannelName) return;
+
+            await window.app.modActions.getTimeoutUser(
+              moderationChannelName,
+              usernameInput,
+              duration,
+            );
             return;
           }
         }

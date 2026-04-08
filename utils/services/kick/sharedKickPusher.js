@@ -149,11 +149,17 @@ class SharedKickPusher extends EventTarget {
         }
 
         // Handle chat messages and events
+        const isSubscriptionEvent =
+          typeof jsonData.event === "string" &&
+          jsonData.event.startsWith("App\\Events\\") &&
+          /(subscription|subscribed|gift(?:ed)?[_-]?sub)/i.test(jsonData.event);
+
         if (
           jsonData.event === `App\\Events\\ChatMessageEvent` ||
           jsonData.event === `App\\Events\\MessageDeletedEvent` ||
           jsonData.event === `App\\Events\\UserBannedEvent` ||
-          jsonData.event === `App\\Events\\UserUnbannedEvent`
+          jsonData.event === `App\\Events\\UserUnbannedEvent` ||
+          isSubscriptionEvent
         ) {
           const chatroomId = this.extractChatroomIdFromChannel(jsonData.channel);
           if (chatroomId) {

@@ -174,11 +174,17 @@ class KickPusher extends EventTarget {
           this.reconnectDelay = 5000;
         }
 
+        const isSubscriptionEvent =
+          typeof jsonData.event === "string" &&
+          jsonData.event.startsWith("App\\Events\\") &&
+          /(subscription|subscribed|gift(?:ed)?[_-]?sub)/i.test(jsonData.event);
+
         if (
           jsonData.event === `App\\Events\\ChatMessageEvent` ||
           jsonData.event === `App\\Events\\MessageDeletedEvent` ||
           jsonData.event === `App\\Events\\UserBannedEvent` ||
-          jsonData.event === `App\\Events\\UserUnbannedEvent`
+          jsonData.event === `App\\Events\\UserUnbannedEvent` ||
+          isSubscriptionEvent
         ) {
           this.dispatchEvent(new CustomEvent("message", { detail: jsonData }));
         }

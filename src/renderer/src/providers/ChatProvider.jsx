@@ -13,6 +13,9 @@ import dayjs from "dayjs";
 let stvPresenceUpdates = new Map();
 let storeStvId = null;
 const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
+const ACTIVE_MESSAGE_WINDOW_SIZE = 500;
+const PAUSED_MESSAGE_WINDOW_BUFFER = 1000;
+const PAUSED_MESSAGE_WINDOW_SIZE = 500;
 
 // Global connection manager instance
 let connectionManager = null;
@@ -83,6 +86,253 @@ const hasDirectUserMention = (content, username) => {
       strictMentionPattern.test(content) || plainMentionPattern.test(content)
     );
   });
+};
+
+const isSubscriptionEvent = (eventName = "") =>
+  typeof eventName === "string" &&
+  eventName.startsWith("App\\Events\\") &&
+  /(subscription|subscribed|gift(?:ed)?[_-]?sub)/i.test(eventName);
+
+const getUserDisplayName = (user) => {
+  if (typeof user === "string") return user;
+  return user?.username || user?.slug || user?.name || user?.display_name || null;
+};
+
+const pickFirst = (...values) => {
+  for (const value of values) {
+    if (value !== undefined && value !== null && value !== "") return value;
+  }
+  return null;
+};
+
+const normalizeCount = (...values) => {
+  for (const value of values) {
+    const parsed = Number(value);
+    if (Number.isFinite(parsed) && parsed > 0) return Math.floor(parsed);
+  }
+  return null;
+};
+
+const findPayloadString = (payload, matcher, maxDepth = 4) => {
+  if (!payload) return null;
+  const queue = [{ value: payload, depth: 0 }];
+  const visited = new Set();
+
+  while (queue.length > 0) {
+    const { value, depth } = queue.shift();
+    if (depth > maxDepth || value === null || value === undefined) continue;
+
+    if (typeof value === "string") {
+      const normalized = value.trim().replace(/\s+/g, " ");
+      if (normalized && matcher(normalized)) {
+        return normalized;
+      }
+      continue;
+    }
+
+    if (typeof value !== "object" || visited.has(value)) continue;
+    visited.add(value);
+
+    Object.values(value).forEach((nestedValue) => {
+      queue.push({ value: nestedValue, depth: depth + 1 });
+    });
+  }
+
+  return null;
+};
+
+const getCandidateUser = (eventData = {}, role) => {
+  const data = eventData?.data || {};
+  const subscription = eventData?.subscription || data?.subscription || {};
+  const gift = eventData?.gift || data?.gift || {};
+
+  if (role === "subscriber") {
+    return pickFirst(
+      eventData?.subscriber,
+      data?.subscriber,
+      subscription?.subscriber,
+      eventData?.user,
+      data?.user,
+      subscription?.user,
+      eventData?.sender,
+      data?.sender,
+    );
+  }
+
+  if (role === "gifter") {
+    return pickFirst(
+      eventData?.gifter,
+      data?.gifter,
+      eventData?.gifter_user,
+      data?.gifter_user,
+      eventData?.gifter_username,
+      data?.gifter_username,
+      gift?.gifter,
+      gift?.sender,
+      eventData?.sender,
+      data?.sender,
+    );
+  }
+
+  return pickFirst(
+    eventData?.recipient,
+    data?.recipient,
+    eventData?.gifted_user,
+    data?.gifted_user,
+    eventData?.giftee,
+    data?.giftee,
+    gift?.recipient,
+    gift?.giftee,
+    subscription?.recipient,
+    subscription?.subscriber,
+  );
+};
+
+const extractGiftRecipients = (eventData = {}) => {
+  const rawRecipients = pickFirst(
+    eventData?.usernames,
+    eventData?.data?.usernames,
+    eventData?.recipients,
+    eventData?.data?.recipients,
+    eventData?.gift?.usernames,
+  );
+
+  if (!Array.isArray(rawRecipients)) return [];
+
+  return rawRecipients
+    .map((recipient) => getUserDisplayName(recipient))
+    .filter(Boolean);
+};
+
+const formatRecipientPreview = (recipientNames = [], maxPreview = 3) => {
+  if (!recipientNames.length) return null;
+  const preview = recipientNames.slice(0, maxPreview).join(", ");
+  const remaining = recipientNames.length - maxPreview;
+  if (remaining > 0) {
+    return `${preview}, +${remaining} more`;
+  }
+  return preview;
+};
+
+const getDescriptiveSubText = (eventData = {}) => {
+  const keyText = pickFirst(
+    eventData?.message,
+    eventData?.content,
+    eventData?.text,
+    eventData?.announcement,
+    eventData?.body?.message,
+    eventData?.body?.content,
+    eventData?.data?.message,
+    eventData?.data?.content,
+    eventData?.subscription_message,
+    eventData?.event_message,
+  );
+
+  if (typeof keyText === "string" && keyText.trim().length > 0) {
+    return keyText.trim().replace(/\s+/g, " ");
+  }
+
+  return findPayloadString(
+    eventData,
+    (value) =>
+      /(sub|subscribe|subscription|gifted)/i.test(value) &&
+      value.length >= 6 &&
+      value.length <= 240,
+  );
+};
+
+const logSubscriptionEventDebug = (source, chatroomId, eventName, eventData, content) => {
+  console.info("[Subscriptions]: Parsed event", {
+    source,
+    chatroomId,
+    eventName,
+    content,
+    eventData,
+  });
+};
+
+const buildSubscriptionSystemMessage = (eventName, eventData = {}) => {
+  const lowerEventName = (eventName || "").toLowerCase();
+
+  const subscriberName = getUserDisplayName(getCandidateUser(eventData, "subscriber"));
+  const gifterName = getUserDisplayName(getCandidateUser(eventData, "gifter"));
+  const recipientName = getUserDisplayName(getCandidateUser(eventData, "recipient"));
+  const recipientNames = extractGiftRecipients(eventData);
+
+  const giftedCount = normalizeCount(
+    eventData?.gifted_count,
+    eventData?.gift_count,
+    eventData?.count,
+    eventData?.amount,
+    eventData?.total,
+    eventData?.data?.gifted_count,
+    eventData?.data?.gift_count,
+    eventData?.data?.count,
+    eventData?.data?.amount,
+    eventData?.data?.total,
+    eventData?.gift?.count,
+    eventData?.gift?.total,
+  );
+  const months = normalizeCount(
+    eventData?.months,
+    eventData?.subscribed_for,
+    eventData?.subscriber_months,
+    eventData?.streak,
+    eventData?.total_months,
+    eventData?.data?.months,
+    eventData?.data?.subscribed_for,
+    eventData?.data?.subscriber_months,
+    eventData?.data?.streak,
+    eventData?.data?.total_months,
+    eventData?.subscription?.months,
+    eventData?.subscription?.streak,
+  );
+  const descriptiveText = getDescriptiveSubText(eventData);
+  const recipientCount = recipientNames.length;
+  const recipientPreview = formatRecipientPreview(recipientNames);
+  const resolvedGiftedCount = giftedCount || (recipientCount > 0 ? recipientCount : null);
+  const isGiftEvent =
+    /gift/i.test(lowerEventName) ||
+    Boolean(gifterName || recipientName || recipientCount || (giftedCount && giftedCount > 0)) ||
+    /gift/i.test(descriptiveText || "");
+
+  if (isGiftEvent) {
+    if (gifterName && resolvedGiftedCount && resolvedGiftedCount > 1 && recipientPreview) {
+      return `${gifterName} gifted ${resolvedGiftedCount} subs to ${recipientPreview}!`;
+    }
+    if (gifterName && resolvedGiftedCount && resolvedGiftedCount > 1) {
+      return `${gifterName} gifted ${resolvedGiftedCount} subs!`;
+    }
+    if (gifterName && recipientName) {
+      return `${gifterName} gifted a sub to ${recipientName}!`;
+    }
+    if (gifterName && recipientPreview) {
+      return `${gifterName} gifted a sub to ${recipientPreview}!`;
+    }
+    if (gifterName) {
+      return `${gifterName} gifted a sub!`;
+    }
+    if (resolvedGiftedCount && resolvedGiftedCount > 1 && recipientPreview) {
+      return `${resolvedGiftedCount} gifted subs were sent to ${recipientPreview}!`;
+    }
+    if (resolvedGiftedCount && resolvedGiftedCount > 1) {
+      return `${resolvedGiftedCount} gifted subs were sent!`;
+    }
+    if (descriptiveText) return descriptiveText;
+    return "A gifted sub was sent!";
+  }
+
+  if (subscriberName && months && months > 1) {
+    return `${subscriberName} subscribed for ${months} months!`;
+  }
+  if (subscriberName) {
+    return `${subscriberName} subscribed!`;
+  }
+  if (descriptiveText) {
+    return descriptiveText;
+  }
+
+  return "A new subscription was added!";
 };
 
 const normalizePinDetails = (event) => {
@@ -542,6 +792,27 @@ const useChatStore = create((set, get) => ({
             ...parsedEvent,
             timestamp: new Date().toISOString(),
           });
+          break;
+        default:
+          if (isSubscriptionEvent(event.detail.event)) {
+            const subscriptionMessage = buildSubscriptionSystemMessage(
+              event.detail.event,
+              parsedEvent,
+            );
+            logSubscriptionEventDebug(
+              "individual",
+              chatroom.id,
+              event.detail.event,
+              parsedEvent,
+              subscriptionMessage,
+            );
+            get().addMessage(chatroom.id, {
+              id: crypto.randomUUID(),
+              type: "system",
+              content: subscriptionMessage,
+              timestamp: new Date().toISOString(),
+            });
+          }
           break;
       }
     });
@@ -1109,20 +1380,48 @@ const useChatStore = create((set, get) => ({
         break;
 
       case "App\\Events\\UserBannedEvent":
-        get().handleUserBanned(
-          chatroomId,
-          parsedEvent.user,
-          parsedEvent.banned_by,
-          parsedEvent.permanent,
-        );
+        get().handleUserBanned(chatroomId, parsedEvent);
+        get().addMessage(chatroomId, {
+          id: crypto.randomUUID(),
+          type: "mod_action",
+          modAction: parsedEvent?.permanent ? "banned" : "ban_temporary",
+          modActionDetails: parsedEvent,
+          ...parsedEvent,
+          timestamp: new Date().toISOString(),
+        });
         break;
 
       case "App\\Events\\UserUnbannedEvent":
-        get().handleUserUnbanned(
-          chatroomId,
-          parsedEvent.user,
-          parsedEvent.unbanned_by,
-        );
+        get().handleUserUnbanned(chatroomId, parsedEvent);
+        get().addMessage(chatroomId, {
+          id: crypto.randomUUID(),
+          type: "mod_action",
+          modAction: parsedEvent?.permanent ? "unbanned" : "removed_timeout",
+          modActionDetails: parsedEvent,
+          ...parsedEvent,
+          timestamp: new Date().toISOString(),
+        });
+        break;
+      default:
+        if (isSubscriptionEvent(eventDetail.event)) {
+          const subscriptionMessage = buildSubscriptionSystemMessage(
+            eventDetail.event,
+            parsedEvent,
+          );
+          logSubscriptionEventDebug(
+            "shared",
+            chatroomId,
+            eventDetail.event,
+            parsedEvent,
+            subscriptionMessage,
+          );
+          get().addMessage(chatroomId, {
+            id: crypto.randomUUID(),
+            type: "system",
+            content: subscriptionMessage,
+            timestamp: new Date().toISOString(),
+          });
+        }
         break;
     }
   },
@@ -1346,14 +1645,14 @@ const useChatStore = create((set, get) => ({
       // Keep a fixed window of messages based on pause state
       if (
         state.isChatroomPaused?.[chatroomId] &&
-        updatedMessages.length > 600
+        updatedMessages.length > PAUSED_MESSAGE_WINDOW_BUFFER
       ) {
-        updatedMessages = updatedMessages.slice(-300);
+        updatedMessages = updatedMessages.slice(-PAUSED_MESSAGE_WINDOW_SIZE);
       } else if (
         !state.isChatroomPaused?.[chatroomId] &&
-        updatedMessages.length > 200
+        updatedMessages.length > ACTIVE_MESSAGE_WINDOW_SIZE
       ) {
-        updatedMessages = updatedMessages.slice(-200);
+        updatedMessages = updatedMessages.slice(-ACTIVE_MESSAGE_WINDOW_SIZE);
       }
 
       return {
