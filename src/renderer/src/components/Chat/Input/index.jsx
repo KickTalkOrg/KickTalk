@@ -51,12 +51,61 @@ const theme = {
 const slashCommands = [
   { name: "user", description: "Open a user's profile card" },
   { name: "ban", description: "Ban a user" },
-  { name: "timeout", description: "Timeout a user for N minutes" },
+  { name: "timeout", description: "Timeout a user (e.g. 10, 1h, 1d, 1w)" },
   { name: "unban", description: "Unban a user" },
   { name: "untimeout", description: "Remove a user's timeout" },
 ];
 
 const messageHistory = new Map();
+const timeoutDurationRegex = /^(\d+)([mhdw])?$/i;
+const timeoutUnitToMinutes = {
+  m: 1,
+  h: 60,
+  d: 1440,
+  w: 10080,
+};
+
+const parseTimeoutDurationToMinutes = (durationInput) => {
+  if (typeof durationInput !== "string") return null;
+
+  const trimmedDuration = durationInput.trim();
+  const match = timeoutDurationRegex.exec(trimmedDuration);
+  if (!match) return null;
+
+  const durationValue = Number.parseInt(match[1], 10);
+  if (!Number.isFinite(durationValue) || durationValue < 1) return null;
+
+  const durationUnit = (match[2] || "m").toLowerCase();
+  const minuteMultiplier = timeoutUnitToMinutes[durationUnit];
+  if (!minuteMultiplier) return null;
+
+  const durationMinutes = durationValue * minuteMultiplier;
+  if (!Number.isSafeInteger(durationMinutes) || durationMinutes < 1) return null;
+
+  return durationMinutes;
+};
+
+const getActiveTriggerAtCursor = (textContent, cursorOffset) => {
+  if (typeof textContent !== "string") return null;
+  if (!Number.isInteger(cursorOffset) || cursorOffset < 0) return null;
+
+  const textBeforeCursor = textContent.slice(0, cursorOffset);
+  const triggerMatch = textBeforeCursor.match(/(?:^|\s)([:@/])([^\s]*)$/);
+  if (!triggerMatch) return null;
+
+  const trigger = triggerMatch[1];
+  const query = triggerMatch[2] || "";
+  const start = cursorOffset - query.length - 1;
+
+  if (start < 0 || textContent[start] !== trigger) return null;
+
+  return {
+    trigger,
+    query,
+    start,
+    end: cursorOffset,
+  };
+};
 
 const EmoteSuggestions = memo(
   ({ suggestions, onSelect, selectedIndex, userChatroomInfo }) => {
@@ -423,11 +472,11 @@ const KeyHandler = ({
         const node = selection.anchor.getNode();
         const textContent = node.getTextContent();
         const cursorOffset = selection.anchor.offset;
-        const colonIndex = textContent.indexOf(":");
-        if (colonIndex === -1) return;
+        const activeTrigger = getActiveTriggerAtCursor(textContent, cursorOffset);
+        if (!activeTrigger || activeTrigger.trigger !== ":") return;
 
-        const textBefore = textContent.slice(0, colonIndex);
-        const textAfter = textContent.slice(cursorOffset);
+        const textBefore = textContent.slice(0, activeTrigger.start);
+        const textAfter = textContent.slice(activeTrigger.end);
         node.setTextContent(textBefore);
 
         if (!emote?.platform) return;
@@ -458,13 +507,11 @@ const KeyHandler = ({
 
         const textContent = node.getTextContent();
         const cursorOffset = selection.anchor.offset;
+        const activeTrigger = getActiveTriggerAtCursor(textContent, cursorOffset);
+        if (!activeTrigger || activeTrigger.trigger !== "@") return;
 
-        // Find last '@' before cursor
-        const atIndex = textContent.lastIndexOf("@", cursorOffset);
-        if (atIndex === -1) return;
-
-        const textBefore = textContent.slice(0, atIndex);
-        const textAfter = textContent.slice(cursorOffset);
+        const textBefore = textContent.slice(0, activeTrigger.start);
+        const textAfter = textContent.slice(activeTrigger.end);
 
         // Replace node text up to '@'
         node.setTextContent(textBefore);
@@ -498,13 +545,11 @@ const KeyHandler = ({
 
         const textContent = node.getTextContent();
         const cursorOffset = selection.anchor.offset;
+        const activeTrigger = getActiveTriggerAtCursor(textContent, cursorOffset);
+        if (!activeTrigger || activeTrigger.trigger !== "/") return;
 
-        // Find last slash-command token before cursor.
-        const slashIndex = textContent.lastIndexOf("/", cursorOffset);
-        if (slashIndex === -1) return;
-
-        const textBeforeSlash = textContent.slice(0, slashIndex);
-        const textAfterCursor = textContent.slice(cursorOffset);
+        const textBeforeSlash = textContent.slice(0, activeTrigger.start);
+        const textAfterCursor = textContent.slice(activeTrigger.end);
 
         node.setTextContent(textBeforeSlash);
         selection.insertNodes([$createTextNode(`/${command.name} `)]);
@@ -845,13 +890,10 @@ const KeyHandler = ({
           const node = selection.anchor.getNode();
           const textContent = node.getTextContent();
           const cursorOffset = selection.anchor.offset;
+          const activeTrigger = getActiveTriggerAtCursor(textContent, cursorOffset);
 
-          const textBeforeCursor = textContent.slice(0, cursorOffset);
-          const words = textBeforeCursor.split(/\s+/);
-          const currentWord = words[words.length - 1];
-
-          if (currentWord.startsWith(":")) {
-            const query = currentWord.slice(1);
+          if (activeTrigger?.trigger === ":") {
+            const query = activeTrigger.query;
             const results = searchEmotes(query);
             setSearchText(query);
             setEmoteSuggestions(results);
@@ -860,9 +902,9 @@ const KeyHandler = ({
             setSelectedEmoteIndex(0);
             setSelectedChatterIndex(null);
             setSelectedCommandIndex(null);
-            setPosition([cursorOffset - query.length, cursorOffset]);
-          } else if (currentWord.startsWith("@")) {
-            const query = currentWord.slice(1);
+            setPosition([activeTrigger.start, activeTrigger.end]);
+          } else if (activeTrigger?.trigger === "@") {
+            const query = activeTrigger.query;
             const results = searchChatters(query);
             setSearchText(query);
             setEmoteSuggestions([]);
@@ -871,9 +913,9 @@ const KeyHandler = ({
             setSelectedEmoteIndex(null);
             setSelectedChatterIndex(0);
             setSelectedCommandIndex(null);
-            setPosition([cursorOffset - query.length, cursorOffset]);
-          } else if (currentWord.startsWith("/")) {
-            const query = currentWord.slice(1);
+            setPosition([activeTrigger.start, activeTrigger.end]);
+          } else if (activeTrigger?.trigger === "/") {
+            const query = activeTrigger.query;
             const results = searchCommands(query);
             setSearchText(query);
             setEmoteSuggestions([]);
@@ -882,7 +924,7 @@ const KeyHandler = ({
             setSelectedEmoteIndex(null);
             setSelectedChatterIndex(null);
             setSelectedCommandIndex(0);
-            setPosition([cursorOffset - query.length, cursorOffset]);
+            setPosition([activeTrigger.start, activeTrigger.end]);
           } else {
             setEmoteSuggestions([]);
             setChatterSuggestions([]);
@@ -1338,15 +1380,15 @@ const ChatInput = memo(
             let durationInput = commandParts[2];
 
             // Support both `/timeout user 10` and `/timeout 10 user`.
-            if (/^\d+$/.test(usernameInput) && commandParts[2]) {
+            if (timeoutDurationRegex.test(usernameInput) && commandParts[2]) {
               durationInput = usernameInput;
               usernameInput = commandParts[2];
             }
 
             if (usernameInput.startsWith("@")) usernameInput = usernameInput.slice(1);
 
-            const duration = Number.parseInt(durationInput, 10);
-            if (!Number.isFinite(duration) || duration < 1) return;
+            const duration = parseTimeoutDurationToMinutes(durationInput);
+            if (duration === null) return;
             const moderationChannelName = chatroom?.slug || chatroom?.username;
             if (!moderationChannelName) return;
 

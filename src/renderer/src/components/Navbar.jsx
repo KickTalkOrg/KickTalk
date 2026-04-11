@@ -11,6 +11,7 @@ import NotificationIcon from "../assets/icons/notification-bell.svg?asset";
 import MessageIcon from "../assets/icons/message-bubble.svg?asset";
 import ChatroomTab from "./Navbar/ChatroomTab";
 import MentionsTab from "./Navbar/MentionsTab";
+import ModLogsTab from "./Navbar/ModLogsTab";
 
 const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
   const { settings } = useSettings();
@@ -167,7 +168,7 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
     if ((e.ctrlKey || e.metaKey) && !e.altKey && !e.shiftKey && /^[1-9]$/.test(e.key)) {
       e.preventDefault();
       const requestedIndex = Number(e.key) - 1;
-      const openTabs = [...orderedChatrooms.map((chatroom) => chatroom.id), ...(hasMentionsTab ? ["mentions"] : [])];
+      const openTabs = [...orderedChatrooms.map((chatroom) => chatroom.id), ...(hasMentionsTab ? ["mentions"] : []), "modLogs"];
       const targetTabId = openTabs[requestedIndex];
       if (targetTabId !== undefined) {
         onSelectChatroom(targetTabId);
@@ -239,6 +240,7 @@ const Navbar = ({ currentChatroomId, kickId, onSelectChatroom }) => {
                     onRemoveMentionsTab={handleRemoveMentionsTab}
                   />
                 )}
+                <ModLogsTab currentChatroomId={currentChatroomId} onSelectChatroom={onSelectChatroom} />
                 {settings?.general?.wrapChatroomsList && (
                   <div className="navbarAddChatroomContainer">
                     <button

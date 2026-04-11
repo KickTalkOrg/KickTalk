@@ -321,6 +321,10 @@ class ConnectionManager {
       if (this.storeCallbacks) {
         const isLive = response.data?.livestream?.is_live || false;
         this.storeCallbacks.handleStreamStatus?.(chatroom.id, response.data, isLive);
+        this.storeCallbacks.handleChatroomUpdated?.(
+          chatroom.id,
+          response.data?.chatroom || response.data,
+        );
       }
     } catch (error) {
       console.error(`[ConnectionManager] Error fetching initial chatroom info for chatroom ${chatroom.id}:`, error);

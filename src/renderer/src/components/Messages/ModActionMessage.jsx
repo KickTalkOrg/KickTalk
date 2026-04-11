@@ -13,6 +13,7 @@ const ModActionMessage = ({ message, chatroomId, allStvEmotes, subscriberBadges,
   const duration = modActionDetails?.duration;
 
   const isBanAction = modAction === "banned" || modAction === "ban_temporary";
+  const isDeleteAction = modAction === "message_deleted";
 
   const handleOpenUserDialog = useCallback(
     async (usernameDialog) => {
@@ -54,6 +55,10 @@ const ModActionMessage = ({ message, chatroomId, allStvEmotes, subscriberBadges,
             {modAction === "banned" ? "permanently banned " : "timed out "}
             <button onClick={() => handleOpenUserDialog(username)}>{username}</button>{" "}
             {modAction === "ban_temporary" && ` for ${convertMinutesToHumanReadable(duration)}`}
+          </>
+        ) : isDeleteAction ? (
+          <>
+            <button onClick={() => handleOpenUserDialog(moderator)}>{moderator}</button> deleted a message
           </>
         ) : (
           <>

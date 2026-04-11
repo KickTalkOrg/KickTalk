@@ -6,6 +6,7 @@ import Chat from "../components/Chat";
 import Navbar from "../components/Navbar";
 import TitleBar from "../components/TitleBar";
 import Mentions from "../components/Dialogs/Mentions";
+import ModLogs from "../components/Dialogs/ModLogs";
 
 const ChatPage = () => {
   const { settings, updateSettings } = useSettings();
@@ -28,7 +29,7 @@ const ChatPage = () => {
         </div>
 
         <div className="chatContent">
-          {activeChatroomId && activeChatroomId !== "mentions" ? (
+          {activeChatroomId && activeChatroomId !== "mentions" && activeChatroomId !== "modLogs" ? (
             <Chat
               chatroomId={activeChatroomId}
               kickUsername={kickUsername}
@@ -38,6 +39,8 @@ const ChatPage = () => {
             />
           ) : activeChatroomId === "mentions" ? (
             <Mentions setActiveChatroom={setActiveChatroomId} chatroomId={activeChatroomId} />
+          ) : activeChatroomId === "modLogs" ? (
+            <ModLogs setActiveChatroom={setActiveChatroomId} />
           ) : (
             <div className="chatroomsEmptyState">
               <h1>No Chatrooms</h1>

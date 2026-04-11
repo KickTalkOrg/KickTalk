@@ -1,0 +1,101 @@
+.modLogsDialog {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  width: 100%;
+  padding: 16px;
+  gap: 16px;
+}
+
+.modLogsHeader {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  h2 {
+    font-size: 22px;
+    color: var(--text-primary);
+  }
+}
+
+.modLogsChatroomFilter {
+  height: 36px;
+  padding: 0 12px;
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  background-color: var(--bg-secondary);
+  color: var(--text-primary);
+  outline: none;
+}
+
+.modLogsContent {
+  flex: 1;
+  overflow-y: auto;
+}
+
+.modLogsEmpty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  height: 100%;
+  opacity: 0.8;
+
+  img {
+    max-width: 280px;
+    width: 100%;
+    border-radius: 8px;
+  }
+}
+
+.modLogsList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modLogItem {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  padding: 10px 12px;
+  position: relative;
+}
+
+.modLogMeta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  opacity: 0.8;
+}
+
+.modLogAction {
+  font-weight: 700;
+}
+
+.modLogBody {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 15px;
+}
+
+.modLogJumpBtn {
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  background: transparent;
+  cursor: pointer;
+}

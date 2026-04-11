@@ -16,6 +16,7 @@ const PRESENCE_UPDATE_INTERVAL = 30 * 1000;
 const ACTIVE_MESSAGE_WINDOW_SIZE = 500;
 const PAUSED_MESSAGE_WINDOW_BUFFER = 1000;
 const PAUSED_MESSAGE_WINDOW_SIZE = 500;
+const MOD_LOG_WINDOW_SIZE = 1000;
 
 // Global connection manager instance
 let connectionManager = null;
@@ -52,6 +53,7 @@ const getInitialState = () => {
     favoriteEmotes: savedFavoriteEmotes,
     isChatroomPaused: {}, // Store for all Chatroom Pauses
     mentions: {}, // Store for all Mentions
+    modLogs: {}, // Store for all moderation actions
     currentChatroomId: null, // Track the currently active chatroom
     hasMentionsTab: savedMentionsTab, // Track if mentions tab is enabled
   };
@@ -356,6 +358,27 @@ const getPinMessageId = (pinDetails) => {
     pinDetails?.messageId ||
     null
   );
+};
+
+const normalizeChatroomLookup = (chatrooms, chatroomId) =>
+  chatrooms.find((room) => String(room.id) === String(chatroomId));
+
+const extractDeletedMessageId = (event = {}) =>
+  event?.message?.id || event?.message_id || event?.id || null;
+
+const extractDeletedMessageTarget = (event = {}) => {
+  const candidateUser =
+    event?.message?.sender ||
+    event?.message?.user ||
+    event?.deleted_message?.sender ||
+    event?.deleted_message?.user ||
+    event?.user ||
+    null;
+
+  return {
+    username: candidateUser?.username || candidateUser?.slug || null,
+    userId: candidateUser?.id || null,
+  };
 };
 
 const useChatStore = create((set, get) => ({
@@ -769,29 +792,41 @@ const useChatStore = create((set, get) => ({
           break;
         case "App\\Events\\MessageDeletedEvent":
           get().handleMessageDelete(chatroom.id, parsedEvent.message.id);
+          get().addModLog(chatroom.id, {
+            id: crypto.randomUUID(),
+            type: "mod_action",
+            modAction: "message_deleted",
+            modActionDetails: parsedEvent,
+            ...parsedEvent,
+            timestamp: new Date().toISOString(),
+          });
           break;
         case "App\\Events\\UserBannedEvent":
           get().handleUserBanned(chatroom.id, parsedEvent);
-          get().addMessage(chatroom.id, {
+          const banEvent = {
             id: crypto.randomUUID(),
             type: "mod_action",
             modAction: parsedEvent?.permanent ? "banned" : "ban_temporary",
             modActionDetails: parsedEvent,
             ...parsedEvent,
             timestamp: new Date().toISOString(),
-          });
+          };
+          get().addMessage(chatroom.id, banEvent);
+          get().addModLog(chatroom.id, banEvent);
 
           break;
         case "App\\Events\\UserUnbannedEvent":
           get().handleUserUnbanned(chatroom.id, parsedEvent);
-          get().addMessage(chatroom.id, {
+          const unbanEvent = {
             id: crypto.randomUUID(),
             type: "mod_action",
             modAction: parsedEvent?.permanent ? "unbanned" : "removed_timeout",
             modActionDetails: parsedEvent,
             ...parsedEvent,
             timestamp: new Date().toISOString(),
-          });
+          };
+          get().addMessage(chatroom.id, unbanEvent);
+          get().addModLog(chatroom.id, unbanEvent);
           break;
         default:
           if (isSubscriptionEvent(event.detail.event)) {
@@ -911,56 +946,7 @@ const useChatStore = create((set, get) => ({
 
     fetchEmotes();
 
-    // Fetch Initial Chatroom Info
-    const fetchInitialChatroomInfo = async () => {
-      const response = await window.app.kick.getChannelChatroomInfo(
-        chatroom?.streamerData?.slug,
-      );
-
-      if (!response?.data) {
-        console.log(
-          "[Initial Chatroom Info]: No data received, skipping update",
-        );
-        return;
-      }
-
-      const currentChatroom = get().chatrooms.find(
-        (room) => room.id === chatroom.id,
-      );
-      const updatedChatroom = {
-        ...currentChatroom,
-        initialChatroomInfo: response.data,
-        isStreamerLive: response.data?.livestream?.is_live,
-        streamerData: {
-          ...currentChatroom.streamerData,
-          livestream: response.data?.livestream
-            ? {
-                ...currentChatroom.streamerData?.livestream,
-                ...response.data?.livestream,
-              }
-            : null,
-        },
-      };
-
-      set((state) => ({
-        chatrooms: state.chatrooms.map((room) => {
-          if (room.id === chatroom.id) {
-            return updatedChatroom;
-          }
-          return room;
-        }),
-      }));
-
-      // Update local storage with the updated chatroom
-      const savedChatrooms =
-        JSON.parse(localStorage.getItem("chatrooms")) || [];
-      const updatedChatrooms = savedChatrooms.map((room) =>
-        room.id === chatroom.id ? updatedChatroom : room,
-      );
-      localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
-    };
-
-    fetchInitialChatroomInfo();
+    get().refreshChatroomSnapshot(chatroom.id, chatroom?.streamerData?.slug);
 
     // Fetch initial messages
     const fetchInitialMessages = async () => {
@@ -1035,6 +1021,60 @@ const useChatStore = create((set, get) => ({
       console.error("[Chat Provider]: Error fetching donators:", error);
       set({ donators: [] });
       return [];
+    }
+  },
+
+  refreshChatroomSnapshot: async (chatroomId, slug) => {
+    if (!chatroomId || !slug) return null;
+
+    try {
+      const response = await window.app.kick.getChannelChatroomInfo(slug);
+      if (!response?.data) {
+        console.log(
+          `[Chatroom Snapshot]: No data received for chatroom ${chatroomId}, skipping update`,
+        );
+        return null;
+      }
+
+      const currentChatroom = get().chatrooms.find(
+        (room) => String(room.id) === String(chatroomId),
+      );
+      if (!currentChatroom) return null;
+
+      const updatedChatroom = {
+        ...currentChatroom,
+        chatroomInfo: response.data?.chatroom || response.data,
+        initialChatroomInfo: response.data,
+        isStreamerLive: response.data?.livestream?.is_live,
+        streamerData: {
+          ...currentChatroom.streamerData,
+          livestream: response.data?.livestream
+            ? {
+                ...currentChatroom.streamerData?.livestream,
+                ...response.data?.livestream,
+              }
+            : null,
+        },
+      };
+
+      set((state) => ({
+        chatrooms: state.chatrooms.map((room) =>
+          String(room.id) === String(chatroomId) ? updatedChatroom : room,
+        ),
+      }));
+
+      const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+      const updatedChatrooms = savedChatrooms.map((room) =>
+        String(room.id) === String(chatroomId) ? updatedChatroom : room,
+      );
+      localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
+      return updatedChatroom;
+    } catch (error) {
+      console.error(
+        `[Chatroom Snapshot]: Error refreshing chatroom ${chatroomId}:`,
+        error,
+      );
+      return null;
     }
   },
 
@@ -1212,6 +1252,7 @@ const useChatStore = create((set, get) => ({
           handlePinnedMessageDeleted: get().handlePinnedMessageDeleted,
           addInitialChatroomMessages: get().addInitialChatroomMessages,
           handleStreamStatus: get().handleStreamStatus,
+          handleChatroomUpdated: get().handleChatroomUpdated,
         };
 
         // Initialize connections with the new manager
@@ -1224,6 +1265,17 @@ const useChatStore = create((set, get) => ({
         await Promise.allSettled(
           chatrooms.map((chatroom) =>
             get().refreshUserChatroomInfo(
+              chatroom.id,
+              chatroom?.streamerData?.slug,
+            ),
+          ),
+        );
+
+        // Refresh authoritative chatroom snapshots so moderation modes
+        // are rehydrated from API instead of stale persisted storage.
+        await Promise.allSettled(
+          chatrooms.map((chatroom) =>
+            get().refreshChatroomSnapshot(
               chatroom.id,
               chatroom?.streamerData?.slug,
             ),
@@ -1377,30 +1429,42 @@ const useChatStore = create((set, get) => ({
 
       case "App\\Events\\MessageDeletedEvent":
         get().handleMessageDelete(chatroomId, parsedEvent.message.id);
+        get().addModLog(chatroomId, {
+          id: crypto.randomUUID(),
+          type: "mod_action",
+          modAction: "message_deleted",
+          modActionDetails: parsedEvent,
+          ...parsedEvent,
+          timestamp: new Date().toISOString(),
+        });
         break;
 
       case "App\\Events\\UserBannedEvent":
         get().handleUserBanned(chatroomId, parsedEvent);
-        get().addMessage(chatroomId, {
+        const sharedBanEvent = {
           id: crypto.randomUUID(),
           type: "mod_action",
           modAction: parsedEvent?.permanent ? "banned" : "ban_temporary",
           modActionDetails: parsedEvent,
           ...parsedEvent,
           timestamp: new Date().toISOString(),
-        });
+        };
+        get().addMessage(chatroomId, sharedBanEvent);
+        get().addModLog(chatroomId, sharedBanEvent);
         break;
 
       case "App\\Events\\UserUnbannedEvent":
         get().handleUserUnbanned(chatroomId, parsedEvent);
-        get().addMessage(chatroomId, {
+        const sharedUnbanEvent = {
           id: crypto.randomUUID(),
           type: "mod_action",
           modAction: parsedEvent?.permanent ? "unbanned" : "removed_timeout",
           modActionDetails: parsedEvent,
           ...parsedEvent,
           timestamp: new Date().toISOString(),
-        });
+        };
+        get().addMessage(chatroomId, sharedUnbanEvent);
+        get().addModLog(chatroomId, sharedUnbanEvent);
         break;
       default:
         if (isSubscriptionEvent(eventDetail.event)) {
@@ -1816,12 +1880,14 @@ const useChatStore = create((set, get) => ({
       const { [chatroomId]: _, ...messages } = state.messages;
       const { [chatroomId]: __, ...connections } = state.connections;
       const { [chatroomId]: ___, ...mentions } = state.mentions;
+      const { [chatroomId]: ____, ...modLogs } = state.modLogs;
 
       return {
         chatrooms: state.chatrooms.filter((room) => room.id !== chatroomId),
         messages,
         connections,
         mentions,
+        modLogs,
       };
     });
 
@@ -2795,6 +2861,81 @@ const useChatStore = create((set, get) => ({
     });
 
     console.log(`[Mentions]: Added ${type} mention for chatroom ${chatroomId}`);
+  },
+
+  addModLog: (chatroomId, modActionMessage) => {
+    const chatroom = normalizeChatroomLookup(get().chatrooms, chatroomId);
+    const normalizedChatroomId = chatroom?.id ?? chatroomId;
+    const isDeleteAction = modActionMessage?.modAction === "message_deleted";
+    const messageId = extractDeletedMessageId(modActionMessage?.modActionDetails);
+    const existingMessages = get().messages[normalizedChatroomId] || [];
+    const deletedMessageFromHistory = isDeleteAction
+      ? existingMessages.find((message) => String(message.id) === String(messageId))
+      : null;
+    const deletedTargetFromPayload = extractDeletedMessageTarget(modActionMessage?.modActionDetails);
+    const resolvedTargetUsername =
+      deletedTargetFromPayload.username ||
+      deletedMessageFromHistory?.sender?.username ||
+      modActionMessage?.modActionDetails?.user?.username ||
+      null;
+    const resolvedTargetId =
+      deletedTargetFromPayload.userId ||
+      deletedMessageFromHistory?.sender?.id ||
+      modActionMessage?.modActionDetails?.user?.id ||
+      null;
+    const enrichedModActionDetails =
+      isDeleteAction && (resolvedTargetUsername || resolvedTargetId)
+        ? {
+            ...modActionMessage?.modActionDetails,
+            user: {
+              ...(modActionMessage?.modActionDetails?.user || {}),
+              username:
+                resolvedTargetUsername ||
+                modActionMessage?.modActionDetails?.user?.username ||
+                null,
+              id: resolvedTargetId || modActionMessage?.modActionDetails?.user?.id || null,
+            },
+          }
+        : modActionMessage?.modActionDetails;
+
+    const chatroomInfo = {
+      slug: chatroom?.slug,
+      displayName: chatroom?.displayName || chatroom?.username,
+      streamerUsername: chatroom?.streamerData?.user?.username,
+    };
+
+    set((state) => {
+      const existingLogs = state.modLogs[normalizedChatroomId] || [];
+      const newLog = {
+        ...modActionMessage,
+        chatroomId: normalizedChatroomId,
+        modActionDetails: enrichedModActionDetails,
+        chatroomInfo,
+      };
+
+      let updatedLogs = [...existingLogs, newLog];
+      if (updatedLogs.length > MOD_LOG_WINDOW_SIZE) {
+        updatedLogs = updatedLogs.slice(-MOD_LOG_WINDOW_SIZE);
+      }
+
+      return {
+        modLogs: {
+          ...state.modLogs,
+          [normalizedChatroomId]: updatedLogs,
+        },
+      };
+    });
+  },
+
+  getAllModLogs: () => {
+    const modLogs = get().modLogs;
+    const allLogs = [];
+
+    Object.keys(modLogs).forEach((chatroomId) => {
+      allLogs.push(...modLogs[chatroomId]);
+    });
+
+    return allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
   },
 
   // Get all mentions across all chatrooms
