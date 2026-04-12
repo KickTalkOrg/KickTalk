@@ -602,6 +602,24 @@ const KeyHandler = ({
       editor.registerCommand(
         KEY_ARROW_DOWN_COMMAND,
         (e) => {
+          if (emoteSuggestions?.length > 0) {
+            e.preventDefault();
+            setSelectedEmoteIndex((prev) => {
+              const currentIndex = Number.isInteger(prev) ? prev : 0;
+              return (currentIndex + 1) % emoteSuggestions.length;
+            });
+            return true;
+          }
+
+          if (chatterSuggestions?.length > 0) {
+            e.preventDefault();
+            setSelectedChatterIndex((prev) => {
+              const currentIndex = Number.isInteger(prev) ? prev : 0;
+              return (currentIndex + 1) % chatterSuggestions.length;
+            });
+            return true;
+          }
+
           e.preventDefault();
           return true;
         },
