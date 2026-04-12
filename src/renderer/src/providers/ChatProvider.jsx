@@ -97,7 +97,9 @@ const isSubscriptionEvent = (eventName = "") =>
 
 const getUserDisplayName = (user) => {
   if (typeof user === "string") return user;
-  return user?.username || user?.slug || user?.name || user?.display_name || null;
+  return (
+    user?.username || user?.slug || user?.name || user?.display_name || null
+  );
 };
 
 const pickFirst = (...values) => {
@@ -243,7 +245,13 @@ const getDescriptiveSubText = (eventData = {}) => {
   );
 };
 
-const logSubscriptionEventDebug = (source, chatroomId, eventName, eventData, content) => {
+const logSubscriptionEventDebug = (
+  source,
+  chatroomId,
+  eventName,
+  eventData,
+  content,
+) => {
   console.info("[Subscriptions]: Parsed event", {
     source,
     chatroomId,
@@ -256,9 +264,13 @@ const logSubscriptionEventDebug = (source, chatroomId, eventName, eventData, con
 const buildSubscriptionSystemMessage = (eventName, eventData = {}) => {
   const lowerEventName = (eventName || "").toLowerCase();
 
-  const subscriberName = getUserDisplayName(getCandidateUser(eventData, "subscriber"));
+  const subscriberName = getUserDisplayName(
+    getCandidateUser(eventData, "subscriber"),
+  );
   const gifterName = getUserDisplayName(getCandidateUser(eventData, "gifter"));
-  const recipientName = getUserDisplayName(getCandidateUser(eventData, "recipient"));
+  const recipientName = getUserDisplayName(
+    getCandidateUser(eventData, "recipient"),
+  );
   const recipientNames = extractGiftRecipients(eventData);
 
   const giftedCount = normalizeCount(
@@ -292,14 +304,25 @@ const buildSubscriptionSystemMessage = (eventName, eventData = {}) => {
   const descriptiveText = getDescriptiveSubText(eventData);
   const recipientCount = recipientNames.length;
   const recipientPreview = formatRecipientPreview(recipientNames);
-  const resolvedGiftedCount = giftedCount || (recipientCount > 0 ? recipientCount : null);
+  const resolvedGiftedCount =
+    giftedCount || (recipientCount > 0 ? recipientCount : null);
   const isGiftEvent =
     /gift/i.test(lowerEventName) ||
-    Boolean(gifterName || recipientName || recipientCount || (giftedCount && giftedCount > 0)) ||
+    Boolean(
+      gifterName ||
+        recipientName ||
+        recipientCount ||
+        (giftedCount && giftedCount > 0),
+    ) ||
     /gift/i.test(descriptiveText || "");
 
   if (isGiftEvent) {
-    if (gifterName && resolvedGiftedCount && resolvedGiftedCount > 1 && recipientPreview) {
+    if (
+      gifterName &&
+      resolvedGiftedCount &&
+      resolvedGiftedCount > 1 &&
+      recipientPreview
+    ) {
       return `${gifterName} gifted ${resolvedGiftedCount} subs to ${recipientPreview}!`;
     }
     if (gifterName && resolvedGiftedCount && resolvedGiftedCount > 1) {
@@ -1063,7 +1086,8 @@ const useChatStore = create((set, get) => ({
         ),
       }));
 
-      const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
+      const savedChatrooms =
+        JSON.parse(localStorage.getItem("chatrooms")) || [];
       const updatedChatrooms = savedChatrooms.map((room) =>
         String(room.id) === String(chatroomId) ? updatedChatroom : room,
       );
@@ -1798,13 +1822,6 @@ const useChatStore = create((set, get) => ({
         };
       }
 
-      if (savedChatrooms.length >= 5) {
-        return {
-          error: "LIMIT_REACHED",
-          message: "Maximum of 5 chatrooms allowed",
-        };
-      }
-
       const response = await queueChannelFetch(username);
       if (!response?.user) return response;
 
@@ -2077,7 +2094,8 @@ const useChatStore = create((set, get) => ({
       const channelId = chatroom?.streamerData?.id;
       if (!channelId) return;
 
-      const response = await window.app.kick.getInitialChatroomMessages(channelId);
+      const response =
+        await window.app.kick.getInitialChatroomMessages(channelId);
       const pinnedMessage = response?.data?.data?.pinned_message;
       const refreshedPinDetails = normalizePinDetails(pinnedMessage);
       const refreshedPinMessageId = getPinMessageId(refreshedPinDetails);
@@ -2169,7 +2187,9 @@ const useChatStore = create((set, get) => ({
     // Update local storage
     const savedChatrooms = JSON.parse(localStorage.getItem("chatrooms")) || [];
     const updatedChatrooms = savedChatrooms.map((room) =>
-      String(room.id) === String(chatroomId) ? { ...room, pinDetails: null } : room,
+      String(room.id) === String(chatroomId)
+        ? { ...room, pinDetails: null }
+        : room,
     );
     localStorage.setItem("chatrooms", JSON.stringify(updatedChatrooms));
   },
@@ -2778,7 +2798,9 @@ const useChatStore = create((set, get) => ({
     let isFavorite = false;
 
     if (existingIndex >= 0) {
-      nextFavorites = existingFavorites.filter((_, index) => index !== existingIndex);
+      nextFavorites = existingFavorites.filter(
+        (_, index) => index !== existingIndex,
+      );
       isFavorite = false;
     } else {
       nextFavorites = [normalizedEmote, ...existingFavorites].slice(0, 24);
@@ -2867,12 +2889,18 @@ const useChatStore = create((set, get) => ({
     const chatroom = normalizeChatroomLookup(get().chatrooms, chatroomId);
     const normalizedChatroomId = chatroom?.id ?? chatroomId;
     const isDeleteAction = modActionMessage?.modAction === "message_deleted";
-    const messageId = extractDeletedMessageId(modActionMessage?.modActionDetails);
+    const messageId = extractDeletedMessageId(
+      modActionMessage?.modActionDetails,
+    );
     const existingMessages = get().messages[normalizedChatroomId] || [];
     const deletedMessageFromHistory = isDeleteAction
-      ? existingMessages.find((message) => String(message.id) === String(messageId))
+      ? existingMessages.find(
+          (message) => String(message.id) === String(messageId),
+        )
       : null;
-    const deletedTargetFromPayload = extractDeletedMessageTarget(modActionMessage?.modActionDetails);
+    const deletedTargetFromPayload = extractDeletedMessageTarget(
+      modActionMessage?.modActionDetails,
+    );
     const resolvedTargetUsername =
       deletedTargetFromPayload.username ||
       deletedMessageFromHistory?.sender?.username ||
@@ -2893,7 +2921,10 @@ const useChatStore = create((set, get) => ({
                 resolvedTargetUsername ||
                 modActionMessage?.modActionDetails?.user?.username ||
                 null,
-              id: resolvedTargetId || modActionMessage?.modActionDetails?.user?.id || null,
+              id:
+                resolvedTargetId ||
+                modActionMessage?.modActionDetails?.user?.id ||
+                null,
             },
           }
         : modActionMessage?.modActionDetails;
@@ -2935,7 +2966,9 @@ const useChatStore = create((set, get) => ({
       allLogs.push(...modLogs[chatroomId]);
     });
 
-    return allLogs.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
+    return allLogs.sort(
+      (a, b) => new Date(b.timestamp) - new Date(a.timestamp),
+    );
   },
 
   // Get all mentions across all chatrooms

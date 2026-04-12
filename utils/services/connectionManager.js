@@ -170,8 +170,6 @@ class ConnectionManager {
   }
 
   async batchFetchEmotes(chatrooms) {
-    console.log("[ConnectionManager] Starting batch emote fetching...");
-
     // Fetch global 7TV emotes first (cached)
     await this.fetchGlobalStvEmotes();
 
@@ -186,7 +184,6 @@ class ConnectionManager {
       await this.delay(100); // Small delay between batches
     }
 
-    console.log("[ConnectionManager] Batch emote fetching completed");
   }
 
   async fetchGlobalStvEmotes() {
@@ -201,7 +198,6 @@ class ConnectionManager {
       console.log("[ConnectionManager] Fetching global 7TV emotes...");
       // const globalEmotes = await window.app.seventv.getGlobalEmotes();
       // this.globalStvEmotesCache = globalEmotes;
-      console.log("[ConnectionManager] Global 7TV emotes cached");
     } catch (error) {
       console.error("[ConnectionManager] Error fetching global 7TV emotes:", error);
     }
@@ -211,13 +207,10 @@ class ConnectionManager {
     const cacheKey = `${chatroom.streamerData?.slug}`;
 
     if (this.emoteCache.has(cacheKey)) {
-      console.log(`[ConnectionManager] Using cached emotes for ${chatroom.streamerData?.user?.username}`);
       return this.emoteCache.get(cacheKey);
     }
 
     try {
-      console.log(`[ConnectionManager] Fetching emotes for ${chatroom.streamerData?.user?.username}`);
-
       // Fetch Kick emotes
       const kickEmotes = await window.app.kick.getEmotes(chatroom.streamerData?.slug);
 

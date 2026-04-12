@@ -3,13 +3,13 @@ import useChatStore from "../../../providers/ChatProvider";
 import { useShallow } from "zustand/react/shallow";
 
 const kickEmoteLoadInFlight = new Set();
-const kickSubscriptionsInFlight = new Map();
-const SUBSCRIBED_CHANNELS_TTL_MS = 5 * 60 * 1000;
-let subscribedChannelsCache = {
+const subscribedEmoteFetchInFlight = new Map();
+const SUBSCRIBED_EMOTES_CACHE_TTL_MS = 5 * 60 * 1000;
+let subscribedEmotesCache = {
   fetchedAt: 0,
   sets: [],
 };
-let subscribedChannelsPromise = null;
+let subscribedEmotesPromise = null;
 
 const normalizeSubscriptionStatus = (subscription) => {
   if (!subscription) return false;
@@ -64,15 +64,34 @@ const normalizeSubscriptionStatus = (subscription) => {
   return false;
 };
 
-const extractSubscriptionItems = (payload) => {
-  const buckets = [
-    payload,
-    payload?.data,
-  ];
+const isOwnChannelRoom = (room) => {
+  const kickId = localStorage.getItem("kickId");
+  const kickUsername = (localStorage.getItem("kickUsername") || "").toLowerCase();
+  const streamerUserId = String(
+    room?.streamerData?.user_id || room?.streamerData?.user?.id || "",
+  );
+  const roomSlug = String(
+    room?.streamerData?.slug || room?.slug || room?.username || "",
+  ).toLowerCase();
 
+  if (kickId && streamerUserId && String(kickId) === streamerUserId) {
+    return true;
+  }
+
+  if (kickUsername && roomSlug && kickUsername === roomSlug) {
+    return true;
+  }
+
+  return false;
+};
+
+const extractSubscriptionItems = (payload) => {
+  const buckets = [payload, payload?.data];
   const items = [];
+
   buckets.forEach((bucket) => {
     if (!bucket) return;
+
     if (Array.isArray(bucket)) {
       items.push(...bucket);
       return;
@@ -143,16 +162,9 @@ const normalizeSubscribedChannel = (subscription) => {
   const slug = slugCandidates.find((value) => typeof value === "string" && value.trim())?.trim();
   if (!slug) return null;
 
-  const displayName =
-    channel?.name ||
-    user?.username ||
-    user?.display_name ||
-    user?.slug ||
-    slug;
-
   return {
     slug,
-    displayName,
+    displayName: channel?.name || user?.username || user?.display_name || user?.slug || slug,
     user: user || null,
   };
 };
@@ -174,6 +186,43 @@ const getSubscribedChannelsFromPayload = (payload) => {
   return Array.from(deduped.values());
 };
 
+const mergeOwnChannel = (channels, selfInfo) => {
+  if (!selfInfo || typeof selfInfo !== "object") return channels;
+
+  const ownSlug =
+    selfInfo?.streamer_channel?.slug ||
+    selfInfo?.streamer_channel?.username ||
+    selfInfo?.username ||
+    null;
+  if (!ownSlug) return channels;
+
+  const ownKey = ownSlug.toLowerCase();
+  const existing = channels.find((channel) => channel?.slug?.toLowerCase() === ownKey);
+  if (existing) return channels;
+
+  return [
+    ...channels,
+    {
+      slug: ownSlug,
+      displayName:
+        selfInfo?.streamer_channel?.username ||
+        selfInfo?.username ||
+        ownSlug,
+      user: {
+        username:
+          selfInfo?.streamer_channel?.username ||
+          selfInfo?.username ||
+          ownSlug,
+        slug: ownSlug,
+        profile_pic:
+          selfInfo?.streamer_channel?.user?.profile_pic ||
+          selfInfo?.profilepic ||
+          null,
+      },
+    },
+  ];
+};
+
 export const computeAccessibleKickEmotes = (chatrooms, activeChatroomId, subscribedChannelSets = []) => {
   if (!Array.isArray(chatrooms)) return [];
 
@@ -181,15 +230,13 @@ export const computeAccessibleKickEmotes = (chatrooms, activeChatroomId, subscri
   if (!activeRoom) return [];
 
   const currentChannelSections = [];
-  const otherChannelSections = [];
+  const crossChannelSubscriberSections = [];
   const globalSections = [];
   const emojiSections = [];
   const seenChannelKeys = new Set();
-  const loadedSlugs = new Set(
-    chatrooms
-      .map((room) => room?.streamerData?.slug?.toLowerCase())
-      .filter(Boolean),
-  );
+  const activeSlug = String(
+    activeRoom?.streamerData?.slug || activeRoom?.slug || activeRoom?.username || "",
+  ).toLowerCase();
 
   const pushSet = (targetArray, room, set, overrides = {}) => {
     if (!set) {
@@ -255,7 +302,8 @@ export const computeAccessibleKickEmotes = (chatrooms, activeChatroomId, subscri
     targetArray.push(clonedSet);
   };
 
-  const activeSubscription = normalizeSubscriptionStatus(activeRoom?.userChatroomInfo?.subscription);
+  const activeSubscription =
+    normalizeSubscriptionStatus(activeRoom?.userChatroomInfo?.subscription) || isOwnChannelRoom(activeRoom);
 
   (activeRoom?.emotes || []).forEach((set) => {
     const lowerName = (set?.name || "").toLowerCase();
@@ -289,62 +337,38 @@ export const computeAccessibleKickEmotes = (chatrooms, activeChatroomId, subscri
     });
   });
 
-  chatrooms.forEach((room) => {
-    if (!room || room.id === activeChatroomId) return;
-    if (!normalizeSubscriptionStatus(room?.userChatroomInfo?.subscription)) return;
-
-    const channelSet = (room.emotes || []).find((set) => (set?.name || "").toLowerCase() === "channel_set");
-    if (!channelSet?.emotes?.length) return;
-
-    pushSet(otherChannelSections, room, channelSet, {
-      sectionKind: "channel",
-      sectionKey: `channel:${room.id}`,
-      sectionLabel: room.displayName || room?.streamerData?.user?.username || channelSet?.user?.username || "Channel Emotes",
-      allowSubscriberEmotes: true,
-      emoteFilter: (emote) => Boolean(emote?.subscribers_only),
-    });
-  });
-
   subscribedChannelSets.forEach((entry) => {
     if (!entry?.slug || !Array.isArray(entry?.emotes)) return;
-    if (loadedSlugs.has(entry.slug.toLowerCase())) return;
-
-    const syntheticRoom = {
-      id: `sub:${entry.slug}`,
-      slug: entry.slug,
-      displayName: entry.displayName || entry.user?.username || entry.slug,
-      streamerData: { user: entry.user || null },
-      userChatroomInfo: { subscription: true },
-    };
+    if (entry.slug.toLowerCase() === activeSlug) return;
 
     const channelSet = entry.emotes.find((set) => (set?.name || "").toLowerCase() === "channel_set");
     if (!channelSet?.emotes?.length) return;
 
-    pushSet(otherChannelSections, syntheticRoom, channelSet, {
-      sectionKind: "channel",
-      sectionKey: `channel:sub:${entry.slug.toLowerCase()}`,
-      sectionLabel: entry?.isOwnChannel
-        ? `My Channel - ${syntheticRoom.displayName || channelSet?.user?.username || "Channel Emotes"}`
-        : syntheticRoom.displayName || channelSet?.user?.username || "Channel Emotes",
-      allowSubscriberEmotes: true,
-      emoteFilter: entry?.isOwnChannel
-        ? undefined
-        : (emote) => Boolean(emote?.subscribers_only),
-    });
+    pushSet(
+      crossChannelSubscriberSections,
+      {
+        id: `sub:${entry.slug}`,
+        slug: entry.slug,
+        displayName: entry.displayName,
+        streamerData: { user: entry.user },
+      },
+      channelSet,
+      {
+        sectionKind: "channel",
+        sectionKey: `channel:sub:${entry.slug.toLowerCase()}`,
+        sectionLabel: `${entry.displayName || entry.slug} Subscriber Emotes`,
+        allowSubscriberEmotes: true,
+        emoteFilter: (emote) => Boolean(emote?.subscribers_only),
+      },
+    );
   });
 
-  return [...currentChannelSections, ...otherChannelSections, ...globalSections, ...emojiSections];
+  return [...currentChannelSections, ...crossChannelSubscriberSections, ...globalSections, ...emojiSections];
 };
 
 export const useAccessibleKickEmotes = (chatroomId) => {
   const chatrooms = useChatStore(useShallow((state) => state.chatrooms));
   const [subscribedChannelSets, setSubscribedChannelSets] = useState([]);
-
-  const shouldFetchKickEmotesForRoom = (room) => {
-    if (!room?.streamerData?.slug) return false;
-    if (Array.isArray(room?.emotes)) return false;
-    return true;
-  };
 
   const loadKickEmotesForRoom = async (roomId, slug) => {
     if (!slug || kickEmoteLoadInFlight.has(slug) || !window.app?.kick?.getEmotes) {
@@ -367,146 +391,96 @@ export const useAccessibleKickEmotes = (chatroomId) => {
     }
   };
 
-  // Auto-trigger emote loading for all subscribed rooms, not just the active tab.
+  // Auto-trigger emote loading for the active room when missing.
   useEffect(() => {
-    if (!Array.isArray(chatrooms) || chatrooms.length === 0) return;
+    const activeRoom = chatrooms?.find((room) => room?.id === chatroomId);
+    if (!activeRoom?.streamerData?.slug) return;
+    if (Array.isArray(activeRoom?.emotes)) return;
 
-    chatrooms.forEach((room) => {
-      if (!shouldFetchKickEmotesForRoom(room)) return;
-      loadKickEmotesForRoom(room.id, room.streamerData.slug);
-    });
+    loadKickEmotesForRoom(activeRoom.id, activeRoom.streamerData.slug);
   }, [chatroomId, chatrooms]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const fetchSubscribedChannelSets = async () => {
+    const loadSubscribedChannelSets = async () => {
+      if (!window.app?.kick?.getUserSubscriptions || !window.app?.kick?.getEmotes) {
+        if (!cancelled) setSubscribedChannelSets([]);
+        return;
+      }
+
       const now = Date.now();
       if (
-        subscribedChannelsCache?.sets?.length &&
-        now - subscribedChannelsCache.fetchedAt < SUBSCRIBED_CHANNELS_TTL_MS
+        subscribedEmotesCache?.sets?.length &&
+        now - subscribedEmotesCache.fetchedAt < SUBSCRIBED_EMOTES_CACHE_TTL_MS
       ) {
-        return subscribedChannelsCache.sets;
+        if (!cancelled) {
+          setSubscribedChannelSets(subscribedEmotesCache.sets);
+        }
+        return;
       }
 
-      if (subscribedChannelsPromise) {
-        return subscribedChannelsPromise;
-      }
-
-      subscribedChannelsPromise = (async () => {
-        if (!window.app?.kick?.getEmotes) return [];
-
-        let subscribedChannels = [];
-
-        if (window.app?.kick?.getUserSubscriptions) {
+      if (!subscribedEmotesPromise) {
+        subscribedEmotesPromise = (async () => {
           const response = await window.app.kick.getUserSubscriptions();
           const payload = response?.data ?? response ?? null;
-          subscribedChannels = getSubscribedChannelsFromPayload(payload);
-        }
+          let channels = getSubscribedChannelsFromPayload(payload);
 
-        if (window.app?.kick?.getSelfInfo) {
-          const selfInfo = await window.app.kick.getSelfInfo();
-          const ownChannelSlug =
-            selfInfo?.streamer_channel?.slug ||
-            selfInfo?.streamer_channel?.username ||
-            null;
+          // Ensure your own channel emotes are always loaded from /emotes/<yourSlug>.
+          if (window.app?.kick?.getSelfInfo) {
+            const selfInfo = await window.app.kick.getSelfInfo();
+            channels = mergeOwnChannel(channels, selfInfo);
+          }
 
-          if (ownChannelSlug) {
-            const ownChannelKey = ownChannelSlug.toLowerCase();
-            const hasOwnChannel = subscribedChannels.some(
-              (channel) => channel?.slug?.toLowerCase() === ownChannelKey,
-            );
+          const emoteFetches = channels.map(async (channel) => {
+            const key = channel.slug.toLowerCase();
 
-            if (!hasOwnChannel) {
-              subscribedChannels.push({
-                slug: ownChannelSlug,
-                displayName:
-                  selfInfo?.streamer_channel?.username ||
-                  selfInfo?.username ||
-                  ownChannelSlug,
-                isOwnChannel: true,
-                user: {
-                  username:
-                    selfInfo?.streamer_channel?.username ||
-                    selfInfo?.username ||
-                    ownChannelSlug,
-                  slug: ownChannelSlug,
-                  profile_pic:
-                    selfInfo?.streamer_channel?.user?.profile_pic ||
-                    selfInfo?.profilepic ||
-                    null,
-                },
-              });
-            } else {
-              subscribedChannels = subscribedChannels.map((channel) =>
-                channel?.slug?.toLowerCase() === ownChannelKey
-                  ? { ...channel, isOwnChannel: true }
-                  : channel,
+            if (!subscribedEmoteFetchInFlight.has(key)) {
+              subscribedEmoteFetchInFlight.set(
+                key,
+                window.app.kick.getEmotes(channel.slug).finally(() => {
+                  subscribedEmoteFetchInFlight.delete(key);
+                }),
               );
             }
-          }
-        }
 
-        const emoteFetches = subscribedChannels.map(async (channel) => {
-          const slug = channel.slug;
-          if (!slug) return null;
+            const emotes = await subscribedEmoteFetchInFlight.get(key);
+            if (!Array.isArray(emotes)) return null;
 
-          const key = slug.toLowerCase();
-          if (!kickSubscriptionsInFlight.has(key)) {
-            kickSubscriptionsInFlight.set(
-              key,
-              window.app.kick.getEmotes(slug).finally(() => {
-                kickSubscriptionsInFlight.delete(key);
-              }),
-            );
-          }
+            return {
+              ...channel,
+              emotes,
+            };
+          });
 
-          const emotes = await kickSubscriptionsInFlight.get(key);
-          if (!Array.isArray(emotes)) return null;
+          const settled = await Promise.allSettled(emoteFetches);
+          const resolved = settled
+            .filter((result) => result.status === "fulfilled" && result.value?.emotes?.length)
+            .map((result) => result.value);
 
-          return {
-            ...channel,
-            emotes,
+          subscribedEmotesCache = {
+            fetchedAt: Date.now(),
+            sets: resolved,
           };
+
+          return resolved;
+        })().finally(() => {
+          subscribedEmotesPromise = null;
         });
+      }
 
-        const settled = await Promise.allSettled(emoteFetches);
-        const resolved = settled
-          .filter((result) => result.status === "fulfilled" && result.value?.emotes?.length)
-          .map((result) => result.value);
-
-        subscribedChannelsCache = {
-          fetchedAt: Date.now(),
-          sets: resolved,
-        };
-        return resolved;
-      })();
-
-      try {
-        return await subscribedChannelsPromise;
-      } finally {
-        subscribedChannelsPromise = null;
+      const sets = await subscribedEmotesPromise;
+      if (!cancelled) {
+        setSubscribedChannelSets(Array.isArray(sets) ? sets : []);
       }
     };
 
-    const loadSubscribedChannelEmotes = async () => {
-      if (!window.app?.kick?.getEmotes) return;
-
-      try {
-        const resolved = await fetchSubscribedChannelSets();
-
-        if (!cancelled) {
-          setSubscribedChannelSets(resolved);
-        }
-      } catch (error) {
-        if (!cancelled) {
-          setSubscribedChannelSets([]);
-        }
-        console.error("[Kick Emotes]: Failed to fetch subscribed channel emotes", error);
+    loadSubscribedChannelSets().catch((error) => {
+      console.error("[Kick Emotes]: Failed loading subscribed emote sets", error);
+      if (!cancelled) {
+        setSubscribedChannelSets([]);
       }
-    };
-
-    loadSubscribedChannelEmotes();
+    });
 
     return () => {
       cancelled = true;
