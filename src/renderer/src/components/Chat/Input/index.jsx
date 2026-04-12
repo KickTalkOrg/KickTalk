@@ -30,6 +30,7 @@ import { useLexicalComposerContext } from "@lexical/react/LexicalComposerContext
 import useChatStore from "../../../providers/ChatProvider";
 
 import EmoteDialogs from "./EmoteDialogs";
+import { useAccessibleKickEmotes } from "./useAccessibleKickEmotes";
 import { useShallow } from "zustand/react/shallow";
 import { $isEmoteNode, EmoteNode } from "./EmoteNode";
 import { kickEmoteInputRegex } from "../../../../../../utils/constants";
@@ -366,11 +367,7 @@ const KeyHandler = ({
   const chatters = useChatStore(
     useShallow((state) => state.chatters[chatroomId]),
   );
-  const kickEmotes = useChatStore(
-    useShallow(
-      (state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes,
-    ),
-  );
+  const kickEmotes = useAccessibleKickEmotes(chatroomId);
 
   const searchEmotes = useCallback(
     (text) => {
@@ -387,8 +384,10 @@ const KeyHandler = ({
       const kickResults =
         kickEmotes
           ?.flatMap((emoteSet) => emoteSet.emotes || [])
-          ?.filter((emote) =>
-            emote.name.toLowerCase().includes(transformedText),
+          ?.filter(
+            (emote) =>
+              emote.__allowUse !== false &&
+              emote.name.toLowerCase().includes(transformedText),
           ) || [];
 
       const allResults = [...sevenTvResults, ...kickResults];
@@ -1136,8 +1135,8 @@ const processEmoteInput = ({ node, kickEmotes }) => {
     if (!emoteName) continue;
 
     const emote = kickEmotes
-      ?.find((set) => set?.emotes?.find((e) => e.name === emoteName))
-      ?.emotes?.find((e) => e.name === emoteName);
+      ?.find((set) => set?.emotes?.find((e) => e.name === emoteName && e.__allowUse !== false))
+      ?.emotes?.find((e) => e.name === emoteName && e.__allowUse !== false);
 
     if (emote) {
       matches.push({
@@ -1172,11 +1171,7 @@ const processEmoteInput = ({ node, kickEmotes }) => {
 
 const EmoteTransformer = ({ chatroomId }) => {
   const [editor] = useLexicalComposerContext();
-  const kickEmotes = useChatStore(
-    useShallow(
-      (state) => state.chatrooms.find((room) => room.id === chatroomId)?.emotes,
-    ),
-  );
+  const kickEmotes = useAccessibleKickEmotes(chatroomId);
 
   useEffect(() => {
     if (!editor) return;
