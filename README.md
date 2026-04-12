@@ -52,6 +52,8 @@ Use these in chat input:
 - `Ctrl+T` or `Ctrl+J`: open Add Chatroom dialog.
 - `Ctrl+1`..`Ctrl+9`: jump to open tabs (chatrooms, Mentions, Mod Logs).
 - `Ctrl+E`: toggle hide emote-only messages.
+- `Ctrl+Enter`: sends current typed message without clearing chat box.
+
 
 ## Recommended IDE Setup
 

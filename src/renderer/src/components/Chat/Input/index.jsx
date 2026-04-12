@@ -574,35 +574,9 @@ const KeyHandler = ({
         KEY_ARROW_UP_COMMAND,
         (e) => {
           e.preventDefault();
-          if (emoteSuggestions?.length) {
-            setSelectedEmoteIndex((prev) =>
-              prev <= 0 ? emoteSuggestions.length - 1 : prev - 1,
-            );
-            return true;
-          }
-
-          if (chatterSuggestions?.length) {
-            setSelectedChatterIndex((prev) =>
-              prev <= 0 ? chatterSuggestions.length - 1 : prev - 1,
-            );
-            return true;
-          }
-
-          if (commandSuggestions?.length) {
-            setSelectedCommandIndex((prev) =>
-              prev <= 0 ? commandSuggestions.length - 1 : prev - 1,
-            );
-            return true;
-          }
-
           const history = messageHistory.get(chatroomId);
-          if (!history?.sentMessages?.length) return false;
-
-          const currentIndex =
-            history.selectedIndex !== undefined
-              ? history.selectedIndex - 1
-              : history.sentMessages.length - 1;
-          if (currentIndex < 0) return false;
+          if (!history?.sentMessages?.length) return true;
+          const currentIndex = history.sentMessages.length - 1;
 
           messageHistory.set(chatroomId, {
             ...history,
@@ -620,7 +594,7 @@ const KeyHandler = ({
             selection.insertNodes([text]);
           });
 
-          return false;
+          return true;
         },
         COMMAND_PRIORITY_HIGH,
       ),
@@ -629,56 +603,6 @@ const KeyHandler = ({
         KEY_ARROW_DOWN_COMMAND,
         (e) => {
           e.preventDefault();
-          if (emoteSuggestions?.length) {
-            setSelectedEmoteIndex((prev) =>
-              prev === null || prev >= emoteSuggestions.length - 1
-                ? 0
-                : prev + 1,
-            );
-            return true;
-          }
-
-          if (chatterSuggestions?.length) {
-            setSelectedChatterIndex((prev) =>
-              prev === null || prev >= chatterSuggestions.length - 1
-                ? 0
-                : prev + 1,
-            );
-            return true;
-          }
-
-          if (commandSuggestions?.length) {
-            setSelectedCommandIndex((prev) =>
-              prev === null || prev >= commandSuggestions.length - 1
-                ? 0
-                : prev + 1,
-            );
-            return true;
-          }
-
-          const history = messageHistory.get(chatroomId);
-          if (!history?.sentMessages?.length) return false;
-
-          const currentIndex =
-            history.selectedIndex >= 0 ? history.selectedIndex + 1 : 0;
-          if (currentIndex > history.sentMessages.length) return false;
-
-          messageHistory.set(chatroomId, {
-            ...history,
-            selectedIndex: currentIndex,
-          });
-
-          editor.update(() => {
-            $getRoot().clear();
-
-            const selection = $getSelection();
-            if (!$isRangeSelection(selection)) return;
-
-            const text = $createTextNode(history.sentMessages[currentIndex]);
-
-            selection.insertNodes([text]);
-          });
-
           return true;
         },
         COMMAND_PRIORITY_HIGH,
