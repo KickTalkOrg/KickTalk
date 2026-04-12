@@ -67,12 +67,14 @@ const EmoteSection = ({
         {emotes?.slice(0, visibleCount).map((emote, i) => {
           const emotePlatform = emote?.platform || type;
           const isFavorite = favoriteKeySet?.has(`${emotePlatform}:${emote.id}`);
+          const canUseEmote =
+            emote?.__allowUse ?? !(type === "kick" && emote?.subscribers_only && !userChatroomInfo?.subscription);
 
           return (
           <Tooltip key={`${emote.id}-${emote.name}-${i}`} delayDuration={500}>
             <TooltipTrigger asChild>
               <button
-                disabled={type === "kick" && emote?.subscribers_only && !userChatroomInfo?.subscription}
+                disabled={!canUseEmote}
                 onClick={() => handleEmoteClick(emote)}
                 onContextMenu={(e) => {
                   e.preventDefault();
@@ -81,7 +83,7 @@ const EmoteSection = ({
                 className={clsx(
                   "emoteItem",
                   isFavorite && "favorite",
-                  emote?.subscribers_only && !userChatroomInfo?.subscription && "emoteItemSubscriberOnly",
+                  !canUseEmote && "emoteItemSubscriberOnly",
                 )}>
                 {type === "kick" ? (
                   <img
@@ -99,7 +101,7 @@ const EmoteSection = ({
                   />
                 )}
 
-                {emote?.subscribers_only && !userChatroomInfo?.subscription && (
+                {!canUseEmote && (
                   <div className="emoteItemSubscriberLock">
                     <img src={LockIcon} alt="Subscriber" width={16} height={16} />
                   </div>

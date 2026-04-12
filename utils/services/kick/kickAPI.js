@@ -729,6 +729,22 @@ const getSelfChatroomInfo = async (chatroomName, sessionCookie, kickSession) => 
   }
 };
 
+const getUserSubscriptions = async (sessionCookie, kickSession) => {
+  return axios.get(`${APIUrl}/api/v2/user/subscriptions`, {
+    headers: {
+      accept: "application/json",
+      authorization: `Bearer ${sessionCookie}`,
+      "x-app-platform": "web",
+      "x-xsrf-token": kickSession,
+    },
+    referrer: "https://kick.com/transactions/subscriptions/gifted",
+    referrerPolicy: "strict-origin-when-cross-origin",
+    method: "GET",
+    mode: "cors",
+    credentials: "include",
+  });
+};
+
 const getUserChatroomInfo = async (chatroomName, username) => {
   try {
     const response = await axios.get(`${APIUrl}/api/v2/channels/${chatroomName}/users/${username}`, {
@@ -954,6 +970,7 @@ export {
   getChannelChatroomInfo,
   getUserChatroomInfo,
   getSelfChatroomInfo,
+  getUserSubscriptions,
   getInitialChatroomMessages,
   getUserChatroomStatus,
   getPinMessage,
