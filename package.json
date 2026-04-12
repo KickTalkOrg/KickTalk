@@ -1,6 +1,6 @@
 {
   "name": "kick-talk",
-  "version": "1.1.6",
+  "version": "1.1.7",
   "description": "KickTalk",
   "contributors": [
     {
@@ -12,6 +12,11 @@
       "name": "ftk789",
       "email": "lolt04588@gmail.com",
       "url": "https://x.com/ftk789yt"
+    },
+    {
+      "name": "LogicalSolutions",
+      "email": "staff@illogical.network",
+      "url": "https://x.com/LogicaISoIution"
     }
   ],
   "main": "./out/main/index.js",
